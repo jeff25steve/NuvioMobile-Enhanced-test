@@ -88,3 +88,42 @@
 - Remote code review was performed by re-reading the complete changed runner functions and fixture insertion points. A fresh independent reviewer subagent is not available in this harness; this is an author self-review, not an independent review.
 - No Gradle build, CI, Android instrumentation, profile generation, ADB/LADB action or device benchmark was run.
 - AOSP source confirms `pm path` prints the base APK path and all split APK paths. Shell read access remains device-dependent, so `UNVERIFIED` is intentionally retained.
+
+
+## Cycle 89 — 22 November device evidence: foreground ownership, stale nodes and profile flush
+
+### Evidence separation
+
+The uploaded captures are not one continuous run and must not be combined:
+
+- The Play Store \`current-install.txt\` and \`current-install-provenance.txt\` identify \`install-profile:playstore\`. Its app/test source hashes were \`b75c9d09…a4d7bc8\` and \`c7c485c3…f32eb77\`.
+- The separate Full-flavour \`provenance.txt\` identifies \`Action: run\`. It records the Full app hash \`25879b92…3d9e4e\` and the same test APK hash \`c7c485c3…f32eb77\`; both installed APK hashes matched their recorded source hashes. Its runner source and staged SHA-256 also matched (\`d585e7d0…2cede2e\`).
+- The Play Store foreground snapshots show Nuvio's launcher activity before the run and Samsung Launcher as the top-resumed activity in the later after snapshot. They do not prove what held focus throughout the instrumentation interval.
+- The separately uploaded 364-byte \`instrumentation.log\` ends immediately after the \`startup\` test begins (status code 1). It has no terminal test result and cannot establish a pass or fail.
+- The video contains additional, older instrumentation output. One segment reports that \`com.draco.ladb\` owned the active window during readiness; another shows a \`StaleObjectException\` while HomeBrowse queried a \`UiObject2\`; a further log reports the ART profile flush check failed. These are separate observations, not a single same-run chronology.
+
+### Changes made on this branch
+
+- Added bounded, stale-only retries around the **complete read operation** for target marker visibility bounds and scrollability. Each retry re-runs the active-window/package-scoped lookup; it does not reuse the stale \`UiObject2\`.
+- Kept \`scrollToElement\` and explicit scroll gestures outside the retry wrapper. A gesture may already have taken effect when a stale exception is raised; replaying it would alter the collection journey.
+- Changed both profile-generation journeys to pass \`scope.getIteration()\` into readiness timing, so collection observations are not all mislabeled as iteration \`0\`.
+- Corrected the stale-node host regression fixture to use UI Automator's public no-argument \`StaleObjectException()\` constructor. It now checks reacquisition after a stale property read, retry exhaustion and that unrelated runtime failures are not retried.
+- Updated the phone runner to print the foreground warning before instrumentation. The generated phone bundle instructions now explicitly say to background LADB immediately after submitting the run command, and not return to LADB or interact with the phone until instrumentation completes.
+- Added a best-effort post-failure diagnostic file containing the target-package process listing, ProfileInstaller receiver presence in \`dumpsys package\`, and filtered \`ProfileInstaller\` / \`AndroidRuntime\` logcat entries. The file is labelled as a post-run snapshot; it cannot prove process state at the exact flush instant.
+- Quoted the logcat tag filters to prevent the shell from interpreting \`*\` as pathname wildcards.
+
+### Profile-flush diagnosis: deliberately not guessed
+
+The older \`never flushed profiles in any process\` failure remains unresolved. The failing stack is inside AndroidX \`CompilationMode.Partial.compileImpl\` after a warm-up journey; AndroidX checks whether ART profile data was successfully flushed by its own \`scope.killProcess()\` lifecycle. Do not add a second/manual process kill to the journey or change the warm-up count just to suppress the assertion.
+
+The app currently declares no \`android:process\` components in the inspected main, Compose Android, Full or Play Store manifests. The app dependency is ProfileInstaller 1.4.1, and the main process uses the standard \`SAVE_PROFILE\` receiver path. The 1.5.0-alpha01 requirement found in current AndroidX mainline source applies to the newer PID-targeted save operation for secondary processes; the available evidence does not justify forcing that unreleased dependency onto this apparently single-process app. Keep 1.4.1 until the new failure diagnostics show a concrete receiver/version issue or a manifest/process change requires the newer API.
+
+The diagnostic output should be used to distinguish: (1) no target process was running at AndroidX flush time, (2) ProfileInstallReceiver was missing or not merged into the installed APK, (3) the receiver rejected/failed the save broadcast, or (4) another process/environmental interruption occurred. The post-failure snapshot may narrow the investigation but a successful new on-device collection is still required to close the defect.
+
+### Verification boundary
+
+- Remote source and test wiring were re-fetched from this branch after the edits.
+- An isolated Java fixture for the retry helper passed: \`PASS: stale-node retry behavior\`. The fixture compiled the helper against a minimal no-argument exception stub matching the documented public constructor; it is not an Android build or the full committed shell test.
+- The complete repository shell regression scripts, Android compilation, instrumented tests, Baseline Profile collection and physical-device retest were not run in this session.
+- No APK was rebuilt, no CI was started, and no change was merged to \`main-build-testing\`.
+- The existing APK provenance matches remain valid for the captures that recorded them. They do not demonstrate that profile collection completed.
