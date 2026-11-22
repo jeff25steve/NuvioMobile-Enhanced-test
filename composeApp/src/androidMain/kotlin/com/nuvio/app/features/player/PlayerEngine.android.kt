@@ -1256,7 +1256,7 @@ private fun ExoPlayerSurface(
                     "state=$stateName attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)} " +
                         "positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} " +
-                        "bufferedMs=${exoPlayer.bufferedPosition.coerceAtLeast(0L)} " +
+                        "bufferedAheadMs=${bufferedAheadDurationMs(exoPlayer.currentPosition, exoPlayer.bufferedPosition)} " +
                         "durationMs=${exoPlayer.duration.coerceAtLeast(0L)} " +
                         "playWhenReady=${exoPlayer.playWhenReady} " +
                         "terminalError=${exoPlayer.playerError?.errorCodeName ?: "none"}",
