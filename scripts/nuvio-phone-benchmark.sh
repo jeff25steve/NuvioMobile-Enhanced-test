@@ -2113,6 +2113,19 @@ verify_profile_installer_receiver() {
   [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
 }
 
+capture_target_process_snapshot() {
+  # Match the process-name column, not the grep/awk command line itself.
+  ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
+    $NF == package || index($NF, package ":") == 1 {
+      print
+      found = 1
+    }
+    END {
+      if (!found) print "No target package process listed in this snapshot."
+    }
+  '
+}
+
 start_profile_collection_diagnostics() {
   PROFILE_PROCESS_MONITOR_PID=""
   PROFILE_LOGCAT_MONITOR_PID=""
@@ -2130,13 +2143,13 @@ start_profile_collection_diagnostics() {
     {
       printf 'Initial process snapshot immediately before instrumentation: '
       date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
-      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed before instrumentation.\n'
+      capture_target_process_snapshot
     } >> "$process_timeline" 2>&1
     (
       while :; do
         printf '\nSample: '
         date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
-        ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed at this sample.\n'
+        capture_target_process_snapshot
         sleep 1
       done
     ) >> "$process_timeline" 2>&1 &
@@ -2174,7 +2187,7 @@ stop_profile_collection_diagnostics() {
   {
     printf '\nFinal process snapshot after instrumentation: '
     date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
-    ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed after instrumentation.\n'
+    capture_target_process_snapshot
   } >> "$RUN_DIR/profile-process-timeline.txt" 2>&1
 }
 
