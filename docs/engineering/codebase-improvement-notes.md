@@ -1046,3 +1046,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+### Android HLS repair eligibility and bounded inspection (Cycles 151–152, 22 November 2026)
+
+- Cycle 151 corrected H.264 segment classification: only a second segment whose first coded slice is an IDR (NAL type 5) can trigger SPS/PPS init-map insertion. A P/B first slice depends on reference pictures that SPS/PPS alone cannot restore. Added a non-IDR regression fixture.
+- Cycle 152 gave the optional segment-head probe its own HTTP DataSource factory backed by a derived OkHttp client with a 2.5-second whole-call timeout. It inherits the shared playback client's connection pool, dispatcher, DNS, TLS policy and interceptors, including Authorization injection and request headers. The regular HLS playback DataSource keeps its existing 15-second network timeouts; the outer 3-second FutureTask deadline remains as a fallback. The full flavor's YouTube chunked route deliberately retains its prior fallback rather than bypassing its transport.
+- Added a host regression fixture verifying that segment probes use the dedicated factory. Host tests and Kotlin compilation remain unexecuted; no build, CI, network fault injection, device playback or benchmark was run. These changes correct repair eligibility and bound optional inspection I/O; no numerical playback improvement is claimed.
