@@ -2079,7 +2079,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
     if command -v logcat >/dev/null 2>&1; then
-      logcat -d -v time -s 'ProfileInstaller:*' 'AndroidRuntime:E' 2>&1 \
+      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
         || printf 'Filtered logcat capture failed.\n'
     else
       printf 'logcat unavailable\n'
