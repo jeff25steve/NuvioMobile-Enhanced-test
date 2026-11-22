@@ -17,8 +17,8 @@ cat > "$TMP_DIR/src/androidx/test/uiautomator/StaleObjectException.java" <<'JAVA
 package androidx.test.uiautomator;
 
 public final class StaleObjectException extends RuntimeException {
-    public StaleObjectException(String message) {
-        super(message);
+    public StaleObjectException() {
+        super();
     }
 }
 JAVA
@@ -34,6 +34,7 @@ public final class StaleNodeRetryTest {
     public static void main(String[] args) {
         returnsImmediatelyWhenTheFirstLookupSucceeds();
         reacquiresAfterTransientStaleNodes();
+        retriesTheEntireReadAfterAStalePropertyAccess();
         rethrowsTheLastStaleExceptionAfterTheRetryLimit();
         doesNotRetryUnrelatedRuntimeFailures();
         System.out.println("PASS: stale-node retry behavior");
@@ -54,7 +55,7 @@ public final class StaleNodeRetryTest {
         String result = StaleNodeRetry.run(() -> {
             calls[0]++;
             if (calls[0] < 3) {
-                throw new StaleObjectException("stale-" + calls[0]);
+                throw new StaleObjectException();
             }
             return "reacquired";
         });
@@ -62,17 +63,35 @@ public final class StaleNodeRetryTest {
         assertEquals(3, calls[0], "recovery call count");
     }
 
+    private static void retriesTheEntireReadAfterAStalePropertyAccess() {
+        int[] lookups = {0};
+        int[] propertyReads = {0};
+        String result = StaleNodeRetry.run(() -> {
+            lookups[0]++;
+            propertyReads[0]++;
+            if (propertyReads[0] == 1) {
+                throw new StaleObjectException();
+            }
+            return "fresh-property";
+        });
+        assertEquals("fresh-property", result, "property read result");
+        assertEquals(2, lookups[0], "node reacquisition count");
+        assertEquals(2, propertyReads[0], "property read retry count");
+    }
+
     private static void rethrowsTheLastStaleExceptionAfterTheRetryLimit() {
         int[] calls = {0};
+        StaleObjectException finalFailure = new StaleObjectException();
         try {
             StaleNodeRetry.run(() -> {
                 calls[0]++;
-                throw new StaleObjectException("stale-" + calls[0]);
+                throw finalFailure;
             });
             throw new AssertionError("Expected StaleObjectException after retry limit");
         } catch (StaleObjectException expected) {
-            assertEquals("stale-" + StaleNodeRetry.MAX_ATTEMPTS, expected.getMessage(),
-                    "last stale exception");
+            if (expected != finalFailure) {
+                throw new AssertionError("Expected the final stale exception instance");
+            }
             assertEquals(StaleNodeRetry.MAX_ATTEMPTS, calls[0], "retry limit");
         }
     }
