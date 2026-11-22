@@ -363,8 +363,8 @@ grep -Fq 'measurementIteration == null && "ready".equals(outcome)' "$READINESS_S
   echo "FAIL: successful AndroidX warm-up invocations must not be counted as measured readiness samples, while failed warm-ups remain diagnosable." >&2
   exit 1
 }
-grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$GENERATOR_SOURCE" &&
-  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$GENERATOR_SOURCE" &&
+grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup", scope.getIteration())' "$GENERATOR_SOURCE" &&
+  grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse", scope.getIteration())' "$GENERATOR_SOURCE" &&
   grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, journeyName, scope.getIteration())' "$BENCHMARK_SOURCE" || {
   echo "FAIL: each profile or comparison journey must identify itself in readiness timing records." >&2
   exit 1
@@ -382,8 +382,10 @@ grep -Fq 'static void scrollUntilMarker(' "$HOME_BROWSE_READINESS_SOURCE" && \
   echo "FAIL: Home browse scrolling must live in its dedicated readiness helper." >&2
   exit 1
 }
-grep -Fq 'StartupReadiness.targetMarker(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
-  grep -Fq 'scrollable.isScrollable()' "$HOME_BROWSE_READINESS_SOURCE" && \
+grep -Fq 'StartupReadiness.targetMarkerIsScrollable(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" && \
+  grep -Fq 'static boolean targetMarkerIsScrollable(' "$READINESS_SOURCE" && \
+  grep -Fq 'static boolean targetMarkerHasVisibleBounds(' "$READINESS_SOURCE" && \
+  grep -Fq 'return StaleNodeRetry.run(() -> {' "$READINESS_SOURCE" && \
   grep -Fq 'UiObject2Ext.scrollToElement(' "$HOME_BROWSE_READINESS_SOURCE" && \
   grep -Fq 'node.isVisibleToUser()' "$HOME_BROWSE_READINESS_SOURCE" && \
   grep -Fq 'node.getViewIdResourceName()' "$HOME_BROWSE_READINESS_SOURCE" && \
@@ -393,8 +395,7 @@ grep -Fq 'StartupReadiness.targetMarker(device, marker)' "$HOME_BROWSE_READINESS
   echo "FAIL: Home browse must re-resolve package-owned scroll nodes and verify scrollability." >&2
   exit 1
 }
-grep -Fq 'markerHasVisibleBounds(device, targetMarker)' "$HOME_BROWSE_READINESS_SOURCE" && \
-  grep -Fq 'object.getVisibleBounds()' "$HOME_BROWSE_READINESS_SOURCE" || {
+grep -Fq 'StartupReadiness.targetMarkerHasVisibleBounds(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" || {
   echo "FAIL: Home shelf discovery must wait until the target row has visible screen bounds." >&2
   exit 1
 }
