@@ -4209,16 +4209,13 @@ private fun PlayerView.applySubtitleStyle(style: SubtitleStyleState, pipVideoHei
 }
 
 /**
- * A downloaded file is read from disk, so it needs a much smaller buffer than a stream.
- * `content:` URIs that do not come from a download provider point at local files too.
+ * Media3 treats `file:` and `content:` playback URIs as on-device sources. Keep the app's
+ * smaller local-file buffer policy aligned with that scheme classification, including DownloadsProvider.
  */
-private fun MediaItem.isLocalFileSource(): Boolean {
+internal fun MediaItem.isLocalFileSource(): Boolean {
     val uri = localConfiguration?.uri ?: return false
-    return when (uri.scheme?.lowercase()) {
-        "file" -> true
-        "content" -> !uri.authority.orEmpty().contains("downloads", ignoreCase = true)
-        else -> false
-    }
+    return uri.scheme.equals("file", ignoreCase = true) ||
+        uri.scheme.equals("content", ignoreCase = true)
 }
 
 /**
