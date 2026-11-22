@@ -39,6 +39,8 @@ for expected in \
   'pgrep -l -f -a' \
   'ANDROIDX_PROCESS_PATTERN=' \
   'capture_androidx_process_snapshot() {' \
+  'androidx_is_subpackage_installed() {' \
+  'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
   "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
@@ -1657,6 +1659,10 @@ fi
 installed_dotted_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
 grep -Fq 'ANDROIDX_REJECTED_INSTALLED_SUBPACKAGE pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$installed_dotted_dir/profile-process-timeline.txt" || {
   echo 'FAIL: AndroidX dotted child was not rejected when an intermediate package prefix is installed.' >&2
+  exit 1
+}
+grep -Fq 'pm path com.nuvio.media.benchmark.child' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: diagnostic did not check the intermediate dotted package prefix.' >&2
   exit 1
 }
 grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
