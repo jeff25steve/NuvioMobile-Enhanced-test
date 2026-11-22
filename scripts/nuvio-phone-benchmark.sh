@@ -2084,7 +2084,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
     if command -v logcat >/dev/null 2>&1; then
-      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
+      logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
         || printf 'Filtered logcat capture failed.\n'
     else
       printf 'logcat unavailable\n'
@@ -2248,6 +2248,7 @@ start_profile_collection_diagnostics() {
     printf 'Sampling interval: approximately 1 second\n'
     printf "AndroidX process pattern: %s\n" "$ANDROIDX_PROCESS_PATTERN"
     printf 'Each sample records both ps -A and the API-correct AndroidX pgrep lookup.\n'
+    printf 'Logcat uses threadtime format so PID/TID remain available for per-process correlation.\n'
     printf 'A missing sample is not proof that no process existed between samples.\n'
   } > "$process_timeline"
 
@@ -2274,7 +2275,7 @@ start_profile_collection_diagnostics() {
   PROFILE_PROCESS_MONITOR_PID=$!
 
   if command -v logcat >/dev/null 2>&1; then
-    logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
+    logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
       >> "$logcat_timeline" 2>&1 &
     PROFILE_LOGCAT_MONITOR_PID=$!
   else
