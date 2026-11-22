@@ -47,6 +47,7 @@ for expected in \
   'awk -v package="$APP_PACKAGE"' \
   "logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E'" \
   "logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'art:*' 'AndroidRuntime:E'" \\
+  "logcat -d -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E'" \\
   'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
@@ -1733,7 +1734,7 @@ grep -Fq 'logcat -v threadtime -s Benchmark:* ProfileInstaller:* art:* AndroidRu
   echo 'FAIL: live profile-flush logcat was not requested in threadtime format.' >&2
   exit 1
 }
-grep -Fq 'logcat -d -v threadtime -s ProfileInstaller:* Benchmark:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+grep -Fq 'logcat -d -v threadtime -s Benchmark:* ProfileInstaller:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: post-run profile-flush logcat was not requested in threadtime format.' >&2
   exit 1
 }
