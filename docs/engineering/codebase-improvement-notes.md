@@ -1067,3 +1067,11 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Cycle 155: known-length HLS manifests larger than 256 KiB bypass the optional SPS/PPS rewrite without reading their bodies during DataSource open().
 - Cycle 156: unresolved-length manifests are read only through the 256 KiB + 1-byte sentinel. Oversized manifests replay that exact prefix and continue from the open upstream source, avoiding truncation or data loss. Small manifests retain the existing repair path.
 - Added host regression cases for both paths. Media3 1.8.0 DataSource contract was checked from the exact AndroidX source after Context7 returned 1.8.1 rather than 1.8.0. Tests/compilation remain unexecuted; no build, CI, device playback or benchmark was run. No speedup is claimed.
+
+
+### Media3 1.11.1 playback and local-buffer policy (Cycles 157–158, 22 November 2026)
+
+- Cycle 157 upgrades all catalogued Media3 artifacts together from 1.8.0 to 1.11.1. Upstream changes include a guard on automatic LoadControl memory sizing and custom MIME track classification, eligible-video seek improvements, more efficient late-frame dropping, and further OOM protection under memory pressure. 1.11.1 also fixes Matroska seekability and HLS EOF retry behavior.
+- Updated LiveStartLoadControl to forward Media3 1.11.1 player-scoped allocator and preloading calls. Added host tests for delegation.
+- Cycle 158 uses Media3's separate local/streaming buffer APIs. Custom and native-memory policies are explicit for both; normal network defaults are streaming-only; the small downloaded-file policy is local-only. content: URIs including DownloadsProvider now follow the local policy, matching Media3's own URI classification. Added host coverage for file/content/HTTP classification.
+- Context7 and Exa checked 1.11.1 docs, release notes and tagged source. Tests and compilation were not run; no Gradle task, build, CI, device playback or benchmark was started. No measured speedup is claimed.
