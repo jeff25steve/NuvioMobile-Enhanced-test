@@ -32,6 +32,23 @@ class HlsPlaylistBoundTest {
         }
     }
 
+    @Test
+    fun unknownLengthOversizedPlaylistReplaysBoundedPrefixThenContinuesUpstream() {
+        val bytes = ByteArray(HLS_PLAYLIST_REWRITE_MAX_BYTES + 4096) { (it % 239).toByte() }
+        val upstream = RecordingDataSourceFactory(bytes, resolveLength = false)
+        val inspection = RecordingDataSourceFactory(ByteArray(0), resolveLength = true)
+        val source = HlsParameterSetInitDataSource.Factory(upstream, inspection).createDataSource()
+
+        try {
+            assertEquals(C.LENGTH_UNSET.toLong(), source.open(playlistSpec()))
+            assertEquals(HLS_PLAYLIST_REWRITE_MAX_BYTES + 1, upstream.bytesRead)
+            assertContentEquals(bytes, source.readAll())
+            assertEquals(0, inspection.createCount)
+        } finally {
+            source.close()
+        }
+    }
+
     private fun playlistSpec() = DataSpec.Builder()
         .setUri(Uri.parse("https://host/live/index.m3u8"))
         .build()
