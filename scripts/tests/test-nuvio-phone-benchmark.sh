@@ -45,8 +45,8 @@ for expected in \
   'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
-  "logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
-  "logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
+  "logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E'" \
+  "logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'art:*' 'AndroidRuntime:E'" \\
   'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
@@ -991,6 +991,7 @@ cat > "$TMP/bin/logcat" <<'STUB'
 #!/bin/sh
 printf 'logcat %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 printf '11-22 02:00:00.000 12345 12345 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
+printf '11-22 02:00:00.001 12345 12346 I art: SIGUSR1 forcing GC (no HPROF) and profile save\n'
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
@@ -1724,11 +1725,15 @@ grep -Fq '12345 12345 D Benchmark:' "$profile_result_dir/profile-collection-logc
   echo 'FAIL: profile-flush logcat evidence did not retain PID/TID fields.' >&2
   exit 1
 }
-grep -Fq 'logcat -v threadtime -s Benchmark:* ProfileInstaller:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+grep -Fq '12345 12346 I art: SIGUSR1 forcing GC (no HPROF) and profile save' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: ART SIGUSR1 profile-save confirmation was not retained.' >&2
+  exit 1
+}
+grep -Fq 'logcat -v threadtime -s Benchmark:* ProfileInstaller:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: live profile-flush logcat was not requested in threadtime format.' >&2
   exit 1
 }
-grep -Fq 'logcat -d -v threadtime -s ProfileInstaller:* Benchmark:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+grep -Fq 'logcat -d -v threadtime -s ProfileInstaller:* Benchmark:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: post-run profile-flush logcat was not requested in threadtime format.' >&2
   exit 1
 }
