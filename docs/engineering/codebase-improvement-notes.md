@@ -1046,3 +1046,20 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+## Safe HTTP range resumption requires a strong representation validator (22 November 2026)
+
+**Confirmed defect**
+- A persisted partial download was resumed from its byte offset even when no usable validator existed. This could append bytes from a changed representation to an older prefix.
+- The transfer path also persisted `Last-Modified` as a fallback validator. Under RFC 9110, a Last-Modified date is implicitly weak unless strength can be established from Date metadata; the persisted transfer record does not retain the evidence needed to do that.
+
+**Correction**
+- Resume only when the persisted validator is a syntactically valid strong ETag.
+- Otherwise reset the offset and truncate/restart with a full response.
+- Persist only a valid strong ETag from the response; do not use weak/malformed ETags or Last-Modified as If-Range validators.
+- Existing strong-ETag range requests, Content-Range validation, rollback and cancellation behavior remain intact.
+
+**Verification boundary**
+- Repository uses the existing `okhttp3` Request/Response APIs; no dependency or API change was introduced. Context7 returned current OkHttp header API documentation, but did not provide version-specific 4.12.0 documentation.
+- Ported the feature-branch regression suite and re-fetched source/tests after writing. Tests and Kotlin compilation have not been executed in this session.
