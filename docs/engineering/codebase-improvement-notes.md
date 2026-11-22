@@ -1004,3 +1004,20 @@ Removing a mutex immediately after its holder exits would be unsafe if another c
 - The focused shell guard was run against an old-structure fixture and failed (RED), then against the updated structure fixture and passed (GREEN). This validates the structural integration only; it does not execute Kotlin concurrency behavior.
 - Added actual coroutine host tests for serialization, cross-key concurrency and cancellation cleanup, but they have not been run. No Gradle test task, Kotlin compilation, build, CI, APK, device test or benchmark was started.
 - This change bounds the registry's retained entries to keys with active or waiting operations. It does not claim a measured memory or performance improvement.
+
+
+**Review correction — deterministic keyed-lock waiter coverage (Cycle 146 follow-up, 22 November 2026)**
+
+A second review found that the original same-key and cancelled-waiter host tests used `yield()` as a scheduling hint but did not prove the second coroutine had actually registered as a waiter before the assertions/cancellation. The tests could therefore pass without exercising the queued-lock path.
+
+**Correction**
+- Added an internal reference-count inspection method to `KeyedMutex`, using the same short registry monitor as the map.
+- The same-key serialization test now waits until the registry reports two references (the holder plus queued waiter) before asserting the second action has not entered.
+- The cancellation test now waits for the same two-reference state before cancelling the waiter, then asserts the count returns to one while the owner remains active.
+- The independent-key test now bounds its wait for the second key to enter, so a regression fails with a timeout rather than hanging indefinitely.
+- Extended the source-contract guard to require these explicit holder/waiter assertions.
+
+**Verification boundary**
+- The host test and implementation were updated test-first in the remote feature branch. The Kotlin host tests were not executed because doing so would invoke Gradle compilation/test work, which remains unauthorised.
+- The shell guard was updated but has not been executed against a complete checkout. This follow-up improves test determinism; it does not establish that the Kotlin code compiles or that runtime concurrency tests pass.
+- No Gradle task, build, CI, APK, device run or benchmark was started.
