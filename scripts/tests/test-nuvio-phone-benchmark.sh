@@ -315,7 +315,7 @@ case "$1" in
         else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk"; fi
         ;;
       com.nuvio.media.benchmark.child)
-        if [ "\${FAKE_INSTALLED_DOTTED_SUBPACKAGE:-0}" = "1" ]; then
+        if [ "${FAKE_INSTALLED_DOTTED_SUBPACKAGE:-0}" = "1" ]; then
           printf 'package:%s\n' "$FAKE_INSTALLED_DIR/dotted-child.apk"
         else
           exit 1
