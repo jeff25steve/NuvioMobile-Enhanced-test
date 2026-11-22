@@ -3367,6 +3367,11 @@ The phone runner's live process timeline now records, at the same approximately 
 
 The post-instrumentation failure snapshot also captures the AndroidX-equivalent lookup. This distinguishes a real zero-match result (pgrep exit status 1) from a pgrep execution error, and allows direct comparison when `ps -A` lists the app but AndroidX's lookup does not.
 
+A separate log-capture defect was also corrected. The previous filters used \`Benchmark:*\` and \`ProfileInstaller:*\`. AOSP's logcat parser treats \`*\` in the priority position as the tag's default/global priority, not as "all priorities". Because these commands use \`-s\` (default global priority Silent), those tag filters could suppress the very events the diagnostic needed. Both live and failure-snapshot commands now use explicit \`Benchmark:V\` and \`ProfileInstaller:V\` filters, while retaining \`AndroidRuntime:E\`. This captures every priority for the two relevant tags without enabling unrelated system log noise. The shell regression's expected command strings were updated accordingly.
+
+Authoritative reference: [AOSP logcat filter parser and help](https://android.googlesource.com/platform/system/logging/+/refs/heads/main/logcat/logcat.cpp) · [Android Developers logcat filtering](https://developer.android.com/tools/logcat#filteringOutput)
+
+
 Regression fixtures now cover API 33's command form, API 36+'s `-a` form, successful main/colon/dotted-child process parsing, rejection when an intermediate dotted package prefix is installed, and a zero-match result while the independent `ps` fixture still lists the app. The fixtures were added but **not executed** in this session: the GitHub source integration cannot run shell scripts, and no local checkout was available. No build, CI, instrumentation, profile collection, LADB command or physical-device run was started.
 
 This is a diagnostic-parity improvement, not a confirmed production root-cause fix. The next authorized device run must establish the actual API-aware pgrep result at the collection window and correlate it with AndroidX `Saving profiles for process ...` log entries. If the process is discovered but no save log follows, investigate the broadcast/receiver path; if pgrep returns no process, investigate the process lifecycle between the final readiness event and the flush.
