@@ -41,11 +41,15 @@ class PlaybackDiagnosticsTest {
         diagnostics.markRebufferStarted()
         assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
         assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
         assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MANIFEST))
 
+        diagnostics.markReady()
         diagnostics.markRebufferStarted()
         assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
-        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
     }
 
     @Test
