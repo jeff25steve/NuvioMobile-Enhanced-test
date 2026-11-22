@@ -1108,3 +1108,9 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The exact AndroidX Media3 1.11.1 `VideoDecoderOutputBuffer` source documents `decoderPrivate` as decoder-private per-buffer data and shows output buffers are individually queued and later rendered by `DecoderVideoRenderer`. The app's existing native code computed a complete Android dataspace from each `AVFrame` but stored it on the shared decoder object. The source trace confirms the decode/render hand-off can be asynchronous, so the global field did not preserve frame association.
 - Test added but not run. No Gradle task, native/Kotlin compilation, build, CI, device playback or visual HDR validation was started. This corrects per-frame metadata association; no measured visual or performance result is claimed.
+
+
+### Native video dataspace error handling (Cycle 163, 22 November 2026)
+
+- `ANativeWindow_setBuffersDataSpace` returns 0 on success and `-EINVAL` when the window is invalid or the requested dataspace is unsupported. The renderer previously ignored this return value and cached the requested dataspace as active even after failure. It now caches only successful applications and logs a failed dataspace application once per distinct attempted dataspace on the current surface. Surface replacement resets the attempt state, allowing a fresh attempt on the new window.
+- Context7 and the Android NDK Native Window API reference confirm the return-value contract. No native compilation, build, CI or device validation was run.

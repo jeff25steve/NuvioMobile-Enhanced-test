@@ -95,6 +95,7 @@ typedef struct {
     int window_width;
     int window_height;
     int32_t window_data_space;
+    int32_t window_data_space_attempted;
 } Decoder;
 
 static int colorspace_of(const AVFrame *frame) {
@@ -133,6 +134,7 @@ static void release_window(JNIEnv *env, Decoder *d) {
     d->window_width = 0;
     d->window_height = 0;
     d->window_data_space = 0;
+    d->window_data_space_attempted = 0;
 }
 
 static void destroy(Decoder *d) {
@@ -302,9 +304,16 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         d->window_width = width;
         d->window_height = height;
     }
-    if (ff.set_data_space && data_space && d->window_data_space != data_space) {
-        ff.set_data_space(d->window, data_space);
-        d->window_data_space = data_space;
+    if (ff.set_data_space && data_space && d->window_data_space != data_space &&
+        d->window_data_space_attempted != data_space) {
+        int status = ff.set_data_space(d->window, data_space);
+        d->window_data_space_attempted = data_space;
+        if (status == 0) {
+            d->window_data_space = data_space;
+        } else {
+            LOGW("ANativeWindow_setBuffersDataSpace failed: %d (dataspace=0x%08x)",
+                 status, (unsigned int) data_space);
+        }
     }
 
     ANativeWindow_Buffer buffer;

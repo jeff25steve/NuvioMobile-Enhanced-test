@@ -277,3 +277,10 @@ The repository's vendored FFmpeg headers identify libavcodec major 62 (FFmpeg 8.
 The software video decoder now carries Android dataspace metadata with each `VideoDecoderOutputBuffer` instead of keeping one mutable dataspace on the decoder instance. This prevents decode-ahead from allowing a newer frame's colour primaries, transfer function or range to be applied to an older queued frame. The JNI render call now receives the dataspace associated with the exact output buffer being rendered. A host regression test covers independent metadata retention across queued frames.
 
 The exact Media3 1.11.1 source documents `VideoDecoderOutputBuffer.decoderPrivate` as per-buffer decoder-private storage. Test, Kotlin/native compilation and HDR device validation remain unexecuted. No build, CI or playback benchmark was run.
+
+
+## Native video dataspace error handling (Cycle 163, 22 November 2026)
+
+The native surface renderer now checks the status returned by `ANativeWindow_setBuffersDataSpace`. It no longer records a dataspace as active when Android rejects it; failures are logged once per distinct dataspace attempt on a surface. Replacing the surface clears both applied and attempted state so the new surface gets its own attempt. The Android NDK API documents 0 for success and `-EINVAL` for an invalid window or unsupported dataspace.
+
+No native compilation, build, CI or device validation was run.
