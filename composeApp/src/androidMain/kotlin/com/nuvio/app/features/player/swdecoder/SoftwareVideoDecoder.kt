@@ -15,6 +15,13 @@ import java.nio.ByteBuffer
 
 internal const val FFMPEG_INPUT_PADDING_SIZE = 64
 
+internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dataSpace: Int) {
+    outputBuffer.decoderPrivate = dataSpace.toLong()
+}
+
+internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
+    outputBuffer.decoderPrivate.toInt()
+
 /** Ensures FFmpeg's required zeroed overread padding without copying the compressed sample. */
 internal fun prepareFfmpegPacketData(data: ByteBuffer): Int {
     require(data.isDirect) { "FFmpeg packet input must be a direct buffer" }
@@ -47,7 +54,7 @@ internal class SoftwareVideoDecoder(
 ) {
     private val codecName: String
     private var handle = 0L
-    private val frameInfo = LongArray(4)
+    private val frameInfo = LongArray(5)
 
     @Volatile
     var outputMode: Int = C.VIDEO_OUTPUT_MODE_NONE
@@ -113,6 +120,7 @@ internal class SoftwareVideoDecoder(
         if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
             return SoftwareVideoDecoderException("Failed to convert $codecName frame")
         }
+        setOutputFrameDataSpace(outputBuffer, frameInfo[4].toInt())
         outputBuffer.format = inputBuffer.format
         return null
     }
@@ -130,6 +138,7 @@ internal class SoftwareVideoDecoder(
             outputBuffer.height,
             outputBuffer.yStride,
             outputBuffer.uvStride,
+            outputFrameDataSpace(outputBuffer),
         )
         if (result == RESULT_ERROR) throw SoftwareVideoDecoderException("Failed to render $codecName frame")
     }
@@ -250,6 +259,7 @@ internal class SoftwareVideoDecoder(
             height: Int,
             yStride: Int,
             uvStride: Int,
+            dataSpace: Int,
         ): Int
     }
 }

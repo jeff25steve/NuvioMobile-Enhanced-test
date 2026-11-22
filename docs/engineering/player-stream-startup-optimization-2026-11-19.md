@@ -270,3 +270,10 @@ Context7 and the exact AndroidX Media3 1.11.1 tagged `DefaultRenderersFactory` s
 The custom software video decoder now allocates each direct Media3 input buffer with FFmpeg's required 64-byte packet tail and zeroes that tail before calling `avcodec_send_packet`. This avoids a full packet copy while meeting FFmpeg 8.0's bitstream overread contract. The JNI boundary independently checks that the supplied direct buffer has at least `sampleSize + AV_INPUT_BUFFER_PADDING_SIZE` bytes of capacity and rejects invalid input before passing it to libavcodec. Host tests cover padding capacity, zeroing, and sample preservation.
 
 The repository's vendored FFmpeg headers identify libavcodec major 62 (FFmpeg 8.0). The versioned FFmpeg 8.0 documentation warns that missing padding can lead to overreads and segfaults; the Media3 1.11.1 `DecoderInputBuffer` source shows the default padding is zero unless explicitly requested. Tests and both native/Kotlin compilation remain unexecuted. No build, CI, device playback or benchmark was run.
+
+
+## Per-frame video colour metadata (Cycle 162, 22 November 2026)
+
+The software video decoder now carries Android dataspace metadata with each `VideoDecoderOutputBuffer` instead of keeping one mutable dataspace on the decoder instance. This prevents decode-ahead from allowing a newer frame's colour primaries, transfer function or range to be applied to an older queued frame. The JNI render call now receives the dataspace associated with the exact output buffer being rendered. A host regression test covers independent metadata retention across queued frames.
+
+The exact Media3 1.11.1 source documents `VideoDecoderOutputBuffer.decoderPrivate` as per-buffer decoder-private storage. Test, Kotlin/native compilation and HDR device validation remain unexecuted. No build, CI or playback benchmark was run.

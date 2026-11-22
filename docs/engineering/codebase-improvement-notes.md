@@ -1097,3 +1097,14 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The checked-in FFmpeg headers declare `LIBAVCODEC_VERSION_MAJOR 62` (FFmpeg 8.0). Context7 queried the versioned FFmpeg 8.0 docs; they state that packet input requires 64 additional bytes and warn that non-zero padding can cause overreads and crashes. The exact 8.0 `av_new_packet` implementation was also checked and confirms that FFmpeg's packet allocator zeroes this padding. The exact Media3 1.11.1 `DecoderInputBuffer` source confirms its default constructor uses padding size 0 and its two-argument constructor reserves the requested extra capacity.
 - Tests were added but not executed because no Gradle/test task was authorized. No C/C++ compilation, Kotlin compilation, build, CI, device playback or benchmark was started. The buffer contract correction is source-verified; runtime stability and playback impact remain unverified.
+
+
+### Per-frame video colour metadata (Cycle 162, 22 November 2026)
+
+- Removed the decoder-wide mutable `frame_data_space` value. The decode thread previously overwrote it as soon as each frame was decoded, while the playback thread applied it later when rendering a queued output buffer. When decoding ran ahead, a frame could therefore be rendered with a later frame's Android dataspace (primaries, transfer and range), particularly relevant to HDR transfer metadata.
+- `nativeReceiveFrame` now returns the frame's Android dataspace alongside its timestamp, dimensions and Media3 colour-space value. Kotlin stores that value in the corresponding `VideoDecoderOutputBuffer.decoderPrivate` field, and `nativeRender` receives it from that exact output buffer. The native window only changes dataspace when the currently rendered frame requires a different one.
+- Added a host regression test proving two queued output buffers retain independent dataspace values when the second frame is decoded before the first is rendered.
+
+**Evidence and verification boundary**
+- The exact AndroidX Media3 1.11.1 `VideoDecoderOutputBuffer` source documents `decoderPrivate` as decoder-private per-buffer data and shows output buffers are individually queued and later rendered by `DecoderVideoRenderer`. The app's existing native code computed a complete Android dataspace from each `AVFrame` but stored it on the shared decoder object. The source trace confirms the decode/render hand-off can be asynchronous, so the global field did not preserve frame association.
+- Test added but not run. No Gradle task, native/Kotlin compilation, build, CI, device playback or visual HDR validation was started. This corrects per-frame metadata association; no measured visual or performance result is claimed.

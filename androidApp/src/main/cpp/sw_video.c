@@ -95,7 +95,6 @@ typedef struct {
     int window_width;
     int window_height;
     int32_t window_data_space;
-    volatile int32_t frame_data_space;
 } Decoder;
 
 static int colorspace_of(const AVFrame *frame) {
@@ -251,9 +250,9 @@ JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlo
         frame->width,
         frame->height,
         colorspace_of(frame),
+        data_space_of(frame),
     };
-    (*env)->SetLongArrayRegion(env, info, 0, 4, values);
-    d->frame_data_space = data_space_of(frame);
+    (*env)->SetLongArrayRegion(env, info, 0, 5, values);
     return RESULT_OK;
 }
 
@@ -286,7 +285,7 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
 
 JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong handle, jobject surface,
                                             jobject source, jint width, jint height, jint y_stride,
-                                            jint uv_stride) {
+                                            jint uv_stride, jint data_space) {
     Decoder *d = (Decoder *) (intptr_t) handle;
     const uint8_t *src = (*env)->GetDirectBufferAddress(env, source);
     if (!src) return RESULT_ERROR;
@@ -303,7 +302,6 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         d->window_width = width;
         d->window_height = height;
     }
-    int32_t data_space = d->frame_data_space;
     if (ff.set_data_space && data_space && d->window_data_space != data_space) {
         ff.set_data_space(d->window, data_space);
         d->window_data_space = data_space;
