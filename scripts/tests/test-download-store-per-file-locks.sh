@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.. " && pwd)}"
+ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 STORE="$ROOT_DIR/composeApp/src/androidMain/kotlin/com/nuvio/app/features/downloads/AndroidDownloadStore.kt"
 LOCK="$ROOT_DIR/composeApp/src/androidMain/kotlin/com/nuvio/app/features/downloads/KeyedSynchronizedLock.kt"
 TEST="$ROOT_DIR/composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/downloads/AndroidDownloadStoreTest.kt"
