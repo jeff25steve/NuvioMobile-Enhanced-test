@@ -29,6 +29,7 @@ for expected in \
   'capture_profile_flush_diagnostics() {' \
   'verify_profile_installer_receiver() {' \
   'capture_target_process_snapshot() {' \
+  'index($NF, package ".") == 1' \
   'start_profile_collection_diagnostics() {' \
   'stop_profile_collection_diagnostics() {' \
   'profile-installer-receiver.txt' \
@@ -1617,6 +1618,11 @@ grep -Fq 'ANDROIDX_ACCEPTED pid=12346 processName=com.nuvio.media.benchmark:remo
 }
 grep -Fq 'ANDROIDX_REJECTED pid=12348 processName=com.other.app' "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: pgrep command-line false positives were not rejected by process-name filtering.' >&2
+  exit 1
+}
+ps_snapshot="$(awk '/Independent ps -A snapshot:/{in_ps=1; next} /AndroidX-equivalent process lookup:/{in_ps=0} in_ps' "$profile_result_dir/profile-process-timeline.txt")"
+printf '%s\n' "$ps_snapshot" | grep -Fq 'com.nuvio.media.benchmark.child.proc:remote' || {
+  echo 'FAIL: independent ps snapshot omitted the dotted child process supported by AndroidX.' >&2
   exit 1
 }
 grep -Fq 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
