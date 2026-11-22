@@ -20,8 +20,8 @@ import java.util.concurrent.TimeoutException
 
 /**
  * Gives HLS media playlists the init segment from [HlsParameterSetInit] when their segments need
- * it. Playlists are read whole and handed on, rewritten or not. Everything else passes straight
- * through, including the `data:` init segment, which [upstream] must therefore be able to open
+ * it. Small playlists are buffered and handed on, rewritten or not. Oversized playlists pass through
+ * unchanged. Everything else passes straight through, including the `data:` init segment, which [upstream] must be able to open
  * (a DefaultDataSource can).
  */
 internal const val HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS = 2_500L
@@ -35,6 +35,7 @@ internal class HlsParameterSetInitDataSource(
 
     private var playlist: ByteArray? = null
     private var playlistReadPosition = 0
+    private var playlistContinuesUpstreamAfterBuffer = false
 
     override fun addTransferListener(transferListener: TransferListener) {
         upstream.addTransferListener(transferListener)
@@ -43,13 +44,21 @@ internal class HlsParameterSetInitDataSource(
     override fun open(dataSpec: DataSpec): Long {
         playlist = null
         playlistReadPosition = 0
+        playlistContinuesUpstreamAfterBuffer = false
         val length = upstream.open(dataSpec)
         if (dataSpec.position != 0L || !isPlaylist(dataSpec.uri, upstream.responseHeaders)) return length
 
         // Large manifests are uncommon and not worth buffering just to attempt this optional repair.
         if (length > HLS_PLAYLIST_REWRITE_MAX_BYTES) return length
 
-        val body = readAll(upstream)
+        // Unknown-length responses are inspected only up to the memory budget plus one sentinel byte.
+        val body = readPlaylistPrefix(upstream)
+        if (body.size > HLS_PLAYLIST_REWRITE_MAX_BYTES) {
+            playlist = body
+            playlistContinuesUpstreamAfterBuffer = true
+            Log.w(TAG, "HLS playlist exceeds rewrite limit=$HLS_PLAYLIST_REWRITE_MAX_BYTES bytes; passing through")
+            return length
+        }
         val baseUri = (upstream.uri ?: dataSpec.uri).toString()
         // Healthy streams pay for this check too, so a slow segment host must not hold up the start.
         val inspectionStartedAtMs = SystemClock.elapsedRealtime()
@@ -73,7 +82,13 @@ internal class HlsParameterSetInitDataSource(
         val data = playlist ?: return upstream.read(buffer, offset, length)
         if (length == 0) return 0
         val remaining = data.size - playlistReadPosition
-        if (remaining <= 0) return C.RESULT_END_OF_INPUT
+        if (remaining <= 0) {
+            return if (playlistContinuesUpstreamAfterBuffer) {
+                upstream.read(buffer, offset, length)
+            } else {
+                C.RESULT_END_OF_INPUT
+            }
+        }
         val count = minOf(length, remaining)
         data.copyInto(buffer, offset, playlistReadPosition, playlistReadPosition + count)
         playlistReadPosition += count
@@ -86,6 +101,7 @@ internal class HlsParameterSetInitDataSource(
 
     override fun close() {
         playlist = null
+        playlistContinuesUpstreamAfterBuffer = false
         upstream.close()
     }
 
@@ -130,6 +146,7 @@ internal class HlsParameterSetInitDataSource(
     private companion object {
         const val CHECK_TIMEOUT_MS = 3_000L
         const val SEGMENT_HEAD_STEP_BYTES = 4 * 1024
+        const val PLAYLIST_READ_CHUNK_BYTES = 16 * 1024
 
         fun isPlaylist(uri: Uri, headers: Map<String, List<String>>): Boolean {
             val path = uri.path.orEmpty().lowercase()
@@ -139,11 +156,12 @@ internal class HlsParameterSetInitDataSource(
             }
         }
 
-        fun readAll(source: DataSource): ByteArray {
+        fun readPlaylistPrefix(source: DataSource): ByteArray {
             val out = ByteArrayOutputStream()
-            val chunk = ByteArray(16 * 1024)
-            while (true) {
-                val read = source.read(chunk, 0, chunk.size)
+            val chunk = ByteArray(PLAYLIST_READ_CHUNK_BYTES)
+            val limitWithSentinel = HLS_PLAYLIST_REWRITE_MAX_BYTES + 1
+            while (out.size() < limitWithSentinel) {
+                val read = source.read(chunk, 0, minOf(chunk.size, limitWithSentinel - out.size()))
                 if (read == C.RESULT_END_OF_INPUT) break
                 out.write(chunk, 0, read)
             }
