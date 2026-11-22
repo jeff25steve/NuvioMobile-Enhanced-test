@@ -1436,6 +1436,14 @@ private fun ExoPlayerSurface(
                 else -> "other"
             }
 
+            private fun trackKind(trackType: Int): String = when (trackType) {
+                C.TRACK_TYPE_VIDEO -> "video"
+                C.TRACK_TYPE_AUDIO -> "audio"
+                C.TRACK_TYPE_TEXT -> "text"
+                C.TRACK_TYPE_METADATA -> "metadata"
+                else -> "other($trackType)"
+            }
+
             override fun onLoadStarted(
                 eventTime: AnalyticsListener.EventTime,
                 loadEventInfo: LoadEventInfo,
@@ -1467,7 +1475,7 @@ private fun ExoPlayerSurface(
                     "loadStart kind=${loadKind(mediaLoadData.dataType)} phase=${if (isRebufferLoad) "rebuffer" else "initial"} " +
                         "attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=$elapsedMs " +
-                        "trackType=${mediaLoadData.trackType} " +
+                        "track=${trackKind(mediaLoadData.trackType)} " +
                         "url=${InAppLogger.redactUrl(loadEventInfo.uri.toString())}",
                 )
             }
