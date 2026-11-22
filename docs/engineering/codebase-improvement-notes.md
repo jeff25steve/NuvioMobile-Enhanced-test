@@ -986,3 +986,37 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The version catalog pins Coil 3.6.3. Context7 resolved and queried the exact `/coil-kt/coil/3.6.3` documentation. The Coil 3.6.3 GIF guide confirms header-based animated-format detection and the platform decoder choices; the exact tagged `BitmapFactoryDecoder.kt` and `ImageRequest.kt` sources confirm the available static bitmap decoder and request-level decoder-factory override.
 - Exa reviewed the Coil 3.6.3 GIF guide, Compose `AsyncImage` documentation, decoder API and the upstream discussion of per-request animation policy. The upstream discussion recommends request-specific decoder selection rather than disabling all service-loaded components.
 - No production code or tests changed. No Gradle task, Kotlin compilation, build, CI, device playback or image-decoding benchmark was started. This is a confirmed cross-platform behavior gap, not a measured performance regression or a claimed fix.
+
+
+
+## Android phone benchmark runner — clean-stage action dispatch gap (Cycle 145, 22 November 2026)
+
+**Confirmed defect**
+- `apk_paths()` explicitly supports `full:collect` and `playstore:collect`, selecting the matching `BenchmarkRelease` app/test APK pair.
+- The initial auto-staging dispatch does not include either `collect:full` or `collect:playstore` in its `STAGE_APKS` case. A fresh invocation from the Downloads bundle therefore copies only the runner into the staging directory, then re-executes there with no benchmark APKs beside it. The subsequent collect action cannot use the APK paths it selected.
+- The existing host fixture invokes `collect full` only after earlier commands have populated the shared staging directory with BenchmarkRelease APKs. That order masks the clean-stage failure; it does not test collect as the first command from a fresh bundle.
+- The user-facing usage block does not list the supported `collect` command even though the final action dispatcher accepts it.
+
+**Required regression**
+- Start with an empty `NUVIO_PHONE_STAGE_DIR`, invoke `collect full` and `collect playstore` independently from the source bundle, and assert that exactly the matching BenchmarkRelease APK pair is staged before instrumentation.
+- Also verify that the action help lists `collect` if it remains a supported public command.
+
+**Implementation boundary**
+- This is a deterministic staging/action-dispatch defect in the benchmark tooling, not an application playback or startup-performance finding.
+- No script change was made because the available GitHub integration can inspect and edit repository files but cannot execute the focused POSIX-shell regression harness. Do not merge an unexecuted runner change. The previously authorized focused host tests should include the fresh-stage fixture when a checkout/command runner is available.
+- No build, CI, Gradle task, APK build, device run, profile collection or benchmark was started.
+
+## Android phone benchmark runner — staging path normalization gap (Cycle 146, 22 November 2026)
+
+**Confirmed defect**
+- The runner computes `SCRIPT_DIR` as an absolute directory path, but compares it directly with the raw `NUVIO_PHONE_STAGE_DIR` environment value.
+- A relative stage directory (for example `tmp/benchmark-stage`) can never compare equal to the absolute `SCRIPT_DIR`, even when it names the directory containing the re-executed runner. A stage path with a trailing slash has the same mismatch.
+- On the second invocation, the runner therefore attempts to stage the runner onto its own file path. This can fail as a same-file copy or keep the script in the staging branch rather than reaching the action handler. The existing test sets an absolute stage path without a trailing slash, so neither variant is covered.
+
+**Required regression**
+- Exercise the runner with a relative `NUVIO_PHONE_STAGE_DIR` and an absolute path with a trailing slash; both should normalize to the same canonical stage directory and execute the requested action once.
+- Retain the existing absolute-path fixture and verify that staging still copies only the action's required APK pair.
+
+**Implementation boundary**
+- The minimal safe correction is to create the stage directory, resolve it to an absolute canonical directory path, then compare that normalized path with `SCRIPT_DIR` before deciding whether to re-exec. The implementation must preserve Android shell portability and avoid relying on non-POSIX utilities.
+- No script change was made because the focused shell regression harness cannot be executed from this GitHub-only environment. No claim of a fix or test pass is made.
