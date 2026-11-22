@@ -33,11 +33,32 @@ private fun inferPlaybackMimeType(
     url: String,
     responseHeaders: Map<String, String>,
     streamType: String?,
-): String? =
-    inferMimeTypeFromStreamType(streamType)
-        ?: inferMimeTypeFromResponseHeaders(responseHeaders)
-        ?: inferMimeTypeFromLocalContent(url)
-        ?: inferMimeTypeFromPath(url)
+): String? {
+    inferMimeTypeFromStreamType(streamType)?.let { return it }
+    inferMimeTypeFromResponseHeaders(responseHeaders)?.let { return it }
+
+    val pathMimeType = inferMimeTypeFromPath(url)
+    val contentMimeType = if (shouldInspectLocalContentMime(url, pathMimeType)) {
+        inferMimeTypeFromLocalContent(url)
+    } else {
+        null
+    }
+    return contentMimeType ?: pathMimeType
+}
+
+/**
+ * Content inspection is needed when the path cannot identify the source or when its extension
+ * selects an adaptive MediaSource. Known progressive containers are sniffed by Media3's
+ * DefaultExtractorsFactory after the local DataSource opens, so pre-reading them here only blocks
+ * this synchronous MediaItem construction path without changing MediaSource selection.
+ */
+internal fun shouldInspectLocalContentMime(url: String, pathMimeType: String?): Boolean {
+    if (!isLocalUri(url)) return false
+    return pathMimeType == null ||
+        pathMimeType == MimeTypes.APPLICATION_M3U8 ||
+        pathMimeType == MimeTypes.APPLICATION_MPD ||
+        pathMimeType == MimeTypes.APPLICATION_SS
+}
 
 /**
  * Local files can carry a misleading extension (downloads keep the extension derived from the
