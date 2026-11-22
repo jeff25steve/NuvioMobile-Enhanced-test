@@ -8,11 +8,13 @@ ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
+HOME_BROWSE_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/HomeBrowseReadiness.java"
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
-[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
+[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] && [ -f "$HOME_BROWSE_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-initialization.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
+sh "$SCRIPT_DIR/tests/test-android-ui-automator-stale-retry.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
 sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
 sh "$SCRIPT_DIR/tests/test-home-poster-style-propagation.sh" "$ROOT_DIR"
@@ -25,12 +27,26 @@ for expected in \
   'text rules collected by the separate collect step are not installed into this APK.' \
   'Do not reopen LADB or run shell commands until instrumentation finishes.' \
   'capture_profile_flush_diagnostics() {' \
+  'verify_profile_installer_receiver() {' \
+  'capture_target_process_snapshot() {' \
+  'start_profile_collection_diagnostics() {' \
+  'stop_profile_collection_diagnostics() {' \
+  'profile-installer-receiver.txt' \
+  'profile-process-timeline.txt' \
+  'profile-collection-logcat.txt' \
+  'ps -A' \
+  'awk -v package="$APP_PACKAGE"' \
+  "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'"; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
     exit 1
   }
 done
+if grep -Fq 'am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE' "$RUNNER_SOURCE"; then
+  echo "FAIL: standalone SAVE_PROFILE preflight must not gate BaselineProfileRule collection." >&2
+  exit 1
+fi
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
   echo "FAIL: profile collection output prefix must remain startup." >&2
@@ -106,6 +122,7 @@ done
 # to marker lookup; best-effort diagnostics may legitimately report unavailable.
 for expected in \
   'device.getCurrentPackageName()' \
+  'StaleNodeRetry.run(() -> {' \
   'Last package to report an accessibility event' \
   'markerVisible(UiDevice device, String marker)' \
   'HomeScreen marker in target active window:' \
@@ -115,6 +132,10 @@ for expected in \
     exit 1
   }
 done
+grep -Fq 'StartupReadiness.targetMarkerHasVisibleBounds(device, targetMarker)' "$HOME_BROWSE_SOURCE" || {
+  echo "FAIL: Home browse visible-bounds reads must use the stale-node-safe reacquisition helper." >&2
+  exit 1
+}
 if grep -Fq 'dumpWindowHierarchy' "$READINESS_SOURCE"; then
   echo "FAIL: readiness diagnostics must not serialize the complete accessibility hierarchy." >&2
   exit 1
@@ -839,6 +860,9 @@ STUB
 cat > "$TMP/bin/dumpsys" <<'STUB'
 #!/bin/sh
 case "$1" in
+  package)
+    printf 'Package: %s\nReceiver: androidx.profileinstaller.ProfileInstallReceiver\n' "$2"
+    ;;
   battery)
     if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
       echo 'level: unavailable'
@@ -923,6 +947,14 @@ cat > "$TMP/bin/su" <<'STUB'
 #!/bin/sh
 [ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
 printf 'uid=0(root) gid=0(root)\n'
+STUB
+cat > "$TMP/bin/ps" <<'STUB'
+#!/bin/sh
+printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
+STUB
+cat > "$TMP/bin/logcat" <<'STUB'
+#!/bin/sh
+printf '11-22 02:00:00.000 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
@@ -1527,6 +1559,24 @@ if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api3
   cat "$TMP/api33-profile-collect.log" >&2
   exit 1
 fi
+profile_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$profile_result_dir" ] || { echo 'FAIL: Baseline Profile fixture did not produce a collect-* result.' >&2; exit 1; }
+for expected in 'androidx.profileinstaller.ProfileInstallReceiver' 'com.nuvio.media.benchmark'; do
+  grep -Fq "$expected" "$profile_result_dir/profile-installer-receiver.txt" "$profile_result_dir/profile-process-timeline.txt" || {
+    echo "FAIL: profile collection evidence is missing '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: live AndroidX logcat evidence was not retained during profile collection.' >&2
+  exit 1
+}
+for expected in 'Installed receiver evidence -> ' 'Live target-process timeline -> ' 'Live AndroidX/ProfileInstaller logcat -> '; do
+  grep -Fq "$expected" "$profile_result_dir/copied-files.txt" || {
+    echo "FAIL: copied-files manifest is missing '$expected'." >&2
+    exit 1
+  }
+done
 if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full > "$TMP/api33-install.log" 2>&1; then
   echo "FAIL: API 33 fixture could not install the matching Full benchmark variant." >&2
   cat "$TMP/api33-install.log" >&2
