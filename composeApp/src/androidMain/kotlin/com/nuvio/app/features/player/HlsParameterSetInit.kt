@@ -43,7 +43,8 @@ internal object HlsParameterSetInit {
 
     /**
      * What the start of a segment holds. [sps] and [pps] are the parameter sets seen before the
-     * first video slice, and [reachedFirstSlice] tells whether the head got as far as that slice.
+     * first video slice. [firstSliceIsIdr] distinguishes an independently decodable IDR from a
+     * P/B slice that still depends on reference pictures from an earlier segment.
      */
     class SegmentHead(
         val patPacket: ByteArray,
@@ -51,7 +52,8 @@ internal object HlsParameterSetInit {
         val videoPid: Int,
         val sps: ByteArray?,
         val pps: ByteArray?,
-        val reachedFirstSlice: Boolean
+        val reachedFirstSlice: Boolean,
+        val firstSliceIsIdr: Boolean
     ) {
         val hasParameterSets: Boolean get() = sps != null && pps != null
     }
@@ -68,7 +70,7 @@ internal object HlsParameterSetInit {
         val segmentUris = eligibleSegmentUris(playlist) ?: return null
         val second = fetchHead(UriUtil.resolve(baseUri, segmentUris[1]))?.let(::scanSegmentHead)
             ?: return null
-        if (!second.reachedFirstSlice || second.hasParameterSets) return null
+        if (!second.reachedFirstSlice || !second.firstSliceIsIdr || second.hasParameterSets) return null
         val first = fetchHead(UriUtil.resolve(baseUri, segmentUris[0]))?.let(::scanSegmentHead)
             ?: return null
         if (!first.hasParameterSets || first.videoPid != second.videoPid) return null
@@ -171,7 +173,15 @@ internal object HlsParameterSetInit {
         val pat = patPacket ?: return Scan(head = null, conclusive = false)
         val pmt = pmtPacket ?: return Scan(head = null, conclusive = false)
         val parameterSets = scanParameterSets(videoData.toByteArray())
-        val head = SegmentHead(pat, pmt, videoPid, parameterSets.sps, parameterSets.pps, parameterSets.reachedFirstSlice)
+        val head = SegmentHead(
+            pat,
+            pmt,
+            videoPid,
+            parameterSets.sps,
+            parameterSets.pps,
+            parameterSets.reachedFirstSlice,
+            parameterSets.firstSliceIsIdr,
+        )
         return Scan(head, conclusive = parameterSets.reachedFirstSlice)
     }
 
@@ -192,7 +202,12 @@ internal object HlsParameterSetInit {
         return out.toByteArray()
     }
 
-    private class ParameterSets(val sps: ByteArray?, val pps: ByteArray?, val reachedFirstSlice: Boolean)
+    private class ParameterSets(
+        val sps: ByteArray?,
+        val pps: ByteArray?,
+        val reachedFirstSlice: Boolean,
+        val firstSliceIsIdr: Boolean,
+    )
 
     private fun scanParameterSets(es: ByteArray): ParameterSets {
         var sps: ByteArray? = null
@@ -202,8 +217,16 @@ internal object HlsParameterSetInit {
             val nalStart = startCode + 3
             if (nalStart >= es.size) break
             val type = es.u8(nalStart) and 0x1F
-            // Types 1 to 5 are the coded slices.
-            if (type in 1..5) return ParameterSets(sps, pps, reachedFirstSlice = true)
+            // Types 1 to 5 are coded slices, but only type 5 is an IDR that can start a
+            // independently decodable segment after a seek or fresh extractor.
+            if (type in 1..5) {
+                return ParameterSets(
+                    sps,
+                    pps,
+                    reachedFirstSlice = true,
+                    firstSliceIsIdr = type == 5,
+                )
+            }
             val next = findStartCode(es, nalStart)
             // A unit is only complete once the next one starts.
             if (next < 0) break
@@ -216,7 +239,7 @@ internal object HlsParameterSetInit {
             }
             startCode = next
         }
-        return ParameterSets(sps, pps, reachedFirstSlice = false)
+        return ParameterSets(sps, pps, reachedFirstSlice = false, firstSliceIsIdr = false)
     }
 
     private fun findStartCode(data: ByteArray, from: Int): Int {
