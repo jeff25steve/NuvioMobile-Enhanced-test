@@ -13,6 +13,7 @@ READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/base
 [ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-initialization.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
+sh "$SCRIPT_DIR/tests/test-android-ui-automator-stale-retry.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
 sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
 sh "$SCRIPT_DIR/tests/test-home-poster-style-propagation.sh" "$ROOT_DIR"
@@ -25,12 +26,29 @@ for expected in \
   'text rules collected by the separate collect step are not installed into this APK.' \
   'Do not reopen LADB or run shell commands until instrumentation finishes.' \
   'capture_profile_flush_diagnostics() {' \
+  'start_profile_collection_diagnostics() {' \
+  'profile-process-timeline.txt' \
+  'profile-collection-logcat.txt' \
+  'ps -A' \
+  "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'"; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
     exit 1
   }
 done
+
+if grep -Fq 'am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE' "$RUNNER_SOURCE"; then
+  echo "FAIL: standalone SAVE_PROFILE preflight must not gate BaselineProfileRule collection." >&2
+  exit 1
+fi
+for expected in 'verify_profile_installer_receiver() {' 'profile-installer-receiver.txt' 'start_profile_collection_diagnostics' 'stop_profile_collection_diagnostics'; do
+  grep -Fq "$expected" "$RUNNER_SOURCE" || {
+    echo "FAIL: phone runner is missing the collection diagnostic contract '$expected'." >&2
+    exit 1
+  }
+done
+
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
   echo "FAIL: profile collection output prefix must remain startup." >&2
