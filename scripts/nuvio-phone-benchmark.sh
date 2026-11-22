@@ -2054,6 +2054,45 @@ capture_foreground_state() {
   }
 }
 
+capture_profile_flush_diagnostics() {
+  diagnostics_file="$RUN_DIR/profile-flush-diagnostics.txt"
+  {
+    printf 'Capture: after instrumentation failure\n'
+    printf 'Timestamp: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\n'
+
+    printf '\nTarget package processes after instrumentation:\n'
+    if command -v ps >/dev/null 2>&1; then
+      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target process listed.\n'
+    else
+      printf 'ps unavailable\n'
+    fi
+
+    printf '\nProfileInstaller receiver in installed package metadata:\n'
+    if command -v dumpsys >/dev/null 2>&1; then
+      dumpsys package "$APP_PACKAGE" 2>&1 \
+        | grep -C 2 -F 'androidx.profileinstaller.ProfileInstallReceiver' \
+        || printf 'ProfileInstallReceiver was not found in dumpsys package output.\n'
+    else
+      printf 'dumpsys unavailable\n'
+    fi
+
+    printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
+    if command -v logcat >/dev/null 2>&1; then
+      logcat -d -v time -s ProfileInstaller:* AndroidRuntime:E 2>&1 \
+        || printf 'Filtered logcat capture failed.\n'
+    else
+      printf 'logcat unavailable\n'
+    fi
+
+    printf '\nInterpretation: this is a post-run diagnostic snapshot, not proof of process state at the exact profile-flush instant. Correlate it with instrumentation.log and foreground snapshots.\n'
+  } > "$diagnostics_file" 2>&1 || {
+    printf 'Could not write profile-flush diagnostics: %s\n' "$diagnostics_file" >&2
+    return 0
+  }
+  printf 'Saved failure diagnostics -> %s\n' "$diagnostics_file"
+}
+
 reject_pending_wifi_debug_confirmation() {
   focus_state_file="$RUN_DIR/wireless-debug-focus-check.txt"
   {
@@ -2084,6 +2123,7 @@ run_instrumentation() {
   esac
   write_run_provenance
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
+  printf 'Do not reopen LADB or run shell commands until instrumentation finishes. A foreground LADB/System UI window can invalidate the app-readiness check or interrupt profile collection.\n'
   if [ "$rule" = macrobenchmark ]; then
     capture_device_environment before
     THERMAL_STATUS_BEFORE="$(read_thermal_status_from_snapshot "$RUN_DIR/environment-before.txt")"
@@ -2114,11 +2154,12 @@ run_instrumentation() {
     write_thermal_integrity_summary "$THERMAL_STATUS_BEFORE" "$THERMAL_STATUS_AFTER"
     write_battery_saver_integrity_summary "$BATTERY_SAVER_BEFORE" "$BATTERY_SAVER_AFTER"
   fi
-  cat "$RUN_DIR/instrumentation.log"
-  [ "$result" -eq 0 ] || fail "Instrumentation returned exit code $result. See $RUN_DIR/instrumentation.log and foreground-before.txt / foreground-after.txt in $RUN_DIR. These snapshots distinguish a Nuvio readiness timeout from an external Android System UI or LADB interruption."
-  if grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
-    fail "The test reported a failure. See $RUN_DIR/instrumentation.log."
+  if [ "$result" -ne 0 ] || grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
+    capture_profile_flush_diagnostics
+    cat "$RUN_DIR/instrumentation.log"
+    fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure."
   fi
+  cat "$RUN_DIR/instrumentation.log"
   case "$rule" in
     BaselineProfile)
       copy_recent_outputs profile
