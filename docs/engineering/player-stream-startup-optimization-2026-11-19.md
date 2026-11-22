@@ -210,3 +210,22 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 - The repository pins Media3 1.8.0; its `DataSource` and `OkHttpDataSource.Factory` contracts were reviewed. Media3 1.8.0's OkHttp datasource dependency resolves to OkHttp 4.12.0. OkHttp 4.x documentation/source confirms `callTimeout(long, TimeUnit)` spans DNS, connection, retries/redirects and response-body reads, and `newBuilder()` inherits the existing client configuration and shared connection resources.
 - Context7 documentation for AndroidX Media3 and OkHttp was consulted; Context7 did not expose an exact Media3 1.8.0 or OkHttp 4.12.0 versioned library entry, so the pinned dependency and upstream source/POM evidence were used for version-specific checks.
 - Source and host regression fixtures were updated on the feature branch. Tests and Kotlin compilation have not been run. No Gradle task, build, CI, network fault injection, device playback or benchmark was started. No measured playback speedup is claimed.
+
+
+## Progressive audio selection and DataSource factory invalidation (Cycles 153–154, 22 November 2026)
+
+### Cycle 153 — classify each progressive resource independently
+
+- The buffering URL selection previously passed the video's response headers and stream type to every URL, including a separately supplied audio URL. A progressive MP4 audio resource paired with an HLS video could be incorrectly excluded from VOD cache/native read-ahead; an adaptive audio URL paired with a progressive video could be incorrectly selected for progressive buffering.
+- Added `playbackBufferedUrls`: video classification uses its own response headers and stream type, while separate audio classification uses its own URL/MIME hints only. Blank or absent audio URLs are ignored. Existing exclusions for live streams, YouTube chunked playback and loopback sources remain unchanged.
+- Added host regression cases for progressive audio with HLS video, adaptive audio with progressive video, isolation from video response headers, and blank audio URLs.
+
+### Cycle 154 — invalidate factories when captured dependencies change
+
+- The remembered DataSource factory captured `sourceAudioUrl`, `normalizedStreamType` and `networkBytesRead`, but its remember keys did not include those values. `playerSourceKey` already contains the source URL, separate audio URL, normalized stream type, sanitized request/response headers, YouTube mode and position-request key; the byte counter is separately remembered from that source key.
+- The factory now keys on `playerSourceKey`, the byte-counter instance, subtitles, live-stream state and context. This makes the factory and byte-counting wrapper refresh with the same source/diagnostic lifetime instead of retaining an old audio classification or incrementing an obsolete counter.
+
+**Evidence and verification boundary**
+- The exact source and remember capture list were inspected on `main-build-testing`. Compose's documented `remember` contract compares all keys with `equals` and recalculates when any key changes; Context7 documentation and Android Developers guidance were checked. The repository pins Compose Multiplatform 1.13.0-beta01; the Context7 Android reference is current but does not expose that exact multiplatform prerelease as a versioned entry.
+- Four host regression tests were added for independent audio/video classification. The remember-key correction is a direct dependency-completeness fix; it reuses the existing `playerSourceKey` source identity and includes the newly captured byte-counter identity.
+- Host tests and Kotlin compilation were not run. No Gradle task, build, CI, device playback or benchmark was started. No numerical startup or playback improvement is claimed.
