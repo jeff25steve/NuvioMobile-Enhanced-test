@@ -2070,6 +2070,9 @@ capture_profile_flush_diagnostics() {
       printf 'ps unavailable\n'
     fi
 
+    printf '\nAndroidX-equivalent process lookup:\n'
+    capture_androidx_process_snapshot
+
     printf '\nProfileInstaller receiver in installed package metadata:\n'
     if command -v dumpsys >/dev/null 2>&1; then
       dumpsys package "$APP_PACKAGE" 2>&1 \
