@@ -2139,19 +2139,19 @@ androidx_is_subpackage_installed() {
   # Mirror Shell.isSubpackageInstalled(): strip any process suffix, then check
   # every package prefix between APP_PACKAGE and the full dotted process name.
   process_name="$1"
-  base_process_name="\${process_name%%:*}"
+  base_process_name="${process_name%%:*}"
   case "$base_process_name" in
     "$APP_PACKAGE".*) ;;
     *) return 1 ;;
   esac
 
-  remaining="\${base_process_name#"$APP_PACKAGE".}"
+  remaining="${base_process_name#"$APP_PACKAGE".}"
   candidate="$APP_PACKAGE"
   while :; do
     case "$remaining" in
       *.*)
-        component="\${remaining%%.*}"
-        remaining="\${remaining#*.}"
+        component="${remaining%%.*}"
+        remaining="${remaining#*.}"
         candidate="$candidate.$component"
         ;;
       *)
