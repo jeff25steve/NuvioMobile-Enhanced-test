@@ -331,7 +331,7 @@ require_recognizable_art_profile_rules() {
         line = substr(line, annotation_end + 1)
       }
       method_separator = index(line, "->")
-      if (method_separator == 0) return line ~ /^\[*L[^;[:space:]]+;$/
+      if (method_separator == 0) return line ~ /^\[*L[^;[:space:]]+;$/ || line ~ /^\[*[BCDFIJSZ]$/
       prefix = substr(line, 1, method_separator - 1)
       descriptor_start = 0
       for (i = 1; i <= length(prefix); i++) {
