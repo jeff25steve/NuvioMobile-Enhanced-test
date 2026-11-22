@@ -4,8 +4,6 @@ import android.net.Uri
 import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
@@ -47,7 +45,8 @@ private fun inferPlaybackMimeType(
 private fun inferMimeTypeFromLocalContent(url: String): String? {
     if (!isLocalUri(url)) return null
     localMimeTypeCache[url]?.let { return it }
-    val detected = runOnBackgroundDispatcherIfNeeded { sniffLocalMimeType(url) } ?: return null
+    if (!shouldSniffLocalMimeTypeOnCurrentThread()) return null
+    val detected = sniffLocalMimeType(url) ?: return null
     if (localMimeTypeCache.size >= LOCAL_MIME_TYPE_CACHE_LIMIT) localMimeTypeCache.clear()
     localMimeTypeCache[url] = detected
     return detected
@@ -111,15 +110,11 @@ private fun ByteArray.matchesBytesAt(offset: Int, expected: ByteArray): Boolean 
 }
 
 /**
- * File reads must not happen on the main thread, but [playbackMediaItemFromUrl] is synchronous.
- * The actual IO therefore runs on a background dispatcher and the caller waits for the result.
+ * MediaItem construction is synchronous. Do not turn local header sniffing into a main-thread
+ * wait; Media3's extractor can still sniff the content when no explicit MIME hint is available.
  */
-private fun <T> runOnBackgroundDispatcherIfNeeded(block: () -> T): T =
-    if (Looper.myLooper() == Looper.getMainLooper()) {
-        runBlocking(Dispatchers.IO) { block() }
-    } else {
-        block()
-    }
+internal fun shouldSniffLocalMimeTypeOnCurrentThread(): Boolean =
+    Looper.myLooper() != Looper.getMainLooper()
 
 private fun inferMimeTypeFromStreamType(streamType: String?): String? {
     val normalized = streamType
