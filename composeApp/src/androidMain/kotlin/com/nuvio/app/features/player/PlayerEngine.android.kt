@@ -544,7 +544,20 @@ private fun ExoPlayerSurface(
                 responseHeaders = sanitizedSourceResponseHeaders,
                 streamType = normalizedStreamType,
             ).localConfiguration?.mimeType == MimeTypes.APPLICATION_M3U8
-            if (hls) HlsParameterSetInitDataSource.Factory(factory) else factory
+            if (hls) {
+                val inspectionFactory =
+                    PlatformPlaybackDataSourceFactory.createHlsSegmentInspectionDataSourceFactory(
+                        defaultRequestHeaders = sanitizedSourceHeaders,
+                        useLongReadTimeout = loopbackSource,
+                        useYoutubeChunkedPlayback = useYoutubeChunkedPlayback,
+                    )
+                HlsParameterSetInitDataSource.Factory(
+                    upstreamFactory = factory,
+                    segmentInspectionFactory = inspectionFactory ?: factory,
+                )
+            } else {
+                factory
+            }
         }.withPlaybackBuffering(
             context = context,
             settings = playerSettings,
