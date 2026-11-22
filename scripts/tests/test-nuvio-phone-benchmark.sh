@@ -864,7 +864,7 @@ cat > "$TMP/bin/dumpsys" <<'STUB'
 #!/bin/sh
 case "$1" in
   package)
-    printf 'Package: %s\\nReceiver: androidx.profileinstaller.ProfileInstallReceiver\\n' "$2"
+    printf 'Package: %s\nReceiver: androidx.profileinstaller.ProfileInstallReceiver\n' "$2"
     ;;
   battery)
     if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
@@ -953,7 +953,7 @@ printf 'uid=0(root) gid=0(root)\n'
 STUB
 cat > "$TMP/bin/ps" <<'STUB'
 #!/bin/sh
-printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\\n'
+printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
 STUB
 cat > "$TMP/bin/logcat" <<'STUB'
 #!/bin/sh
