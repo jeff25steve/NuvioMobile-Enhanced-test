@@ -1,6 +1,7 @@
 package com.nuvio.android.baselineprofile;
 
 import android.app.Instrumentation;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 
@@ -76,6 +77,34 @@ final class StartupReadiness {
     static boolean markerVisible(UiDevice device, String marker) {
         return targetMarker(device, marker) != null;
     }
+
+    /**
+     * Returns a scroll container only after its scrollability read succeeds.
+     * The lookup and property access share one retry so a stale UiObject2 is
+     * discarded and reacquired rather than read again.
+     */
+    static UiObject2 targetScrollableMarker(UiDevice device, String marker) {
+        return StaleNodeRetry.run(() -> {
+            UiObject2 object = targetMarker(device, marker);
+            return object != null && object.isScrollable() ? object : null;
+        });
+    }
+
+    /**
+     * Reads visible bounds inside the retry so a node invalidated during
+     * getVisibleBounds() is reacquired before the next read attempt.
+     */
+    static boolean targetMarkerHasVisibleBounds(UiDevice device, String marker) {
+        return StaleNodeRetry.run(() -> {
+            UiObject2 object = targetMarker(device, marker);
+            if (object == null) {
+                return false;
+            }
+            Rect bounds = object.getVisibleBounds();
+            return bounds.width() > 0 && bounds.height() > 0;
+        });
+    }
+
 
     static String diagnostics(UiDevice device) {
         String lastAccessibilityEventPackage = "<unavailable>";
