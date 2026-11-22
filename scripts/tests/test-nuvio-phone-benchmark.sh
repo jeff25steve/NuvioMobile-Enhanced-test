@@ -39,7 +39,7 @@ for expected in \
   'pgrep -l -f -a' \
   'ANDROIDX_PROCESS_PATTERN=' \
   'capture_androidx_process_snapshot() {' \
-  'AndroidX-equivalent pgrep -l -f' \
+  'AndroidX-equivalent process lookup: pgrep -l -f' \
   'awk -v package="$APP_PACKAGE"' \
   "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
@@ -1617,6 +1617,21 @@ grep -Fq "AndroidX-equivalent process lookup: pgrep -l -f -a 'com\.nuvio\.media\
 }
 grep -Fq 'pgrep -l -f -a com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: API 36 pgrep invocation did not include -a.' >&2
+  exit 1
+}
+if ! FAKE_API=36 FAKE_PGREP_MODE=missing sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-no-pgrep-match.log" 2>&1; then
+  echo "FAIL: a zero-process diagnostic sample should be recorded without aborting profile collection." >&2
+  cat "$TMP/api36-no-pgrep-match.log" >&2
+  exit 1
+fi
+api36_no_match_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$api36_no_match_dir" ] || { echo 'FAIL: API 36 no-match fixture did not produce a collect-* result.' >&2; exit 1; }
+grep -Fq 'No matching process (pgrep exit status 1).' "$api36_no_match_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: zero-process pgrep result was not distinguished from a command error.' >&2
+  exit 1
+}
+grep -Fq 'com.nuvio.media.benchmark' "$api36_no_match_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: independent ps snapshot was not retained alongside the pgrep no-match result.' >&2
   exit 1
 }
 grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
