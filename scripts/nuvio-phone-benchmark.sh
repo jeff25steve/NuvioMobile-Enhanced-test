@@ -2119,13 +2119,14 @@ verify_profile_installer_receiver() {
 }
 
 capture_target_process_snapshot() {
-  # Match the process-name column, not the grep/awk command line itself.
+  # Record exact, colon-child and dotted-prefix candidates. Dotted names may
+  # belong to a separately installed package; this is a raw snapshot, not ownership proof.
   if ! command -v ps >/dev/null 2>&1; then
     printf 'ps unavailable; independent process snapshot could not be captured.\n'
     return 0
   fi
   ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
-    $NF == package || index($NF, package ":") == 1 {
+    $NF == package || index($NF, package ":") == 1 || index($NF, package ".") == 1 {
       print
       found = 1
     }
