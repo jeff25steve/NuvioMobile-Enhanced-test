@@ -1021,11 +1021,13 @@ for stage_alias in "$BUNDLE/" relative; do
     exit 1
   }
 done
-for documented_action in collect install measure; do
-  printf '%s\n' "$stage_output" | grep -Fq "nuvio-phone-benchmark.sh $documented_action full" || {
-    echo "FAIL: usage output must document the supported $documented_action action." >&2
-    exit 1
-  }
+for documented_flavor in full playstore; do
+  for documented_action in collect install measure; do
+    printf '%s\n' "$stage_output" | grep -Fq "nuvio-phone-benchmark.sh $documented_action $documented_flavor" || {
+      echo "FAIL: usage output must document $documented_action for $documented_flavor." >&2
+      exit 1
+    }
+  done
 done
 
 # Unsupported devices must fail before any APK installation.
