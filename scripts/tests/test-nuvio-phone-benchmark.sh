@@ -990,7 +990,7 @@ STUB
 cat > "$TMP/bin/logcat" <<'STUB'
 #!/bin/sh
 printf 'logcat %s\n' "$*" >> "$FAKE_COMMAND_LOG"
-printf '11-22 02:00:00.000 12345-12345/? D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
+printf '11-22 02:00:00.000 12345 12345 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
@@ -1720,7 +1720,7 @@ grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_resul
   echo 'FAIL: live AndroidX logcat evidence was not retained during profile collection.' >&2
   exit 1
 }
-grep -Fq '12345-12345/? D Benchmark:' "$profile_result_dir/profile-collection-logcat.txt" || {
+grep -Fq '12345 12345 D Benchmark:' "$profile_result_dir/profile-collection-logcat.txt" || {
   echo 'FAIL: profile-flush logcat evidence did not retain PID/TID fields.' >&2
   exit 1
 }
