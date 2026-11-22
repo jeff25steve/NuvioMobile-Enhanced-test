@@ -54,6 +54,7 @@ import nuvio.composeapp.generated.resources.compose_settings_page_root
 import nuvio.composeapp.generated.resources.compose_settings_root_downloads_title
 import nuvio.composeapp.generated.resources.downloads_delete_message
 import nuvio.composeapp.generated.resources.downloads_delete_title
+import nuvio.composeapp.generated.resources.downloads_empty_episodes
 import nuvio.composeapp.generated.resources.downloads_empty_message
 import nuvio.composeapp.generated.resources.downloads_empty_title
 import nuvio.composeapp.generated.resources.downloads_enqueue_requires_wifi
