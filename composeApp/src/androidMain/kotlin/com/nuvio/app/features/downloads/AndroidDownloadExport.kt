@@ -14,6 +14,9 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
+internal fun isDocumentCopyLengthMismatch(sourceLength: Long, destinationLength: Long): Boolean =
+    destinationLength > 0L && destinationLength != sourceLength
+
 internal object AndroidDownloadExport {
     private const val TAG = "NuvioDownloadExport"
     private var appContext: Context? = null
@@ -99,7 +102,8 @@ internal object AndroidDownloadExport {
                     out.flush()
                 }
             }
-            if (target.length() != source.length()) {
+            val destinationLength = target.length()
+            if (isDocumentCopyLengthMismatch(source.length(), destinationLength)) {
                 throw IOException("Copy to the selected download location was incomplete")
             }
             target.uri
