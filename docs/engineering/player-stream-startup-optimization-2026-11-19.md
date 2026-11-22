@@ -256,3 +256,10 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 - Context7 resolved AndroidX Media3 1.11.1 and was queried for the LoadControl and builder APIs. Exa checked the official AndroidX 1.11.1 release notes and the exact tagged source for LoadControl, DefaultLoadControl, DefaultRenderersFactory, DefaultAudioSink and MediaCodecVideoRenderer.
 - The exact 1.11.1 LoadControl source requires getAllocator(PlayerId) and uses player-scoped shouldContinuePreloading(PlayerId, Timeline, MediaPeriodId, long); the live wrapper now implements and forwards both.
 - Tests were added but not executed. No Gradle task, Kotlin compilation, APK build, CI, device playback or benchmark was run. Therefore the dependency/API upgrade is statically inspected but not yet compile-verified, and no numerical startup, seek or frame-drop improvement is claimed.
+
+
+## Video software decoder priority (Cycle 159, 22 November 2026)
+
+The app's `SubtitleOffsetRenderersFactory` now inserts its custom `SoftwareVideoRenderer` according to Media3's extension mode rather than always appending it. `EXTENSION_RENDERER_MODE_PREFER` inserts it before the existing video renderers; `ON` appends it; `OFF` omits it. This aligns the custom renderer with the same priority contract used by Media3's bundled VP9/AV1/FFmpeg video extensions. The existing capability checks remain unchanged, so the software decoder is only selected for formats it reports as handled.
+
+Context7 and the exact AndroidX Media3 1.11.1 tagged `DefaultRenderersFactory` source confirm the ordering contract. Host tests cover PREFER/ON/OFF insertion behavior but remain unexecuted. No build, CI, device playback or benchmark was run; no measured playback improvement is claimed.

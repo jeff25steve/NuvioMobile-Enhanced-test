@@ -4651,6 +4651,16 @@ private data class FfmpegAudioDownmix(
     val normalize: Boolean,
 )
 
+internal fun softwareVideoRendererInsertionIndex(
+    extensionRendererMode: Int,
+    rendererCount: Int,
+): Int? = when (extensionRendererMode) {
+    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF -> null
+    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON -> rendererCount
+    DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER -> 0
+    else -> null
+}
+
 @androidx.annotation.OptIn(UnstableApi::class)
 private class SubtitleOffsetRenderersFactory(
     context: Context,
@@ -4704,8 +4714,10 @@ private class SubtitleOffsetRenderersFactory(
             allowedVideoJoiningTimeMs,
             out,
         )
-        if (extensionRendererMode == EXTENSION_RENDERER_MODE_OFF) return
+        val softwareRendererIndex = softwareVideoRendererInsertionIndex(extensionRendererMode, out.size)
+            ?: return
         out.add(
+            softwareRendererIndex,
             SoftwareVideoRenderer(
                 allowedVideoJoiningTimeMs,
                 eventHandler,

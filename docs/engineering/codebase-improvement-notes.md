@@ -1075,3 +1075,14 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Updated LiveStartLoadControl to forward Media3 1.11.1 player-scoped allocator and preloading calls. Added host tests for delegation.
 - Cycle 158 uses Media3's separate local/streaming buffer APIs. Custom and native-memory policies are explicit for both; normal network defaults are streaming-only; the small downloaded-file policy is local-only. content: URIs including DownloadsProvider now follow the local policy, matching Media3's own URI classification. Added host coverage for file/content/HTTP classification.
 - Context7 and Exa checked 1.11.1 docs, release notes and tagged source. Tests and compilation were not run; no Gradle task, build, CI, device playback or benchmark was started. No measured speedup is claimed.
+
+
+### Video software-renderer priority correction (Cycle 159, 22 November 2026)
+
+- The custom `SoftwareVideoRenderer` was appended after `super.buildVideoRenderers()`. That is correct for Media3's `EXTENSION_RENDERER_MODE_ON`, but it silently contradicted `EXTENSION_RENDERER_MODE_PREFER`: Media3 inserts preferred extension renderers before the core MediaCodec renderer, and ExoPlayer's default track selector chooses the first suitable renderer.
+- Added a mode-aware insertion index. `PREFER` inserts the app software renderer at index 0, `ON` appends it after the existing renderers, and `OFF` does not register it. This preserves hardware-first behavior in ON mode while making the configured preferred-software mode actually prefer the app decoder for formats it reports as supported.
+- Added host regression tests for all three modes. The change is limited to renderer ordering; supported formats, decoder capabilities, codec implementation, and default hardware-first selection are unchanged.
+
+**Evidence and verification boundary**
+- Context7 resolved AndroidX Media3 1.11.1 and documented that PREFER places extension renderers before core renderers, while ON places them after. Exa fetched the exact 1.11.1 `DefaultRenderersFactory` source and official Android Developers API reference. The same Media3 docs state that ExoPlayer uses the first renderer supporting the input format when a custom renderer is added.
+- Tests were added but not run because no build/test task was authorized. No Kotlin compilation, Gradle task, APK build, CI, device playback or benchmark was started. This is a correction to configured decoder-selection behavior, not a measured frame-rate or startup-time claim.
