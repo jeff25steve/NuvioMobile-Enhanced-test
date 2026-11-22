@@ -962,3 +962,41 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## Android download retry — never resume an unvalidated partial representation (Cycle 149, 22 November 2026)
+
+The Android transfer path derived the next byte offset from the partial sink length and sent `Range: bytes=N-` even when no validator had been saved. In that case, a server was free to return bytes from its current representation, and the client could append them to a prefix downloaded from an older representation. The code already had strong-validator support through `If-Range`, but did not require one before reusing a saved prefix.
+
+**Correction**
+- If a partial sink exists but the stored validator is absent or unusable, the transfer now resets its request offset to zero and makes a full request.
+- The sink is opened in replacement mode for a full response, so the stale prefix is truncated when the new representation body is written.
+- A usable strong validator continues to use Range + If-Range and preserves the existing efficient resume path.
+- Added a regression test whose mock server would return a different 206 suffix if the client sends an unconditional Range request. The expected safe behavior is a full request and replacement of the stale prefix.
+
+**Verification boundary**
+- Test source was added before the production change. The host test has not been executed because no Gradle task/build was authorised.
+- No build, CI, APK, device test or throughput measurement was started.
+- The fix deliberately favors representation integrity over resuming bytes when the client cannot prove that the old prefix and new suffix belong to the same representation.
+
+## Android download retry — persist only strong ETag validators for If-Range (Cycle 150, 22 November 2026)
+
+The transfer code previously used any `Last-Modified` response header as a resume validator. HTTP semantics do not make a Last-Modified date strong by default: RFC 9110 §8.8.2.2 requires additional evidence to infer strength. The persisted transfer record retained the date string but not the response Date metadata needed for the client-side inference. Passing that date as If-Range could therefore permit an unsafe partial continuation.
+
+**Correction**
+- Persist only syntactically valid strong entity tags (quoted opaque tags, excluding weak tags) from the response ETag header.
+- Do not use Last-Modified as a resume validator because this transfer record does not preserve the metadata needed to prove its strength.
+- Treat legacy persisted Last-Modified strings and weak/malformed ETags as unusable: the Cycle 149 full-restart path safely replaces the old partial file.
+- Keep strong ETag resume unchanged.
+
+**Regression coverage authored**
+- A response containing Last-Modified but no ETag does not produce a stored resume validator.
+- A legacy Last-Modified value does not generate Range or If-Range and the old partial is replaced.
+- The existing strong-ETag resume test continues to assert Range, If-Range and append behavior.
+
+**Evidence and verification boundary**
+- Context7 resolved the OkHttp documentation and confirmed Request.Builder.header replaces existing same-name headers; no OkHttp API or dependency change was required.
+- Exa research checked RFC 9110 §8.8.2.2 and §13.1.5. Last-Modified is implicitly weak unless strength can be deduced; If-Range date validators must be strong. The RFC's current inference rule depends on the original response Date and timing evidence, which the current persisted record does not retain.
+- The exact project dependency catalog was inspected; no dependency version was changed.
+- Host tests are authored but not executed. No Gradle task, Kotlin compilation, build, CI, APK, device run or benchmark was started.
+- No measured performance claim is made. Sources: [RFC 9110 §8.8.2.2](https://www.rfc-editor.org/rfc/rfc9110.html#section-8.8.2.2), [RFC 9110 §13.1.5](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.5).
+
