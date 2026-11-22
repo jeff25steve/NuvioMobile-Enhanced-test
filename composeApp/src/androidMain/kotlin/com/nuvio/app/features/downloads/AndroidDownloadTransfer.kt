@@ -152,8 +152,8 @@ internal suspend fun transferAndroidDownload(
 private fun String?.isStrongEntityTag(): Boolean {
     if (this == null || length < 2 || first() != '"' || last() != '"') return false
     return substring(1, lastIndex).all { character ->
-        character == '\u0021' ||
-            character in '\u0023'..'\u007E' ||
+        character == '!' ||
+            character in '#'..'~' ||
             character.code in 0x80..0xFF
     }
 }
