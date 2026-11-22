@@ -1596,6 +1596,10 @@ grep -Fq '12345 com.nuvio.media.benchmark' "$profile_result_dir/profile-process-
   echo 'FAIL: raw pgrep process output was not retained.' >&2
   exit 1
 }
+grep -Fq 'ANDROIDX_ACCEPTED pid=12345 processName=com.nuvio.media.benchmark' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep output was not parsed using AndroidX process-name matching.' >&2
+  exit 1
+}
 grep -Fq 'pgrep -l -f com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: diagnostic did not invoke AndroidX-equivalent pgrep arguments.' >&2
   exit 1
