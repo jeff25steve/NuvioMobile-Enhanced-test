@@ -31,6 +31,7 @@ class KeyedMutexTest {
 
         yield()
         assertFalse(secondEntered.isCompleted)
+        assertEquals(1, keyedMutex.trackedKeyCount, "A queued waiter must keep the shared mutex entry alive")
 
         releaseFirst.complete(Unit)
         first.join()
@@ -82,6 +83,7 @@ class KeyedMutexTest {
         val waiter = launch { keyedMutex.withLock("same") { error("cancelled waiter entered") } }
         yield()
         waiter.cancelAndJoin()
+        assertEquals(1, keyedMutex.trackedKeyCount, "The active owner must retain the entry after a waiter is cancelled")
 
         releaseOwner.complete(Unit)
         owner.join()
