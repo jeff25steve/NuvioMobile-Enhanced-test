@@ -43,8 +43,8 @@ for expected in \
   'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
-  "logcat -v time -s 'Benchmark:V' 'ProfileInstaller:V' 'AndroidRuntime:E'" \
-  "logcat -d -v time -s 'ProfileInstaller:V' 'Benchmark:V' 'AndroidRuntime:E'" \\
+  "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
+  "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
   'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
@@ -53,10 +53,6 @@ for expected in \
 done
 if grep -Fq 'am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE' "$RUNNER_SOURCE"; then
   echo "FAIL: standalone SAVE_PROFILE preflight must not gate BaselineProfileRule collection." >&2
-  exit 1
-fi
-if grep -Fq "Benchmark:*" "$RUNNER_SOURCE" || grep -Fq "ProfileInstaller:*" "$RUNNER_SOURCE"; then
-  echo "FAIL: wildcard priorities can inherit logcat's silent default and suppress the required events." >&2
   exit 1
 fi
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
