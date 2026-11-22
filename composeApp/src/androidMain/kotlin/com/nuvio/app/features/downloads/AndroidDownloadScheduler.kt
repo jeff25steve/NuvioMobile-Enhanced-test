@@ -20,7 +20,6 @@ import androidx.work.WorkManager
 import androidx.work.workDataOf
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -30,8 +29,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
 
@@ -44,7 +41,7 @@ internal object AndroidDownloadSchedulerLifecycleLock {
 internal class AndroidDownloadScheduler(val context: Context) {
     val store = AndroidDownloadStore(File(context.filesDir, "download-transfers"))
     val directory = File(context.filesDir, "downloads")
-    private val locks = ConcurrentHashMap<String, Mutex>()
+    private val locks = KeyedMutex()
     private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
@@ -193,7 +190,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
         }
         transfer?.let { DownloadsLiveStatusPlatform.removeNotification(it.item.id) }
         cleanupScope.launch {
-            lock(fileName).withLock {
+            locks.withLock(fileName) {
                 if (store.get(fileName) == null) {
                     File(directory, "$fileName.part").delete()
                     // Wait behind the worker's per-file lock, then remove a final file too:
@@ -216,7 +213,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
         transfer: AndroidDownloadTransfer,
         network: Network? = null,
         onProgress: (AndroidDownloadTransfer) -> Unit,
-    ): Boolean = lock(transfer.item.fileName).withLock {
+    ): Boolean = locks.withLock(transfer.item.fileName) {
         val fileName = transfer.item.fileName
         if (!isActive(transfer)) return@withLock false
         val destination = File(directory, fileName)
@@ -397,7 +394,6 @@ internal class AndroidDownloadScheduler(val context: Context) {
         } else it
     }
 
-    private fun lock(fileName: String): Mutex = locks.getOrPut(fileName) { Mutex() }
     private fun workName(transfer: AndroidDownloadTransfer) = "nuvio-download-${transfer.jobId}"
 
     companion object {
