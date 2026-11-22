@@ -1046,3 +1046,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+## Android playback source selection and load-event attribution (Cycles 149–150, 22 November 2026)
+
+- Cycle 149 fixes the Android playback DataSource factory's incomplete Compose remember key and classifies a separate audio URL from its own URI/MIME hints rather than reusing the video's HLS/DASH type and response headers. Detailed rationale and tests: docs/engineering/player-stream-startup-optimization-2026-11-19.md.
+- Cycle 150 correlates Media3 load completions to the exact load task and current prepare attempt, and tracks media events separately by audio/video track type. This prevents stale callbacks and merged audio loads from corrupting first-video-load diagnostics.
+- Added host regression coverage in PlaybackDataSourceSelectionTest and PlaybackDiagnosticsTest. Source and test files were re-fetched; tests and compilation remain unexecuted. No build, CI or device benchmark was started.
