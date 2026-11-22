@@ -3282,3 +3282,35 @@ Sources: [AndroidX 1.6 API source](https://github.com/androidx/androidx/blob/ab7
 Focused POSIX awk checks passed for the deterministic bootstrap calculation and for the read-only profile inventory with synthetic duplicate rules. The updated fake-device test fixtures assert the new summary output and duplicate counts; the static contract checks the seed/resample count, order-bias warning and audit placement. The complete phone-runner and static-contract scripts were not run because no local checkout is available. No build, CI, compilation, instrumentation, LADB action or device benchmark was run. No app startup improvement or outperformance claim is established by these reporting changes.
 
 Research sources: [Bluesky Android startup benchmark PR #12092](https://github.com/bluesky-social/social-app/pull/12092) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [AndroidJUnitRunner test filtering source](https://github.com/android/android-test/blob/main/runner/android_junit_runner/java/androidx/test/filters/TestsRegExFilter.java)
+
+
+## 22 November 2026 — profile-flush and instrumentation evidence follow-up
+
+### Exact phone evidence reviewed
+
+- The 02:07 `playstore` run's `instrumentation(5).log` records 14 successful `startup` readiness outcomes, then fails in AndroidX `CompilationMode.Partial.compileImpl` with: `Process com.nuvio.media.benchmark never flushed profiles in any process`. The subsequent `homeBrowseJourneys` test starts and records seven readiness outcomes, but the uploaded log ends without a complete final result for that test.
+- The matching provenance records runner SHA-256 `d585e7d075739cc7cc0a689a07778acc430441ff1aff7c6e42cca74752cede2e`. The installed app and test APK hashes match their recorded source APK hashes. This proves byte identity with the supplied APK files, but the provenance does not identify the source commit or prove those APKs contain the latest branch changes.
+- The 02:08 `full` run's `instrumentation(6).log` records six successful startup readiness outcomes before a 16.7-second active-window wait ends with `com.draco.ladb` owning the active window. Its Home-browse path then reports the old `StaleObjectException` at `StartupReadiness.targetMarker` / `HomeBrowseReadiness.markerHasVisibleBounds`.
+- The 02:09 `instrumentation(7).log` contains only the initial test-start records. It is incomplete and cannot establish a pass or a final failure cause.
+
+### Corrections made in this follow-up
+
+- Retained the installed `ProfileInstallReceiver` / package-metadata check from PR #15, but removed its standalone `ACTION_SAVE_PROFILE` broadcast and result-code-12 hard gate. The preflight could only test that separate broadcast at that earlier instant; it could not prove AndroidX would discover the target process during its later collection flush.
+- Added a time-stamped target-process timeline using `ps -A` sampling during the actual BaselineProfile instrumentation, plus a live filtered AndroidX `Benchmark`, `ProfileInstaller` and `AndroidRuntime` logcat capture. These files are retained in the run directory and named in the failure diagnostic. The periodic process sample is supporting evidence, not proof of process state between samples; AndroidX's own logcat around its flush is the key correlation.
+- Kept the strict foreground check. The LADB/System UI interruption is an environment failure; no timeout was increased and no readiness requirement was weakened.
+- Kept the current `StaleNodeRetry` implementation. The current `StartupReadiness` reacquires nodes and retries stale read operations, including visible-bounds reads; `HomeBrowseReadiness` routes its target-marker bounds check through that helper. The top-level phone regression suite now invokes the focused stale-node retry test and checks this integration.
+- No playback, production UI, or app navigation code was changed.
+
+### AndroidX compatibility findings
+
+The repository pins Macrobenchmark `1.6.0-alpha02`, ProfileInstaller `1.4.1`, and UI Automator `2.4.1`. AndroidX Benchmark release notes state that 1.6.0-alpha01 fixed Baseline Profile capture for processes whose names do not use a colon pattern and fixed a virtual-file-flush issue. The 1.6.0-alpha02 release notes do not list another process-discovery correction. The app's main and flavor manifests declare no `android:process` or `isolatedProcess` components, so there is no manifest evidence of a secondary app process that would justify a speculative ProfileInstaller version change.
+
+AndroidX's collection implementation discovers the target package's running processes at the actual flush point, then signals those processes to save their ART profiles. A zero-process discovery result is distinct from a receiver's standalone response code. Therefore the observed flush failure is not proven fixed by removing PR #15's preflight gate; the new in-run process timeline and AndroidX logcat are intended to identify whether the package process is visible at the flush instant and what result the per-process save operation returns.
+
+### Verification boundary
+
+- The updated source and regression fixtures were re-fetched from the new fix branch and checked for the receiver metadata gate, absence of the premature broadcast, monitor placement around instrumentation, process/logcat artifact names, and stale-node test integration.
+- The repository shell regression suite was not executed in this session because the connected GitHub file integration can read and update source but cannot run the shell scripts. No passing test-suite result is claimed.
+- No Gradle task, APK build, CI workflow, Macrobenchmark, profile generation, LADB command, or physical-device run was started. A fresh authorized phone run is still required to determine whether AndroidX now discovers and flushes the target process. No startup-performance improvement is claimed.
+
+References: [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [AndroidX ProfileInstallBroadcast source](https://android.googlesource.com/platform/frameworks/support/+/a349cb5de77484f27bec23731f681017514e2d64/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/ProfileInstallBroadcast.kt) · [AndroidX MacrobenchmarkScope source](https://android.googlesource.com/platform/frameworks/support/+/4af516a7e6a30e7e47560dbd4b388105446d26dc/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/MacrobenchmarkScope.kt)
