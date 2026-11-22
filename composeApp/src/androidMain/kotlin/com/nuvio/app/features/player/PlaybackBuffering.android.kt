@@ -46,6 +46,21 @@ internal fun isProgressivePlaybackSource(
     playbackMediaItemFromUrl(url, responseHeaders, streamType).localConfiguration?.mimeType,
 ) == C.CONTENT_TYPE_OTHER
 
+internal fun playbackBufferedUrls(
+    sourceUrl: String,
+    sourceAudioUrl: String?,
+    responseHeaders: Map<String, String>,
+    streamType: String?,
+): Set<String> = buildSet {
+    if (isProgressivePlaybackSource(sourceUrl, responseHeaders, streamType)) {
+        add(sourceUrl)
+    }
+    sourceAudioUrl
+        ?.takeIf { it.isNotBlank() }
+        ?.takeIf { isProgressivePlaybackSource(it, emptyMap(), null) }
+        ?.let(::add)
+}
+
 internal fun PlayerSettingsUiState.buildPlaybackLoadControl(localFileSource: Boolean = false): DefaultLoadControl {
     val heapLimitBytes = PlaybackMemoryInfo.javaHeapBufferLimitMb() * MB
     val builder = DefaultLoadControl.Builder()
