@@ -263,3 +263,10 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 The app's `SubtitleOffsetRenderersFactory` now inserts its custom `SoftwareVideoRenderer` according to Media3's extension mode rather than always appending it. `EXTENSION_RENDERER_MODE_PREFER` inserts it before the existing video renderers; `ON` appends it; `OFF` omits it. This aligns the custom renderer with the same priority contract used by Media3's bundled VP9/AV1/FFmpeg video extensions. The existing capability checks remain unchanged, so the software decoder is only selected for formats it reports as handled.
 
 Context7 and the exact AndroidX Media3 1.11.1 tagged `DefaultRenderersFactory` source confirm the ordering contract. Host tests cover PREFER/ON/OFF insertion behavior but remain unexecuted. No build, CI, device playback or benchmark was run; no measured playback improvement is claimed.
+
+
+## FFmpeg compressed-sample padding safety (Cycles 160–161, 22 November 2026)
+
+The custom software video decoder now allocates each direct Media3 input buffer with FFmpeg's required 64-byte packet tail and zeroes that tail before calling `avcodec_send_packet`. This avoids a full packet copy while meeting FFmpeg 8.0's bitstream overread contract. The JNI boundary independently checks that the supplied direct buffer has at least `sampleSize + AV_INPUT_BUFFER_PADDING_SIZE` bytes of capacity and rejects invalid input before passing it to libavcodec. Host tests cover padding capacity, zeroing, and sample preservation.
+
+The repository's vendored FFmpeg headers identify libavcodec major 62 (FFmpeg 8.0). The versioned FFmpeg 8.0 documentation warns that missing padding can lead to overreads and segfaults; the Media3 1.11.1 `DecoderInputBuffer` source shows the default padding is zero unless explicitly requested. Tests and both native/Kotlin compilation remain unexecuted. No build, CI, device playback or benchmark was run.

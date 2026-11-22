@@ -1086,3 +1086,14 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - Context7 resolved AndroidX Media3 1.11.1 and documented that PREFER places extension renderers before core renderers, while ON places them after. Exa fetched the exact 1.11.1 `DefaultRenderersFactory` source and official Android Developers API reference. The same Media3 docs state that ExoPlayer uses the first renderer supporting the input format when a custom renderer is added.
 - Tests were added but not run because no build/test task was authorized. No Kotlin compilation, Gradle task, APK build, CI, device playback or benchmark was started. This is a correction to configured decoder-selection behavior, not a measured frame-rate or startup-time claim.
+
+
+### FFmpeg software-decoder input safety (Cycles 160–161, 22 November 2026)
+
+- Cycle 160: `SoftwareVideoDecoder` allocated direct `DecoderInputBuffer` instances with the default zero-byte padding. The JNI layer passed the buffer's raw address directly to FFmpeg 8.0 `avcodec_send_packet`. FFmpeg 8.0 requires `AV_INPUT_BUFFER_PADDING_SIZE` (64) additional zero bytes after every compressed input packet; the previous Media3 buffer did not reserve those bytes. The decoder now reserves the required 64-byte tail and explicitly zeroes it for every sample before the native call. It keeps the sample in its original direct buffer and avoids an extra compressed-packet copy.
+- Added host regression tests for reserved capacity, zeroed padding, unchanged sample limit/content, and rejection of insufficient capacity.
+- Cycle 161: added a JNI-side direct-buffer capacity check before FFmpeg receives the pointer. Native code rejects non-direct, negative-size, or undersized buffers instead of allowing FFmpeg to read beyond the Java buffer allocation.
+
+**Evidence and verification boundary**
+- The checked-in FFmpeg headers declare `LIBAVCODEC_VERSION_MAJOR 62` (FFmpeg 8.0). Context7 queried the versioned FFmpeg 8.0 docs; they state that packet input requires 64 additional bytes and warn that non-zero padding can cause overreads and crashes. The exact 8.0 `av_new_packet` implementation was also checked and confirms that FFmpeg's packet allocator zeroes this padding. The exact Media3 1.11.1 `DecoderInputBuffer` source confirms its default constructor uses padding size 0 and its two-argument constructor reserves the requested extra capacity.
+- Tests were added but not executed because no Gradle/test task was authorized. No C/C++ compilation, Kotlin compilation, build, CI, device playback or benchmark was started. The buffer contract correction is source-verified; runtime stability and playback impact remain unverified.

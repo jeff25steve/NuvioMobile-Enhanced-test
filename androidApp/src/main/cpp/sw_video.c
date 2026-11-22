@@ -207,7 +207,12 @@ JNIEXPORT jint JNICALL METHOD(nativeSendPacket)(JNIEnv *env, jclass clazz, jlong
                                                  jobject data, jint size, jlong time_us) {
     Decoder *d = (Decoder *) (intptr_t) handle;
     uint8_t *bytes = (*env)->GetDirectBufferAddress(env, data);
-    if (!bytes) return RESULT_ERROR;
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, data);
+    if (!bytes || size < 0 || capacity < (jlong) size + AV_INPUT_BUFFER_PADDING_SIZE) {
+        LOGW("Rejected packet buffer without FFmpeg padding (size=%d capacity=%lld)",
+             size, (long long) capacity);
+        return RESULT_ERROR;
+    }
     if (d->has_frame) {
         ff.av_frame_unref(d->frame);
         d->has_frame = 0;
