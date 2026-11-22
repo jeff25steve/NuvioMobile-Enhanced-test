@@ -962,3 +962,45 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+
+## Android download transfer-store lock scope audit (Cycle 144, 22 November 2026)
+
+A new path outside the recent playback/network investigations was traced: Android download completion and the transfer-state store.
+
+**Confirmed source-level finding:** `AndroidDownloadStore.update()` executes its caller-supplied transform while holding the store-wide `synchronized(lock)`, then persists the result with `AtomicFile` before releasing that same monitor. In `AndroidDownloadScheduler.execute()`, the direct SAF-export completion transform calls `AndroidDownloadExport.finalizePartial()` (which can make repeated synchronous `DocumentsContract.renameDocument` calls), `AndroidDownloadExport.moveSubtitles()` (filesystem directory operations), and `AndroidDownloadExport.sink(...).length()`. The staged-export completion transform also calls `moveSubtitles()` and deletes the staged file from inside the transform. These are external provider/filesystem operations, not pure state calculations.
+
+This means one download's completion I/O holds the shared transfer-store monitor and serializes unrelated transfer-state updates, including progress writes and state transitions for other downloads. The source proves the lock scope and serialization; it does **not** prove a measured UI stall or a particular user-visible delay.
+
+**Why no speculative patch was made:** moving those operations outside the monitor without a per-transfer transaction boundary could race pause/remove/generation replacement and leave a renamed SAF document or subtitle directory orphaned while the persisted transfer remains paused, removed, or stale. A safe fix needs per-transfer operation serialization plus a short atomic state/persistence section, with regression coverage for concurrent different-file updates, same-file pause/remove, generation replacement, export failure after rename, and cancellation during finalization. This remains a concrete follow-up, not an implemented fix.
+
+**UIDT API cross-check:** the Android 14 user-initiated data-transfer API explicitly permits `setPersisted()`, so the existing persisted-job setting is not an incompatibility and was left alone. Android's Task Manager Stop action terminates the app process without invoking `onStopJob()` and prevents user-visible jobs from being rescheduled; `STOP_REASON_USER` also covers other user-stop mechanisms. The existing explicit `reschedule()` branch for that stop reason was therefore not changed based on assumptions about the Task Manager path. A device-level stop-reason check is needed before altering that behavior.
+
+**Evidence and verification boundary**
+- Inspected the live `main-build-testing` implementations of `AndroidDownloadScheduler`, `AndroidDownloadStore`, `AndroidDownloadExport`, `DownloadsTransferJobService`, and the existing `AndroidDownloadStoreTest`.
+- Context7 queried the official Android Developers documentation for `JobService.onStopJob`, `JobParameters.STOP_REASON_USER`, UIDT stop behavior, `setPersisted()`, and UIDT-supported constraints.
+- Exa was attempted for independent source corroboration but the connected service returned HTTP 401 (invalid API key); no Exa result is claimed.
+- No production code or tests were changed in this audit. No Gradle task, test, compilation, build, CI, device run, or benchmark was started.
+
+## Android network error interceptor de-duplication (Cycle 145, 22 November 2026)
+
+The live target branch still had duplicate Android application-interceptor registration at both Ktor/OkHttp integration points:
+
+- `SharedOkHttpClient.base` already installs one `NetworkErrorInterceptor`.
+- `ApiHttpClient.android.kt` passes that client through Ktor's `preconfigured` property and then registered a second instance.
+- `NuvioApplication.kt` does the same for Coil's Ktor network fetcher.
+
+Ktor is pinned to 3.4.1. The exact upstream 3.4.1 `OkHttpEngine.kt` constructs its engine client from `(config.preconfigured ?: okHttpClientPrototype).newBuilder()` and applies `config.config`. The exact 3.4.1 `OkHttpConfig.kt` implements `addInterceptor()` by adding it to that builder configuration. Thus the preconfigured interceptor remains, and the extra engine registration appends a second interceptor to each resulting client. This is a duplicate invocation, not a replacement.
+
+**Changed**
+- Removed the redundant Ktor engine registration from `ApiHttpClient.android.kt`.
+- Removed the redundant Coil Ktor engine registration from `NuvioApplication.kt` and its now-unused import.
+- Kept `SharedOkHttpClient.base`, DNS, redirect behavior, retry settings, Ktor timeouts, Coil caching, fetcher strategy and all other client configuration unchanged.
+- Added `scripts/tests/test-shared-network-error-interceptor.sh` to guard the single shared registration and both preconfigured call sites.
+
+**Evidence and verification boundary**
+- Context7 resolved Ktor and returned the OkHttp configuration contract; the exact pinned 3.4.1 source was fetched through Exa because Context7 did not list 3.4.1 among its indexed versions.
+- Exa fetched the exact Ktor 3.4.1 `OkHttpEngine.kt` and `OkHttpConfig.kt` source. The former confirms the `newBuilder()` copy; the latter confirms `addInterceptor()` appends to builder configuration.
+- The new shell guard was exercised against an isolated fixture representing the pre-fix source and failed at the expected duplicate-registration assertion (RED). After removing the duplicate registrations in the fixture, it passed (GREEN). This is fixture verification, not execution against a complete repository checkout.
+- The updated production files and notes were re-fetched from GitHub for static review. The existing `NetworkErrorInterceptorTest` remains unchanged and was not executed.
+- No Gradle task, Kotlin compilation, build, CI, APK, device run, or benchmark was started.
