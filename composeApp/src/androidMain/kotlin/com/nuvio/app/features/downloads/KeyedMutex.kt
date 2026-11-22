@@ -20,6 +20,9 @@ internal class KeyedMutex {
     internal val trackedKeyCount: Int
         get() = synchronized(monitor) { entries.size }
 
+    internal fun trackedReferenceCount(key: String): Int =
+        synchronized(monitor) { entries[key]?.users ?: 0 }
+
     suspend fun <T> withLock(key: String, action: suspend () -> T): T {
         val entry = synchronized(monitor) {
             entries.getOrPut(key) { Entry() }.also { it.users++ }
