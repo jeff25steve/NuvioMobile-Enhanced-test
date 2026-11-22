@@ -43,8 +43,8 @@ for expected in \
   'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
-  "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
-  "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
+  "logcat -v time -s 'Benchmark:V' 'ProfileInstaller:V' 'AndroidRuntime:E'" \
+  "logcat -d -v time -s 'ProfileInstaller:V' 'Benchmark:V' 'AndroidRuntime:E'" \\
   'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
