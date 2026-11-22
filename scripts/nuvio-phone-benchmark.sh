@@ -2063,7 +2063,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nTarget package processes after instrumentation:\n'
     if command -v ps >/dev/null 2>&1; then
-      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target process listed.\n'
+      capture_target_process_snapshot
     else
       printf 'ps unavailable\n'
     fi
