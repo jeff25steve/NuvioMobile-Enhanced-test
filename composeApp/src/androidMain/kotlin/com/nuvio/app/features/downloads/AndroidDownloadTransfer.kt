@@ -44,7 +44,7 @@ internal suspend fun transferAndroidDownload(
             // A byte range without a representation validator can join bytes from two
             // different versions of a changing resource. Restart instead of sending an
             // unconditional Range request when the saved partial has no validator.
-            if (offset > 0L && validator == null) offset = 0L
+            if (offset > 0L && !validator.isStrongEntityTag()) offset = 0L
             var restarted = false
 
             while (true) {
@@ -57,7 +57,7 @@ internal suspend fun transferAndroidDownload(
                     header("Accept-Encoding", "identity")
                     if (offset > 0L) {
                         header("Range", "bytes=$offset-")
-                        validator?.let { header("If-Range", it) }
+                        validator?.takeIf(::isStrongEntityTag)?.let { header("If-Range", it) }
                     }
                 }.build()
                 val call = client.newCall(request)
@@ -89,8 +89,10 @@ internal suspend fun transferAndroidDownload(
                         )
                     }
                     val totalBytes = range?.completeLength ?: contentLength?.let { startingBytes + it }
-                    val responseValidator = response.header("ETag")?.takeUnless { it.startsWith("W/") }
-                        ?: response.header("Last-Modified")
+                    // If-Range requires a strong validator. Last-Modified is implicitly
+                    // weak unless its strength can be proven from Date metadata, which this
+                    // persisted transfer record does not retain.
+                    val responseValidator = response.header("ETag")?.takeIf(::isStrongEntityTag)
                     onHeaders(totalBytes, responseValidator)
                     var downloaded = startingBytes
                     var responseBytesRead = 0L
@@ -147,4 +149,9 @@ internal suspend fun transferAndroidDownload(
         activeCall.get()?.cancel()
     }
 }
-
+private fun String?.isStrongEntityTag(): Boolean =
+    this != null &&
+        length >= 2 &&
+        first() == '"' &&
+        last() == '"' &&
+        !startsWith("W/")
