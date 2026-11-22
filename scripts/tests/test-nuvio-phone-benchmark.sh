@@ -39,7 +39,7 @@ for expected in \
   'pgrep -l -f -a' \
   'ANDROIDX_PROCESS_PATTERN=' \
   'capture_androidx_process_snapshot() {' \
-  'AndroidX-equivalent process lookup: pgrep -l -f' \
+  'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
   "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
@@ -1588,7 +1588,7 @@ for expected in 'androidx.profileinstaller.ProfileInstallReceiver' 'com.nuvio.me
     exit 1
   }
 done
-grep -Fq "AndroidX-equivalent pgrep -l -f 'com\\.nuvio\\.media\\.benchmark'" "$profile_result_dir/profile-process-timeline.txt" || {
+grep -Fq "AndroidX-equivalent process lookup: pgrep -l -f 'com\\.nuvio\\.media\\.benchmark'" "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: exact AndroidX-equivalent pgrep command was not retained.' >&2
   exit 1
 }
