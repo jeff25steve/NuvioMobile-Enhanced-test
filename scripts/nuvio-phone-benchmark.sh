@@ -348,7 +348,7 @@ require_recognizable_art_profile_rules() {
       close_paren = index(method, ")")
       if (open_paren <= 1 || close_paren <= open_paren) return 0
       return_type = substr(method, close_paren + 1, 1)
-      return return_type ~ /^[BCDFIJSVZL[]$/
+      return (return_type ~ /^[BCDFIJSVZL]$/ || return_type == "[")
     }
     is_rule($0) { valid_rules++ }
     END { exit(valid_rules > 0 ? 0 : 1) }
