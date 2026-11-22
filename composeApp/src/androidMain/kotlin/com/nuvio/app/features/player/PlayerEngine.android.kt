@@ -144,26 +144,39 @@ internal class PlaybackDiagnostics {
     var attempt: Int = 0
         private set
 
-    private var firstManifestLogged = false
-    private var firstMediaLogged = false
-    private var firstManifestCompletedLogged = false
-    private var firstMediaCompletedLogged = false
+    private var firstManifestLoadTaskId: Long? = null
+    private var firstManifestCompleted = false
+    private val firstMediaLoadTaskIds = mutableMapOf<Int, Long>()
+    private val completedMediaTrackTypes = mutableSetOf<Int>()
     private var playbackHasStarted = false
     private var rebufferingAfterPlayback = false
-    private var rebufferLoadStartLogged = false
-    private var rebufferLoadCompletionLogged = false
+    private val rebufferLoadTaskIds = mutableMapOf<Int, Long>()
 
     fun beginAttempt(startedAtMs: Long) {
         attempt += 1
         prepareStartedAtMs = startedAtMs
-        firstManifestLogged = false
-        firstMediaLogged = false
-        firstManifestCompletedLogged = false
-        firstMediaCompletedLogged = false
+        firstManifestLoadTaskId = null
+        firstManifestCompleted = false
+        firstMediaLoadTaskIds.clear()
+        completedMediaTrackTypes.clear()
         playbackHasStarted = false
         rebufferingAfterPlayback = false
-        rebufferLoadStartLogged = false
-        rebufferLoadCompletionLogged = false
+        rebufferLoadTaskIds.clear()
+    }
+
+    /**
+     * LoadEventInfo.elapsedRealtimeMs is the event timestamp, not the load's start timestamp.
+     * For completion events, subtract loadDurationMs to reject callbacks for work that began
+     * before the current prepare attempt and only completed after it started.
+     */
+    fun isLoadForCurrentAttempt(loadEventElapsedRealtimeMs: Long, loadDurationMs: Long): Boolean {
+        if (
+            prepareStartedAtMs <= 0L ||
+            loadEventElapsedRealtimeMs < 0L ||
+            loadDurationMs < 0L ||
+            loadDurationMs > loadEventElapsedRealtimeMs
+        ) return false
+        return loadEventElapsedRealtimeMs - loadDurationMs >= prepareStartedAtMs
     }
 
     fun markPlaybackStarted() {
@@ -173,50 +186,52 @@ internal class PlaybackDiagnostics {
     fun markRebufferStarted() {
         if (!playbackHasStarted || rebufferingAfterPlayback) return
         rebufferingAfterPlayback = true
-        rebufferLoadStartLogged = false
-        rebufferLoadCompletionLogged = false
+        rebufferLoadTaskIds.clear()
     }
 
     fun markReady() {
         rebufferingAfterPlayback = false
     }
 
-    fun claimRebufferLoad(dataType: Int): Boolean {
-        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA || rebufferLoadStartLogged) return false
-        rebufferLoadStartLogged = true
-        return true
+    fun claimFirstLoad(dataType: Int, trackType: Int, loadTaskId: Long): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestLoadTaskId != null) false else {
+            firstManifestLoadTaskId = loadTaskId
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (trackType in firstMediaLoadTaskIds) false else {
+            firstMediaLoadTaskIds[trackType] = loadTaskId
+            true
+        }
+        else -> false
     }
 
-    fun claimRebufferLoadCompletion(dataType: Int): Boolean {
-        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA ||
-            !rebufferLoadStartLogged || rebufferLoadCompletionLogged
+    fun claimFirstCompletion(dataType: Int, trackType: Int, loadTaskId: Long): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestLoadTaskId != loadTaskId || firstManifestCompleted) false else {
+            firstManifestCompleted = true
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (
+            firstMediaLoadTaskIds[trackType] != loadTaskId ||
+            !completedMediaTrackTypes.add(trackType)
+        ) false else true
+        else -> false
+    }
+
+    fun claimRebufferLoad(dataType: Int, trackType: Int, loadTaskId: Long): Boolean {
+        if (
+            !playbackHasStarted ||
+            !rebufferingAfterPlayback ||
+            dataType != C.DATA_TYPE_MEDIA ||
+            trackType in rebufferLoadTaskIds
         ) return false
-        rebufferLoadCompletionLogged = true
+        rebufferLoadTaskIds[trackType] = loadTaskId
         return true
     }
 
-    fun claimFirstLoad(dataType: Int): Boolean = when (dataType) {
-        C.DATA_TYPE_MANIFEST -> if (firstManifestLogged) false else {
-            firstManifestLogged = true
-            true
-        }
-        C.DATA_TYPE_MEDIA -> if (firstMediaLogged) false else {
-            firstMediaLogged = true
-            true
-        }
-        else -> false
-    }
-
-    fun claimFirstCompletion(dataType: Int): Boolean = when (dataType) {
-        C.DATA_TYPE_MANIFEST -> if (firstManifestCompletedLogged) false else {
-            firstManifestCompletedLogged = true
-            true
-        }
-        C.DATA_TYPE_MEDIA -> if (firstMediaCompletedLogged) false else {
-            firstMediaCompletedLogged = true
-            true
-        }
-        else -> false
+    fun claimRebufferLoadCompletion(dataType: Int, trackType: Int, loadTaskId: Long): Boolean {
+        if (dataType != C.DATA_TYPE_MEDIA || rebufferLoadTaskIds[trackType] != loadTaskId) return false
+        rebufferLoadTaskIds.remove(trackType)
+        return true
     }
 }
 
@@ -521,15 +536,18 @@ private fun ExoPlayerSurface(
     }
     val networkBytesRead = remember(playerSourceKey) { AtomicLong(0L) }
     val networkSpeedSampler = remember(playerSourceKey) { ByteRateSampler() }
-    val dataSourceFactory = remember(
-        context,
-        sourceUrl,
-        sanitizedSourceHeaders,
-        sanitizedSourceResponseHeaders,
-        useYoutubeChunkedPlayback,
-        externalSubtitles,
-        liveStream,
-    ) {
+    val dataSourceFactoryKey = PlaybackDataSourceFactoryKey(
+        sourceUrl = sourceUrl,
+        sourceAudioUrl = sourceAudioUrl,
+        requestHeaders = sanitizedSourceHeaders,
+        responseHeaders = sanitizedSourceResponseHeaders,
+        streamType = normalizedStreamType,
+        useYoutubeChunkedPlayback = useYoutubeChunkedPlayback,
+        externalSubtitles = externalSubtitles,
+        liveStream = liveStream,
+        networkBytesRead = networkBytesRead,
+    )
+    val dataSourceFactory = remember(context, dataSourceFactoryKey) {
         val loopbackSource = isLoopbackPlaybackSource(sourceUrl)
         PlatformPlaybackDataSourceFactory.create(
             context = context,
@@ -550,14 +568,15 @@ private fun ExoPlayerSurface(
             settings = playerSettings,
             // A live channel never ends and never repeats: the VOD disk cache would replay an old
             // session's bytes and then ask the server for a byte range, and read-ahead only adds delay.
-            bufferedUrls = if (liveStream || useYoutubeChunkedPlayback || isLoopbackPlaybackSource(sourceUrl)) {
+            bufferedUrls = if (liveStream || useYoutubeChunkedPlayback || loopbackSource) {
                 emptySet()
             } else {
-                listOfNotNull(sourceUrl, sourceAudioUrl?.takeIf { it.isNotBlank() })
-                    .filter {
-                        isProgressivePlaybackSource(it, sanitizedSourceResponseHeaders, normalizedStreamType)
-                    }
-                    .toSet()
+                playbackBufferedUrls(
+                    sourceUrl = sourceUrl,
+                    sourceAudioUrl = sourceAudioUrl,
+                    responseHeaders = sanitizedSourceResponseHeaders,
+                    streamType = normalizedStreamType,
+                )
             },
         ).countingNetworkBytes(networkBytesRead)
     }
@@ -1423,11 +1442,25 @@ private fun ExoPlayerSurface(
                 mediaLoadData: MediaLoadData,
                 retryCount: Int,
             ) {
-                if (retryCount != 0) return
+                if (
+                    retryCount != 0 ||
+                    !playbackDiagnostics.isLoadForCurrentAttempt(
+                        loadEventInfo.elapsedRealtimeMs,
+                        loadEventInfo.loadDurationMs,
+                    )
+                ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
                 if (elapsedMs < 0L) return
-                val isFirstLoad = playbackDiagnostics.claimFirstLoad(mediaLoadData.dataType)
-                val isRebufferLoad = playbackDiagnostics.claimRebufferLoad(mediaLoadData.dataType)
+                val isFirstLoad = playbackDiagnostics.claimFirstLoad(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
+                val isRebufferLoad = playbackDiagnostics.claimRebufferLoad(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
                 if (!isFirstLoad && !isRebufferLoad) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
@@ -1444,10 +1477,24 @@ private fun ExoPlayerSurface(
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
             ) {
+                if (
+                    !playbackDiagnostics.isLoadForCurrentAttempt(
+                        loadEventInfo.elapsedRealtimeMs,
+                        loadEventInfo.loadDurationMs,
+                    )
+                ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
                 if (elapsedMs < 0L) return
-                val isFirstCompletion = playbackDiagnostics.claimFirstCompletion(mediaLoadData.dataType)
-                val isRebufferCompletion = playbackDiagnostics.claimRebufferLoadCompletion(mediaLoadData.dataType)
+                val isFirstCompletion = playbackDiagnostics.claimFirstCompletion(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
+                val isRebufferCompletion = playbackDiagnostics.claimRebufferLoadCompletion(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
                 if (!isFirstCompletion && !isRebufferCompletion) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
