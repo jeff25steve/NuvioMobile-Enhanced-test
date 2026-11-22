@@ -3320,7 +3320,7 @@ References: [AndroidX Benchmark release notes](https://developer.android.com/jet
 
 ### What the exception actually proves
 
-The exact `Process com.nuvio.media.benchmark never flushed profiles in any process` message is thrown by `CompilationMode.Partial.compileImpl` when its `hasFlushedArtProfiles` check remains false. In the AndroidX profile-flush implementation, that state is set only after `ProfileInstallBroadcast.saveProfilesForAllProcesses(packageName)` discovers at least one running target process and completes the save path. The process lookup calls `Shell.getRunningPidsAndProcessesForPackage`, which uses `pgrep -l -f` with the package dots escaped, then accepts only the exact package process name or its `:<suffix>` child processes. A zero-process result therefore leaves the flush flag false and produces this exact check failure.
+The exact `Process com.nuvio.media.benchmark never flushed profiles in any process` message is thrown by `CompilationMode.Partial.compileImpl` when its `hasFlushedArtProfiles` check remains false. In the AndroidX profile-flush implementation, that state is set only after `ProfileInstallBroadcast.saveProfilesForAllProcesses(packageName)` discovers at least one running target process and completes the save path. The process lookup calls `Shell.getRunningPidsAndProcessesForPackage`, which delegates to `Shell.pgrepLF` with escaped package dots. AndroidX runs `pgrep -l -f <pattern>` on API 23–35 and adds `-a` on API 36+ (`pgrep -l -f -a <pattern>`) because newer Toybox requires `-a` to print the full command line. It parses each result into PID and process name, accepting the exact package, `:<suffix>` child processes, and dotted-prefix process names only when no separately installed package owns that name. A zero-process result therefore leaves the flush flag false and produces this exact check failure.
 
 This is materially different from a receiver failure. If a process is discovered but the `SAVE_PROFILE` broadcast is not received, AndroidX has a separate error path describing the missing/old ProfileInstaller receiver (or a rooted fallback). The observed `never flushed profiles` exception is not evidence that the receiver returned a bad result code. PR #15's standalone result-12 preflight could succeed while the later AndroidX process lookup still returns zero.
 
@@ -3350,3 +3350,23 @@ PR #16 was closed without merging by the repository's automation. Its closing co
 Do not change production app code or weaken readiness. First capture the exact `pgrep -l -f` result that AndroidX relies on during the BaselineProfile flush, alongside `ps -A`, the active foreground package, and AndroidX/ProfileInstaller logcat. If `ps` shows the target but pgrep/parser output does not, investigate process-name formatting and AndroidX matching. If both show no target, investigate who/what terminated the app between the final readiness event and the five-second-later flush. If pgrep shows the target but AndroidX still reports zero, compare the exact command pattern, output parsing, and test APK version against the pinned AndroidX implementation. No root cause beyond the zero-process condition is claimed until that evidence is captured.
 
 Additional references: [AndroidX multi-process profile flush implementation](https://github.com/androidx/androidx/commit/de16b7c8489100703778a0028fd3ee89dc0efaef) · [AndroidX ProfileInstaller 1.4.1 release notes](https://developer.android.com/jetpack/androidx/releases/profileinstaller) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
+
+
+### 22 November 2026 — API-aware AndroidX process-discovery parity
+
+A further source check found an API-level detail that the initial \`ps -A\` diagnostic did not model:
+
+- AndroidX \`Shell.pgrepLF\` uses \`pgrep -l -f <escaped-package-pattern>\` on API 23–35.
+- On API 36 and later it adds \`-a\`: \`pgrep -l -f -a <escaped-package-pattern>\`. AndroidX commit [\`98d9090\`](https://github.com/androidx/androidx/commit/98d9090a01e04dc730484f09cd073e4d82f73d35) records the Toybox change: \`-a\` is required to print the full command line.
+- AndroidX parses each non-empty line into PID and process name. Its package filter accepts the exact package name, colon child processes, and dotted-prefix names only when a separate installed package does not own that name.
+
+The phone runner's live process timeline now records, at the same approximately one-second samples:
+1. The independent \`ps -A\` process-name snapshot.
+2. The exact API-aware AndroidX-equivalent \`pgrep\` command, raw output and exit status.
+3. Parsed process-name classifications: accepted exact/colon child process, accepted uninstalled dotted child candidate, rejected separately installed dotted subpackage, or rejected unrelated process.
+
+The post-instrumentation failure snapshot also captures the AndroidX-equivalent lookup. This distinguishes a real zero-match result (pgrep exit status 1) from a pgrep execution error, and allows direct comparison when \`ps -A\` lists the app but AndroidX's lookup does not.
+
+Regression fixtures now cover API 33's command form, API 36+'s \`-a\` form, successful process parsing, and a zero-match result while the independent \`ps\` fixture still lists the app. The fixtures were added but **not executed** in this session: the GitHub source integration cannot run shell scripts, and no local checkout was available. No build, CI, instrumentation, profile collection, LADB command or physical-device run was started.
+
+This is a diagnostic-parity improvement, not a confirmed production root-cause fix. The next authorized device run must establish the actual API-aware pgrep result at the collection window and correlate it with AndroidX \`Saving profiles for process ...\` log entries. If the process is discovered but no save log follows, investigate the broadcast/receiver path; if pgrep returns no process, investigate the process lifecycle between the final readiness event and the flush.
