@@ -99,6 +99,44 @@ class AndroidDownloadStoreTest {
     }
 
     @Test
+    fun concurrentBeginsAllocateDistinctJobIds() {
+        val directory = Files.createTempDirectory("nuvio-download-store-job-ids-test").toFile()
+        try {
+            val store = AndroidDownloadStore(directory)
+            val start = CountDownLatch(1)
+            val completed = CountDownLatch(2)
+            val results = ConcurrentLinkedQueue<AndroidDownloadTransfer>()
+            val failures = ConcurrentLinkedQueue<Throwable>()
+
+            fun beginInThread(id: String) = Thread {
+                try {
+                    start.await()
+                    results.add(store.begin(downloadItem(id = id).copy(fileName = "$id.mkv")))
+                } catch (error: Throwable) {
+                    failures.add(error)
+                } finally {
+                    completed.countDown()
+                }
+            }
+
+            val first = beginInThread("first")
+            val second = beginInThread("second")
+            first.start()
+            second.start()
+            start.countDown()
+
+            assertTrue(completed.await(3, TimeUnit.SECONDS))
+            first.join(2_000)
+            second.join(2_000)
+            assertTrue(failures.isEmpty(), failures.joinToString { it.message.orEmpty() })
+            assertEquals(2, results.map { it.jobId }.toSet().size)
+            assertEquals(2, store.transfers.value.size)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun updatesForTheSameFileRemainSerialized() {
         val directory = Files.createTempDirectory("nuvio-download-store-same-file-test").toFile()
         try {
