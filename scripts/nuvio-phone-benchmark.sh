@@ -2262,7 +2262,10 @@ run_instrumentation() {
   if [ "$result" -ne 0 ] || grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
     capture_profile_flush_diagnostics
     cat "$RUN_DIR/instrumentation.log"
-    fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt, profile-installer-receiver.txt, profile-process-timeline.txt, profile-collection-logcat.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption, missing target-process discovery and an ART profile-save failure."
+    if [ "$rule" = BaselineProfile ]; then
+      fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt, profile-installer-receiver.txt, profile-process-timeline.txt, profile-collection-logcat.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption, missing target-process discovery and an ART profile-save failure."
+    fi
+    fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure."
   fi
   cat "$RUN_DIR/instrumentation.log"
   case "$rule" in
