@@ -184,12 +184,12 @@ internal class AndroidDownloadScheduler(val context: Context) {
         return store.get(fileName)?.takeIf { it.generation == generation }
     }
 
-    fun remove(fileName: String) = remove(fileName, expectedGeneration = null)
+    fun remove(fileName: String) = removeIfGenerationMatches(fileName, expectedGeneration = null)
 
     fun remove(fileName: String, generation: String) =
-        remove(fileName, expectedGeneration = generation)
+        removeIfGenerationMatches(fileName, expectedGeneration = generation)
 
-    private fun remove(fileName: String, expectedGeneration: String?) {
+    private fun removeIfGenerationMatches(fileName: String, expectedGeneration: String?) {
         val transfer = AndroidDownloadSchedulerLifecycleLock.withLock {
             val current = store.get(fileName) ?: return@withLock null
             if (expectedGeneration != null && current.generation != expectedGeneration) {
