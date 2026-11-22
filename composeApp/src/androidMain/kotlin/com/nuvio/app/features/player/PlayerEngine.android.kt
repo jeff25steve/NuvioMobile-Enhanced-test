@@ -145,6 +145,10 @@ internal class PlaybackDiagnostics {
     private var firstMediaLogged = false
     private var firstManifestCompletedLogged = false
     private var firstMediaCompletedLogged = false
+    private var playbackHasStarted = false
+    private var rebufferingAfterPlayback = false
+    private var rebufferLoadStartLogged = false
+    private var rebufferLoadCompletionLogged = false
 
     fun beginAttempt(startedAtMs: Long) {
         attempt += 1
@@ -153,6 +157,39 @@ internal class PlaybackDiagnostics {
         firstMediaLogged = false
         firstManifestCompletedLogged = false
         firstMediaCompletedLogged = false
+        playbackHasStarted = false
+        rebufferingAfterPlayback = false
+        rebufferLoadStartLogged = false
+        rebufferLoadCompletionLogged = false
+    }
+
+    fun markPlaybackStarted() {
+        playbackHasStarted = true
+    }
+
+    fun markRebufferStarted() {
+        if (!playbackHasStarted || rebufferingAfterPlayback) return
+        rebufferingAfterPlayback = true
+        rebufferLoadStartLogged = false
+        rebufferLoadCompletionLogged = false
+    }
+
+    fun markReady() {
+        rebufferingAfterPlayback = false
+    }
+
+    fun claimRebufferLoad(dataType: Int): Boolean {
+        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA || rebufferLoadStartLogged) return false
+        rebufferLoadStartLogged = true
+        return true
+    }
+
+    fun claimRebufferLoadCompletion(dataType: Int): Boolean {
+        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA ||
+            !rebufferLoadStartLogged || rebufferLoadCompletionLogged
+        ) return false
+        rebufferLoadCompletionLogged = true
+        return true
     }
 
     fun claimFirstLoad(dataType: Int): Boolean = when (dataType) {
@@ -1209,6 +1246,8 @@ private fun ExoPlayerSurface(
                 }
                 Log.d(TAG, "onPlaybackStateChanged: $stateName")
                 InAppLogger.debug("ExoPlayer/Android", "state=$stateName playWhenReady=${exoPlayer.playWhenReady}")
+                if (playbackState == Player.STATE_BUFFERING) playbackDiagnostics.markRebufferStarted()
+                if (playbackState == Player.STATE_READY) playbackDiagnostics.markReady()
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "state=$stateName attempt=${playbackDiagnostics.attempt} " +
@@ -1242,6 +1281,7 @@ private fun ExoPlayerSurface(
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 InAppLogger.debug("ExoPlayer/Android", "isPlaying=$isPlaying")
+                if (isPlaying) playbackDiagnostics.markPlaybackStarted()
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "isPlaying=$isPlaying attempt=${playbackDiagnostics.attempt} " +
@@ -1382,10 +1422,13 @@ private fun ExoPlayerSurface(
             ) {
                 if (retryCount != 0) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
-                if (elapsedMs < 0L || !playbackDiagnostics.claimFirstLoad(mediaLoadData.dataType)) return
+                if (elapsedMs < 0L) return
+                val isFirstLoad = playbackDiagnostics.claimFirstLoad(mediaLoadData.dataType)
+                val isRebufferLoad = playbackDiagnostics.claimRebufferLoad(mediaLoadData.dataType)
+                if (!isFirstLoad && !isRebufferLoad) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
-                    "loadStart kind=${loadKind(mediaLoadData.dataType)} " +
+                    "loadStart kind=${loadKind(mediaLoadData.dataType)} phase=${if (isRebufferLoad) "rebuffer" else "initial"} " +
                         "attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=$elapsedMs " +
                         "trackType=${mediaLoadData.trackType} " +
@@ -1399,10 +1442,13 @@ private fun ExoPlayerSurface(
                 mediaLoadData: MediaLoadData,
             ) {
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
-                if (elapsedMs < 0L || !playbackDiagnostics.claimFirstCompletion(mediaLoadData.dataType)) return
+                if (elapsedMs < 0L) return
+                val isFirstCompletion = playbackDiagnostics.claimFirstCompletion(mediaLoadData.dataType)
+                val isRebufferCompletion = playbackDiagnostics.claimRebufferLoadCompletion(mediaLoadData.dataType)
+                if (!isFirstCompletion && !isRebufferCompletion) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
-                    "loadComplete kind=${loadKind(mediaLoadData.dataType)} " +
+                    "loadComplete kind=${loadKind(mediaLoadData.dataType)} phase=${if (isRebufferCompletion) "rebuffer" else "initial"} " +
                         "attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=$elapsedMs " +
                         "durationMs=${loadEventInfo.loadDurationMs} " +
