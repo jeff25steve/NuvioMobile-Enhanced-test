@@ -962,3 +962,26 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## Android API and image networking — reuse the shared network-error interceptor (Cycle 96, 22 November 2026)
+
+The Android shared OkHttp client already installs `NetworkErrorInterceptor` alongside `NuvioDns`. Both Ktor clients supplied that preconfigured client and then registered a second `NetworkErrorInterceptor` in their engine configuration:
+
+- `ApiHttpClient.android.kt` for API requests.
+- `NuvioApplication.kt` for Coil's Ktor network fetcher.
+
+Ktor 3.4.1's OkHttp engine implementation constructs its client from `(config.preconfigured ?: prototype).newBuilder()` and applies the engine configuration to that builder. Its `OkHttpConfig.addInterceptor` appends to the existing application-interceptor list. Therefore the additional registrations were not replacing the interceptor already on `SharedOkHttpClient.base`; they resulted in two invocations of the same stateless wrapper on each request.
+
+Changed:
+- Removed the redundant API-client registration. The API client still inherits `NetworkErrorInterceptor` and `NuvioDns` from the shared client.
+- Removed the redundant Coil image-network registration for the same reason.
+- Kept the shared client as the single owner of this cross-cutting transport behaviour. No timeout, redirect, retry, DNS, Coil fetcher, cache, authentication or UI configuration was changed.
+
+This removes one redundant application-interceptor invocation from each API and Coil network request. It is a structural reduction only; no latency or throughput improvement is claimed without measurement.
+
+### Evidence and verification boundary
+
+- Ktor 3.4.1 source: `OkHttpEngine.createOkHttpClient` calls `newBuilder()` on the preconfigured client before applying `config.config`; `OkHttpConfig.addInterceptor` delegates to `Builder.addInterceptor`. Source: [Ktor 3.4.1 OkHttpEngine.kt](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-okhttp/jvm/src/io/ktor/client/engine/okhttp/OkHttpEngine.kt) and [OkHttpConfig.kt](https://github.com/ktorio/ktor/blob/3.4.1/ktor-client/ktor-client-okhttp/jvm/src/io/ktor/client/engine/okhttp/OkHttpConfig.kt).
+- Square's OkHttp interceptor documentation describes application interceptors as an ordered chain and confirms each registered application interceptor participates once per call: [Interceptors](https://lysine.dev/okhttp/features/interceptors/).
+- The existing `NetworkErrorInterceptorTest` continues to exercise the shared client's exception-unwrapping behaviour. No new test was executed in this pass.
+- The two production edits and this note were committed to the isolated branch and then re-fetched for static review. No Gradle task, Kotlin compilation, test suite, build, CI, APK, device run, benchmark or profile generation was started, in accordance with the no-build/no-CI instruction. Runtime verification remains pending authorisation.
