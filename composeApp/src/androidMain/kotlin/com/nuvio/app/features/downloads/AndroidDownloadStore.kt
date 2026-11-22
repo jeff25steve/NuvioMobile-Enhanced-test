@@ -68,7 +68,20 @@ internal class AndroidDownloadStore(private val directory: File) {
         transform(current).also(::save)
     }
 
-    fun remove(fileName: String) = synchronized(lock) {
+    fun remove(fileName: String): AndroidDownloadTransfer? = synchronized(lock) {
+        val current = get(fileName) ?: return@synchronized null
+        removeCurrent(fileName)
+        current
+    }
+
+    fun remove(fileName: String, generation: String): AndroidDownloadTransfer? = synchronized(lock) {
+        val current = get(fileName)?.takeIf { it.generation == generation }
+            ?: return@synchronized null
+        removeCurrent(fileName)
+        current
+    }
+
+    private fun removeCurrent(fileName: String) {
         AtomicFile(recordFile(fileName)).delete()
         stateFlow.value = stateFlow.value - fileName
     }
