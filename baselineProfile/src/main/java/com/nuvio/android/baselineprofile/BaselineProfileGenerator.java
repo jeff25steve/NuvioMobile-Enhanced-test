@@ -49,7 +49,7 @@ public final class BaselineProfileGenerator {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startup");
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startup", scope.getIteration());
                     return Unit.INSTANCE;
                 }
         );
@@ -68,7 +68,7 @@ public final class BaselineProfileGenerator {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse");
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse", scope.getIteration());
                     HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_home_scroll",
