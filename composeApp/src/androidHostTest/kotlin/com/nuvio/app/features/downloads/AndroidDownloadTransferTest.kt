@@ -26,6 +26,37 @@ class AndroidDownloadTransferTest {
     @get:Rule val temporary = TemporaryFolder()
 
     @Test
+    fun partialFileWithoutValidatorRestartsInsteadOfRequestingAnUnsafeRange(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+                override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse =
+                    if (request.getHeader("Range") != null) {
+                        MockResponse()
+                            .setResponseCode(206)
+                            .setHeader("Content-Range", "bytes 10-15/16")
+                            .setBody("-suffix")
+                    } else {
+                        MockResponse().setBody("new representation")
+                    }
+            }
+            val partial = File(temporary.newFolder(), "video.mkv.part").apply {
+                writeText("old prefix")
+            }
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(partial),
+                validator = null,
+                onHeaders = { _, _ -> },
+                onProgress = { _, _ -> },
+            )
+
+            assertNull(server.takeRequest().getHeader("Range"))
+            assertEquals("new representation", partial.readText())
+        }
+    }
+
+    @Test
     fun resumesPartialFileWithRangeAndValidator(): Unit = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 5-10/11")
