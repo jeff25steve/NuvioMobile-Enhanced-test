@@ -429,10 +429,23 @@ jobs:
           benchmark build, and measures startup:
           sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh run full
 
+          IMPORTANT — FOREGROUND WHILE THE COMMAND RUNS
+          Immediately after submitting either run command, leave/background LADB
+          (for example, press Home). Do not reopen LADB, run other shell commands,
+          or interact with the phone until instrumentation finishes and returns.
+          The benchmark must bring Nuvio to the foreground; leaving LADB visible
+          can make Android report com.draco.ladb as the active window and invalidate
+          the readiness check. The runner will stop rather than relaunch over or
+          accept a shell-owned foreground window.
+
           PLAY STORE:
           sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh install-profile playstore
           Confirm Nuvio remains signed in on the normal Home screen.
           sh /sdcard/Download/NuvioBenchmark-Fixed/nuvio-phone-benchmark.sh run playstore
+
+          Apply the same foreground rule: immediately background LADB after
+          submitting the command and do not return to it or interact with the
+          phone until instrumentation finishes.
 
           The test APK is self-instrumenting: Android correctly reports its
           instrumentation target as com.nuvio.android.baselineprofile. The runner
