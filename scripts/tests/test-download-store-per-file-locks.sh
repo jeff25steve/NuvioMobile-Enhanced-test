@@ -47,6 +47,10 @@ grep -Fq 'updatesForDifferentFilesDoNotBlockEachOther' "$TEST" || {
   echo "FAIL: missing cross-file concurrency regression test." >&2
   exit 1
 }
+grep -Fq 'concurrentBeginsAllocateDistinctJobIds' "$TEST" || {
+  echo "FAIL: missing concurrent job ID allocation regression test." >&2
+  exit 1
+}
 grep -Fq 'updatesForTheSameFileRemainSerialized' "$TEST" || {
   echo "FAIL: missing same-file serialization regression test." >&2
   exit 1
