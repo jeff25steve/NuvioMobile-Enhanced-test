@@ -3381,7 +3381,7 @@ This is a diagnostic-parity improvement, not a confirmed production root-cause f
 
 The phone runner previously required each generated Startup and Home-browse profile to be present, non-empty and non-whitespace. That allowed an arbitrary non-empty text file to pass the collection gate even though it did not contain recognizable ART profile rules. The runner now performs a conservative HRF structure check for at least one rule in each artifact:
 
-- Class rules must begin with a DEX class descriptor (including array-of-class descriptors).
+- Class rules must begin with a DEX class descriptor, including object-array and primitive-array descriptors.
 - Method rules must contain a DEX class descriptor, optional H / S / P method flags, a method separator and a recognizable method signature/return-type marker. The ART ->* all-methods form is also accepted.
 - Blank lines, comments and ART annotation prefixes are allowed.
 - This is intentionally a sanity check only. It does not resolve descriptors or method names against the app DEX files, validate every line, or replace profman parsing. It prevents obviously malformed/non-profile text from being treated as a successful collection artifact.
