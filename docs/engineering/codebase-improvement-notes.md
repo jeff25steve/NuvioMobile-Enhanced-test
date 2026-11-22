@@ -974,7 +974,7 @@ Ktor 3.4.1's OkHttp engine implementation constructs its client from `(config.pr
 
 Changed:
 - Removed the redundant API-client registration. The API client still inherits `NetworkErrorInterceptor` and `NuvioDns` from the shared client.
-- Removed the redundant Coil image-network registration for the same reason.
+- Removed the redundant Coil image-network registration for the same reason and dropped its now-unused import.
 - Kept the shared client as the single owner of this cross-cutting transport behaviour. No timeout, redirect, retry, DNS, Coil fetcher, cache, authentication or UI configuration was changed.
 
 This removes one redundant application-interceptor invocation from each API and Coil network request. It is a structural reduction only; no latency or throughput improvement is claimed without measurement.
