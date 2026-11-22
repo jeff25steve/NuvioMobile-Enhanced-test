@@ -55,15 +55,22 @@ final class StartupReadiness {
     }
 
     static UiObject2 targetMarker(UiDevice device, String marker) {
-        UiWindow activeWindow = device.findWindow(By.Window.active(true));
-        if (activeWindow == null || !TARGET_APP_PACKAGE.equals(activeWindow.getPackageName())) {
-            return null;
-        }
-        UiObject2 object = activeWindow.findObject(composeTagSelector(marker));
-        if (object == null || !TARGET_APP_PACKAGE.equals(object.getApplicationPackage())) {
-            return null;
-        }
-        return object;
+        // UiObject2 is a snapshot of an accessibility node. Compose recomposition and
+        // LazyList movement can invalidate it between lookup and package verification.
+        // Reacquire the active window and marker on each bounded retry; never reuse a stale node.
+        return StaleNodeRetry.run(() -> {
+            UiWindow activeWindow = device.findWindow(By.Window.active(true));
+            if (activeWindow == null
+                    || !TARGET_APP_PACKAGE.equals(activeWindow.getPackageName())) {
+                return null;
+            }
+            UiObject2 object = activeWindow.findObject(composeTagSelector(marker));
+            if (object == null
+                    || !TARGET_APP_PACKAGE.equals(object.getApplicationPackage())) {
+                return null;
+            }
+            return object;
+        });
     }
 
     static boolean markerVisible(UiDevice device, String marker) {
