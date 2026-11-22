@@ -2063,7 +2063,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nTarget package processes after instrumentation:\n'
     if command -v ps >/dev/null 2>&1; then
-      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target process listed.\n'
+      capture_target_process_snapshot
     else
       printf 'ps unavailable\n'
     fi
@@ -2094,21 +2094,101 @@ capture_profile_flush_diagnostics() {
 }
 
 verify_profile_installer_receiver() {
-  # Macrobenchmark calls this receiver by its exact class name to flush ART
-  # profiles. Check the installed manifest before starting the long capture;
-  # source dependency declarations alone cannot prove a merged APK contains it.
+  # Verify the installed merged-manifest/package metadata exposes the receiver
+  # that AndroidX addresses during its own per-process collection flush.
+  # A standalone SAVE_PROFILE broadcast here is not a valid substitute for
+  # observing AndroidX's later process discovery and flush.
   receiver="androidx.profileinstaller.ProfileInstallReceiver"
-  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>/dev/null | grep -F "$receiver" || true)"
-  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check merged manifest/R8 output and rebuild the matching APK pair."
+  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>&1 | grep -C 2 -F "$receiver" || true)"
+  {
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Expected receiver: %s\n' "$receiver"
+    printf 'Installed package metadata evidence:\n'
+    if [ -n "$receiver_state" ]; then
+      printf '%s\n' "$receiver_state"
+    else
+      printf 'Receiver not present in installed package metadata.\n'
+    fi
+  } > "$RUN_DIR/profile-installer-receiver.txt"
+  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
+}
 
-  # Exercise the documented SAVE_PROFILE command while Nuvio is already
-  # launched. AndroidX expects result 12 (RESULT_SAVE_PROFILE_SIGNALLED).
-  # The explicit component avoids intent-filter/implicit-broadcast ambiguity.
-  broadcast_output="$(am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE "$APP_PACKAGE/$receiver" 2>&1)" ||
-    fail "Could not issue the ProfileInstaller SAVE_PROFILE preflight broadcast."
-  printf '%s\n' "$broadcast_output" > "$RUN_DIR/profile-installer-preflight.txt"
-  printf '%s\n' "$broadcast_output" | grep -Eq 'result=12([[:space:]]|$)' ||
-    fail "ProfileInstaller SAVE_PROFILE preflight did not return result=12. See $RUN_DIR/profile-installer-preflight.txt; do not start BaselineProfileRule until the installed receiver/dex is corrected."
+capture_target_process_snapshot() {
+  # Match the process-name column, not the grep/awk command line itself.
+  ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
+    $NF == package || index($NF, package ":") == 1 {
+      print
+      found = 1
+    }
+    END {
+      if (!found) print "No target package process listed in this snapshot."
+    }
+  '
+}
+
+start_profile_collection_diagnostics() {
+  PROFILE_PROCESS_MONITOR_PID=""
+  PROFILE_LOGCAT_MONITOR_PID=""
+  process_timeline="$RUN_DIR/profile-process-timeline.txt"
+  logcat_timeline="$RUN_DIR/profile-collection-logcat.txt"
+
+  {
+    printf 'Live target-process samples during BaselineProfile instrumentation\n'
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Sampling interval: approximately 1 second\n'
+    printf 'A missing sample is not proof that no process existed between samples.\n'
+  } > "$process_timeline"
+
+  if command -v ps >/dev/null 2>&1; then
+    {
+      printf 'Initial process snapshot immediately before instrumentation: '
+      date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+      capture_target_process_snapshot
+    } >> "$process_timeline" 2>&1
+    (
+      while :; do
+        printf '\nSample: '
+        date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+        capture_target_process_snapshot
+        sleep 1
+      done
+    ) >> "$process_timeline" 2>&1 &
+    PROFILE_PROCESS_MONITOR_PID=$!
+  else
+    printf 'ps unavailable; process sampling was not started.\n' >> "$process_timeline"
+  fi
+
+  if command -v logcat >/dev/null 2>&1; then
+    logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
+      >> "$logcat_timeline" 2>&1 &
+    PROFILE_LOGCAT_MONITOR_PID=$!
+  else
+    printf 'logcat unavailable; AndroidX live log capture was not started.\n' > "$logcat_timeline"
+  fi
+}
+
+stop_profile_collection_diagnostics() {
+  if [ -n "${PROFILE_PROCESS_MONITOR_PID:-}" ]; then
+    kill "$PROFILE_PROCESS_MONITOR_PID" 2>/dev/null || true
+    wait "$PROFILE_PROCESS_MONITOR_PID" 2>/dev/null || true
+    PROFILE_PROCESS_MONITOR_PID=""
+  fi
+  if [ -n "${PROFILE_LOGCAT_MONITOR_PID:-}" ]; then
+    kill "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
+    wait "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
+    PROFILE_LOGCAT_MONITOR_PID=""
+  fi
+  if command -v logcat >/dev/null 2>&1; then
+    printf '\nPost-run AndroidX logcat snapshot (may repeat live entries):\n' >> "$RUN_DIR/profile-collection-logcat.txt"
+    logcat -d -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
+      >> "$RUN_DIR/profile-collection-logcat.txt" 2>&1 || true
+  fi
+
+  {
+    printf '\nFinal process snapshot after instrumentation: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    capture_target_process_snapshot
+  } >> "$RUN_DIR/profile-process-timeline.txt" 2>&1
 }
 
 reject_pending_wifi_debug_confirmation() {
@@ -2142,6 +2222,7 @@ run_instrumentation() {
   write_run_provenance
   if [ "$rule" = BaselineProfile ]; then
     verify_profile_installer_receiver
+    start_profile_collection_diagnostics
   fi
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   printf 'Do not reopen LADB or run shell commands until instrumentation finishes. A foreground LADB/System UI window can invalidate the app-readiness check or interrupt profile collection.\n'
@@ -2166,6 +2247,9 @@ run_instrumentation() {
     -e class "$class_name" \
     "$INSTRUMENTATION" > "$RUN_DIR/instrumentation.log" 2>&1
   result=$?
+  if [ "$rule" = BaselineProfile ]; then
+    stop_profile_collection_diagnostics
+  fi
   set -e
   capture_foreground_state after
   if [ "$rule" = macrobenchmark ]; then
@@ -2178,7 +2262,7 @@ run_instrumentation() {
   if [ "$result" -ne 0 ] || grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
     capture_profile_flush_diagnostics
     cat "$RUN_DIR/instrumentation.log"
-    fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure."
+    fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt, profile-installer-receiver.txt, profile-process-timeline.txt, profile-collection-logcat.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption, missing target-process discovery and an ART profile-save failure."
   fi
   cat "$RUN_DIR/instrumentation.log"
   case "$rule" in
@@ -2187,6 +2271,9 @@ run_instrumentation() {
       require_non_empty_startup_profile
       require_non_empty_home_browse_profile
       write_profile_audit_summary
+      printf 'Installed receiver evidence -> %s\n' "$RUN_DIR/profile-installer-receiver.txt" >> "$RUN_DIR/copied-files.txt"
+      printf 'Live target-process timeline -> %s\n' "$RUN_DIR/profile-process-timeline.txt" >> "$RUN_DIR/copied-files.txt"
+      printf 'Live AndroidX/ProfileInstaller logcat -> %s\n' "$RUN_DIR/profile-collection-logcat.txt" >> "$RUN_DIR/copied-files.txt"
       ;;
     macrobenchmark)
       copy_recent_outputs benchmark
