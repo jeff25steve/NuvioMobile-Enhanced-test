@@ -962,3 +962,27 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+
+
+## Android animated-image policy parity audit (Cycle 144, 22 November 2026)
+
+Audited the shared `NuvioAsyncImage` contract against both platform implementations and the repository-pinned Coil version.
+
+**Confirmed implementation mismatch**
+- The common `NuvioAsyncImage` API exposes `animateIfPossible` with a default of `false`.
+- The iOS implementation branches on that value: when false, it uses the static-image fallback path; when true and the URL looks animated, it uses the bounded animated-frame path.
+- The Android implementation accepts `animateIfPossible` but never reads it. It always delegates to Coil `AsyncImage`.
+- Android's process-wide `NuvioApplication.newImageLoader()` unconditionally registers `AnimatedImageDecoder.Factory()` on API 28+ and `GifDecoder.Factory()` on older API levels. The pinned `coil-gif` 3.6.3 module automatically detects GIFs from their file headers, and its animated decoder also supports animated WebP (and animated HEIF on supported API levels).
+- Consequently, the Android call path does not enforce the shared opt-in flag: animated formats can be decoded as animations even when a caller passes `animateIfPossible = false`. This differs from the explicit iOS policy and can cause unnecessary frame decoding for static-preview use cases.
+
+**Why no production change was made in this cycle**
+- Coil 3.6.3 supports a request-specific `decoderFactory`, so the setting can be enforced without disabling the network fetcher globally. However, selecting a safe static decoder is format- and API-sensitive: Android's `BitmapFactoryDecoder` does not establish a supported static-frame path for every animated format (notably GIF on all supported API levels).
+- Disabling Coil's service-loader registration globally is not a safe shortcut here: the app relies on its shared loader's custom network fetcher, SVG decoder, poster interceptors and shared cache behavior. A second loader would also introduce cache/lifecycle duplication.
+- A correct fix needs an explicit static-frame decoder policy for GIF/WebP/HEIF across minSdk 24 through current Android, while preserving the existing custom fetcher/interceptor chain. That should be implemented with format-specific tests and a platform test proving that false produces a still frame and true animates, rather than replacing the decoder factory with a decoder that may reject GIF data.
+
+**Evidence**
+- Re-fetched `NuvioAsyncImage.kt`, `NuvioAsyncImage.android.kt`, `NuvioAsyncImage.ios.kt`, `NuvioApplication.kt`, `PlatformImageLoader.android.kt` and `gradle/libs.versions.toml` from `main-build-testing`.
+- The version catalog pins Coil 3.6.3. Context7 resolved and queried the exact `/coil-kt/coil/3.6.3` documentation. The Coil 3.6.3 GIF guide confirms header-based animated-format detection and the platform decoder choices; the exact tagged `BitmapFactoryDecoder.kt` and `ImageRequest.kt` sources confirm the available static bitmap decoder and request-level decoder-factory override.
+- Exa reviewed the Coil 3.6.3 GIF guide, Compose `AsyncImage` documentation, decoder API and the upstream discussion of per-request animation policy. The upstream discussion recommends request-specific decoder selection rather than disabling all service-loaded components.
+- No production code or tests changed. No Gradle task, Kotlin compilation, build, CI, device playback or image-decoding benchmark was started. This is a confirmed cross-platform behavior gap, not a measured performance regression or a claimed fix.
