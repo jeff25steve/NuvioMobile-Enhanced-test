@@ -2189,37 +2189,46 @@ capture_androidx_process_snapshot() {
     fi
   fi
 
-  if [ -n "$pgrep_output" ]; then
-    printf 'Raw pgrep output:\n%s\n' "$pgrep_output"
-    printf 'AndroidX process-name filtering:\n'
-    printf '%s\n' "$pgrep_output" | while read -r process_pid process_name remainder; do
-      case "$process_pid" in
-        ''|*[!0-9]*)
-          printf 'MALFORMED pgrep row: %s\n' "$process_pid $process_name $remainder"
-          ;;
-        *)
-          case "$process_name" in
-            "$APP_PACKAGE"|"$APP_PACKAGE":*)
-              printf 'ANDROIDX_ACCEPTED pid=%s processName=%s\n' "$process_pid" "$process_name"
-              ;;
-            "$APP_PACKAGE".*)
-              if androidx_is_subpackage_installed "$process_name"; then
-                printf 'ANDROIDX_REJECTED_INSTALLED_SUBPACKAGE pid=%s processName=%s\n' "$process_pid" "$process_name"
-              else
-                printf 'ANDROIDX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=%s processName=%s\n' "$process_pid" "$process_name"
-              fi
-              ;;
-            *)
-              printf 'ANDROIDX_REJECTED pid=%s processName=%s\n' "$process_pid" "$process_name"
-              ;;
-          esac
-          ;;
-      esac
-    done
+  if [ "$pgrep_status" -eq 0 ]; then
+    if [ -n "$pgrep_output" ]; then
+      printf 'Raw pgrep output:\n%s\n' "$pgrep_output"
+      printf 'AndroidX process-name filtering:\n'
+      printf '%s\n' "$pgrep_output" | while read -r process_pid process_name remainder; do
+        case "$process_pid" in
+          ''|*[!0-9]*)
+            printf 'MALFORMED pgrep row: %s\n' "$process_pid $process_name $remainder"
+            ;;
+          *)
+            case "$process_name" in
+              "$APP_PACKAGE"|"$APP_PACKAGE":*)
+                printf 'ANDROIDX_ACCEPTED pid=%s processName=%s\n' "$process_pid" "$process_name"
+                ;;
+              "$APP_PACKAGE".*)
+                if androidx_is_subpackage_installed "$process_name"; then
+                  printf 'ANDROIDX_REJECTED_INSTALLED_SUBPACKAGE pid=%s processName=%s\n' "$process_pid" "$process_name"
+                else
+                  printf 'ANDROIDX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=%s processName=%s\n' "$process_pid" "$process_name"
+                fi
+                ;;
+              *)
+                printf 'ANDROIDX_REJECTED pid=%s processName=%s\n' "$process_pid" "$process_name"
+                ;;
+            esac
+            ;;
+        esac
+      done
+    else
+      printf 'pgrep exited successfully but returned no process rows.\n'
+    fi
   elif [ "$pgrep_status" -eq 1 ]; then
     printf 'No matching process (pgrep exit status 1).\n'
   else
-    printf 'pgrep produced no output (exit status %s).\n' "$pgrep_status"
+    printf 'pgrep command failed (exit status %s).\n' "$pgrep_status"
+    if [ -n "$pgrep_output" ]; then
+      printf 'pgrep error output:\n%s\n' "$pgrep_output"
+    else
+      printf 'pgrep returned no error output.\n'
+    fi
   fi
   printf 'pgrep exit status: %s\n' "$pgrep_status"
 }
