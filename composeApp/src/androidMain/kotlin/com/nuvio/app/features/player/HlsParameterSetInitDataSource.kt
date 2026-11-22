@@ -21,8 +21,8 @@ import java.util.concurrent.TimeoutException
 /**
  * Gives HLS media playlists the init segment from [HlsParameterSetInit] when their segments need
  * it. Small playlists are buffered and handed on, rewritten or not. Oversized playlists pass through
- * unchanged. Everything else passes straight through, including the `data:` init segment, which [upstream] must be able to open
- * (a DefaultDataSource can).
+ * unchanged. Everything else passes straight through, including the `data:` init segment, which
+ * [upstream] must be able to open (a DefaultDataSource can).
  */
 internal const val HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS = 2_500L
 internal const val HLS_PLAYLIST_REWRITE_MAX_BYTES = 256 * 1024
