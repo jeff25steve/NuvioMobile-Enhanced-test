@@ -1046,3 +1046,20 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+## Generation-safe removal during bulk Android download cleanup (22 November 2026)
+
+**Confirmed race**
+- `clearUnfinishedTransfers()` snapshots transfer records and removes each by filename. A transfer with that filename can be replaced with a new generation after the snapshot is taken but before the old snapshot entry is processed.
+- Filename-only removal could then delete the replacement record and cancel its newly scheduled job.
+
+**Correction**
+- Added an atomic store removal overload that checks the expected generation while holding the store lock.
+- Added scheduler removal by expected generation. The scheduler lifecycle lock covers the generation check, record removal and cancellation of the exact removed job.
+- Bulk cleanup now passes the generation from its snapshot. Explicit user removal retains the filename-only overload.
+- Added host tests proving stale-generation removal is rejected and matching-generation removal succeeds.
+
+**Verification boundary**
+- Re-fetched the store, scheduler, bulk-cleanup caller and host tests from the integration branch after writing.
+- Host tests and Kotlin compilation have not been executed in this session. No build or CI was started.
