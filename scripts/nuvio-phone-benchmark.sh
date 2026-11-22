@@ -10,7 +10,12 @@ TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
 MEMORY_BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupMemoryBenchmark"
-SCRIPT_DIR="$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_PATH="$0"
+case "$SCRIPT_PATH" in
+  /*|./*|../*) ;;
+  *) SCRIPT_PATH="./$SCRIPT_PATH" ;;
+esac
+SCRIPT_DIR="$(CDPATH= cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
 STAGING_DIR="${NUVIO_PHONE_STAGE_DIR:-/data/local/tmp/NuvioBenchmark}"
 OUTPUT_ROOT="${NUVIO_PHONE_OUTPUT_DIR:-/sdcard/Download/NuvioStartupBenchmark}"
 MEDIA_ROOT="${NUVIO_PHONE_MEDIA_ROOT:-/sdcard/Android/media}"
@@ -31,7 +36,7 @@ case "$STAGING_DIR" in
   /*) ;;
   *) STAGING_DIR="./$STAGING_DIR" ;;
 esac
-STAGING_DIR="$(CDPATH= cd -P -- "$STAGING_DIR" && pwd)" || fail "Cannot resolve the temporary benchmark folder: $STAGING_DIR"
+STAGING_DIR="$(CDPATH= cd -P "$STAGING_DIR" && pwd)" || fail "Cannot resolve the temporary benchmark folder: $STAGING_DIR"
 
 if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
   case "${1:-}:${2:-}" in
