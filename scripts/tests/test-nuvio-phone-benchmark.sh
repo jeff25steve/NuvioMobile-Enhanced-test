@@ -1615,6 +1615,10 @@ grep -Fq 'ANDROIDX_ACCEPTED pid=12346 processName=com.nuvio.media.benchmark:remo
   echo 'FAIL: AndroidX colon-suffix child processes were not accepted.' >&2
   exit 1
 }
+grep -Fq 'ANDROIDX_REJECTED pid=12348 processName=com.other.app' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep command-line false positives were not rejected by process-name filtering.' >&2
+  exit 1
+}
 grep -Fq 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: AndroidX should accept a dotted custom process when no intermediate or full subpackage is installed.' >&2
   exit 1
