@@ -962,3 +962,39 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+
+## Android download-store per-file synchronization (Cycle 147, 22 November 2026)
+
+A fresh review of the current `main-build-testing` scheduler and store confirmed that `AndroidDownloadStore` guarded every record with one process-wide monitor. Its `update()` executes the caller transform and then performs JSON encoding, `AtomicFile.startWrite()`, file write, sync and commit before releasing that monitor. The scheduler's completion transforms include Storage Access Framework operations such as finalizing/copying exported documents and moving subtitles. Consequently, one slow file operation could hold the store monitor and block unrelated downloads' progress, pause, begin or removal state operations.
+
+**Changed**
+- Replaced the store-wide monitor with a reference-counted `KeyedSynchronizedLock` keyed by the transfer filename.
+- The reference is acquired before waiting on a per-key monitor, so active callers and queued threads share the same monitor identity. The entry is removed only after the final caller exits and only if the registry still points to that entry.
+- The registry monitor protects only reference-count/map bookkeeping; it is not held while the transform, JSON encoding, AtomicFile write/sync/commit or delete runs.
+- All same-file store mutations (`begin`, `pauseIfDownloading`, `update`, and `remove`) remain serialized, preserving the caller-transform transaction and AtomicFile's required mutual exclusion for a record.
+- Different filenames can now progress through their independent record operations concurrently. This is a source-level concurrency improvement; no throughput or latency benchmark is claimed.
+
+## Android download-store shared-state and job-ID concurrency hardening (Cycle 148, 22 November 2026)
+
+Narrowing the persistence lock from one global monitor to per-file monitors exposes two shared-state operations that must remain globally safe: publishing the immutable filename-to-transfer map and allocating the process-wide Android JobScheduler IDs.
+
+**Changed**
+- Replaced read-modify-write assignments to the shared `MutableStateFlow<Map<...>>` with `MutableStateFlow.update` for both record insertion/replacement and removal. This makes concurrent changes for different filenames atomic instead of allowing one update to overwrite another thread's newer map snapshot.
+- Kept the `update` lambda pure (immutable map addition/removal only), because kotlinx.coroutines documents that its function may be evaluated multiple times during a compare-and-set retry.
+- Added a separate short `jobIdLock` and monotonic in-memory next-ID counter. Different-file `begin()` operations cannot allocate the same ID; existing same-file transfers continue reusing their previous ID.
+- Initialized the counter from the maximum persisted job ID on first allocation and guard against integer-space exhaustion rather than wrapping into a duplicate ID.
+- Ensured `remove()` initializes the lazy persisted snapshot before deleting the record, preventing first-load scanning from racing the deletion and repopulating stale state.
+
+**Regression coverage added**
+- Added a two-thread test proving distinct filenames can enter their update transforms concurrently while both updates survive in the published state.
+- Added a same-filename test proving updates remain serialized.
+- Added concurrent-begin coverage proving two different filenames receive distinct job IDs.
+- Extended the focused source-contract guard to require the per-file lock boundaries, atomic StateFlow updates, separate job-ID serialization and all three regression cases.
+
+**Evidence and verification boundary**
+- Re-fetched the live target branch's `AndroidDownloadStore.kt`, scheduler call sites and existing Robolectric tests before changing the store. The scheduler's exported completion transforms perform file/SAF work inside `updateActive()`, which reaches the store transform under its previous global monitor.
+- Android's official `AtomicFile` API documentation explicitly says it provides no file-locking semantics and that callers must provide mutual exclusion around access. The new per-file monitor preserves that requirement for each record path while allowing different hashed record files to proceed independently.
+- The project pins kotlinx.coroutines 1.10.2. Context7 exposed the 1.10.1 documentation but not 1.10.2; Exa fetched the exact official 1.10.2 `StateFlow.kt` source. It documents thread-safe StateFlow methods and atomic `update`, and that the update function may be evaluated multiple times.
+- The regression tests and source guard were added to the feature branch but were not executed. No Gradle task, Kotlin compilation, build, CI, APK, device test or benchmark was started, as requested.
+- The store refactor is not merged. Runtime correctness and compile verification remain a required gate before integration.
