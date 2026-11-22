@@ -24,6 +24,8 @@ import java.util.concurrent.TimeoutException
  * through, including the `data:` init segment, which [upstream] must therefore be able to open
  * (a DefaultDataSource can).
  */
+internal const val HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS = 2_500L
+
 @OptIn(UnstableApi::class)
 internal class HlsParameterSetInitDataSource(
     private val upstream: DataSource,
@@ -110,9 +112,15 @@ internal class HlsParameterSetInitDataSource(
         }
     }
 
-    class Factory(private val upstreamFactory: DataSource.Factory) : DataSource.Factory {
+    class Factory(
+        private val upstreamFactory: DataSource.Factory,
+        private val segmentInspectionFactory: DataSource.Factory = upstreamFactory,
+    ) : DataSource.Factory {
         override fun createDataSource(): DataSource =
-            HlsParameterSetInitDataSource(upstreamFactory.createDataSource(), upstreamFactory::createDataSource)
+            HlsParameterSetInitDataSource(
+                upstreamFactory.createDataSource(),
+                segmentInspectionFactory::createDataSource,
+            )
     }
 
     private companion object {
