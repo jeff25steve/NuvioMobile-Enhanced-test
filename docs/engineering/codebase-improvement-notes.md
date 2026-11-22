@@ -1131,3 +1131,18 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added `PlaybackLocalMimeInspectionTest` host coverage for progressive local fast-path selection, adaptive extension inspection, unknown local paths and network URI exclusion.
 - Evidence: the exact Media3 1.11.1 `DefaultMediaSourceFactory` source and API docs confirm adaptive MIME routing and progressive fallback; the progressive fallback uses `DefaultExtractorsFactory` to sniff the actual container. Context7 resolved the exact 1.11.1 library and Exa retrieved the official source/API contract.
 - The host test was added but not executed, and no Gradle task, Kotlin compilation, build, CI, device playback or startup benchmark was run. This removes a known synchronous pre-read from common local progressive paths; the size of the user-visible improvement remains unmeasured. Unknown-extension content URIs may still require inspection and can still block the synchronous caller.
+
+### Native read-ahead memory-window enforcement (Cycle 166, 22 November 2026)
+
+- Fixed a mismatch in `NativeReadAheadDataSource`: the queue was bounded by `capacityBytes`, but each backing allocation was always 16 MiB and each upstream read always requested 32 KiB. This could allocate more mapped memory than the configured queue window, especially for small custom buffer settings, and could overshoot the queue cap by one read.
+- Backing blocks are now sized to the lesser of 16 MiB and the remaining configured queue capacity. Upstream reads are also limited to the currently available queue capacity. Chunk fill/consume boundaries now use the actual mapped block capacity, including recycled blocks.
+- Added host coverage for small configured windows, remaining-window block sizes, the 16 MiB upper bound and invalid zero-remaining requests. Test not run.
+- Android's `SharedMemory.create(name, size)` allocates the requested size and `mapReadWrite()` maps the whole region; the exact Android API confirms this is real mapped native memory, not just a logical queue accounting value. Context7 confirmed the branch's Media3 1.11.1 dependency; Exa retrieved the Android SharedMemory API and Media3 DataSource contract.
+- No Gradle task, compilation, build, CI, device playback or memory benchmark was run. The code now bounds the size of new blocks and the bytes requested per read to the configured window; runtime memory savings have not been measured.
+
+### Read-ahead DataSource lifecycle metadata (Cycle 167, 22 November 2026)
+
+- Corrected `NativeReadAheadDataSource` metadata ownership. Its `openedUri` and `openedHeaders` previously remained populated after `close()`, so callers querying a closed wrapper could observe the previous resource's URI and response headers.
+- Metadata is now cleared after close, including when close/join exits exceptionally. Before a new open, prior metadata is cleared; if the upstream open fails, the wrapper captures the upstream's attempted-open URI and headers until the caller closes it, matching the Media3 1.11.1 DataSource contract.
+- The exact Media3 DataSource API says URI/headers describe the currently open source, and Media3 1.11.1 release notes explicitly require failed-open URI/headers to remain observable until the subsequent close. This avoids stale-source attribution without changing network requests or buffering policy.
+- No test, compilation, build, CI or device playback was run. The lifecycle change is source-reviewed only.
