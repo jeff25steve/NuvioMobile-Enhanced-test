@@ -4,7 +4,7 @@
 set -eu
 
 APP_PACKAGE="com.nuvio.media.benchmark"
-# Keep this escaped regex identical to AndroidX Shell.getRunningPidsAndProcessesForPackage().
+# Match AndroidX Shell.pgrepLF: API 36+ requires -a for the full command line.
 ANDROIDX_PROCESS_PATTERN='com\.nuvio\.media\.benchmark'
 TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
@@ -2064,10 +2064,115 @@ capture_profile_flush_diagnostics() {
     date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\n'
 
     printf '\nTarget package processes after instrumentation:\n'
-    {
+    if command -v ps >/dev/null 2>&1; then
+      capture_target_process_snapshot
+    else
+      printf 'ps unavailable\n'
+    fi
+
+    printf '\nProfileInstaller receiver in installed package metadata:\n'
+    if command -v dumpsys >/dev/null 2>&1; then
+      dumpsys package "$APP_PACKAGE" 2>&1 \
+        | grep -C 2 -F 'androidx.profileinstaller.ProfileInstallReceiver' \
+        || printf 'ProfileInstallReceiver was not found in dumpsys package output.\n'
+    else
+      printf 'dumpsys unavailable\n'
+    fi
+
+    printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
+    if command -v logcat >/dev/null 2>&1; then
+      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
+        || printf 'Filtered logcat capture failed.\n'
+    else
+      printf 'logcat unavailable\n'
+    fi
+
+    printf '\nInterpretation: this is a post-run diagnostic snapshot, not proof of process state at the exact profile-flush instant. Correlate it with instrumentation.log and foreground snapshots.\n'
+  } > "$diagnostics_file" 2>&1 || {
+    printf 'Could not write profile-flush diagnostics: %s\n' "$diagnostics_file" >&2
+    return 0
+  }
+  printf 'Saved failure diagnostics -> %s\n' "$diagnostics_file"
+}
+
+verify_profile_installer_receiver() {
+  # Verify the installed merged-manifest/package metadata exposes the receiver
+  # that AndroidX addresses during its own per-process collection flush.
+  # A standalone SAVE_PROFILE broadcast here is not a valid substitute for
+  # observing AndroidX's later process discovery and flush.
+  receiver="androidx.profileinstaller.ProfileInstallReceiver"
+  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>&1 | grep -C 2 -F "$receiver" || true)"
+  {
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Expected receiver: %s\n' "$receiver"
+    printf 'Installed package metadata evidence:\n'
+    if [ -n "$receiver_state" ]; then
+      printf '%s\n' "$receiver_state"
+    else
+      printf 'Receiver not present in installed package metadata.\n'
+    fi
+  } > "$RUN_DIR/profile-installer-receiver.txt"
+  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
+}
+
+capture_target_process_snapshot() {
+  # Match the process-name column, not the grep/awk command line itself.
+  if ! command -v ps >/dev/null 2>&1; then
+    printf 'ps unavailable; independent process snapshot could not be captured.\n'
+    return 0
+  fi
+  ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
+    $NF == package || index($NF, package ":") == 1 {
+      print
+      found = 1
+    }
+    END {
+      if (!found) print "No target package process listed in this snapshot."
+    }
+  '
+}
+
+capture_androidx_process_snapshot() {
+  # Reproduce AndroidX Shell.pgrepLF flags exactly for the device API level.
+  printf 'AndroidX-equivalent process lookup: '
+  if [ "$api" -ge 36 ]; then
+    printf "pgrep -l -f -a '%s'\n" "$ANDROIDX_PROCESS_PATTERN"
+    if pgrep_output="$(pgrep -l -f -a "$ANDROIDX_PROCESS_PATTERN" 2>&1)"; then
+      pgrep_status=0
+    else
+      pgrep_status=$?
+    fi
+  else
+    printf "pgrep -l -f '%s'\n" "$ANDROIDX_PROCESS_PATTERN"
+    if pgrep_output="$(pgrep -l -f "$ANDROIDX_PROCESS_PATTERN" 2>&1)"; then
+      pgrep_status=0
+    else
+      pgrep_status=$?
+    fi
+  fi
+
+  if [ -n "$pgrep_output" ]; then
+    printf '%s\n' "$pgrep_output"
+  elif [ "$pgrep_status" -eq 1 ]; then
+    printf 'No matching process (pgrep exit status 1).\n'
+  else
+    printf 'pgrep produced no output (exit status %s).\n' "$pgrep_status"
+  fi
+  printf 'pgrep exit status: %s\n' "$pgrep_status"
+}
+
+start_profile_collection_diagnostics() {
+  PROFILE_PROCESS_MONITOR_PID=""
+  PROFILE_LOGCAT_MONITOR_PID=""
+  process_timeline="$RUN_DIR/profile-process-timeline.txt"
+  logcat_timeline="$RUN_DIR/profile-collection-logcat.txt"
+
+  {
+    printf 'Live target-process samples during BaselineProfile instrumentation\n'
+    printf 'Target package: %s\n' "$APP_PACKAGE"
     printf 'Sampling interval: approximately 1 second\n'
     printf "AndroidX process pattern: %s\n" "$ANDROIDX_PROCESS_PATTERN"
-    printf 'Each sample records both ps -A and AndroidX-equivalent pgrep output.\n'
+    printf 'Each sample records both ps -A and the API-correct AndroidX pgrep lookup.\n'
     printf 'A missing sample is not proof that no process existed between samples.\n'
   } > "$process_timeline"
 
@@ -2101,7 +2206,6 @@ capture_profile_flush_diagnostics() {
     printf 'logcat unavailable; AndroidX live log capture was not started.\n' > "$logcat_timeline"
   fi
 }
-
 stop_profile_collection_diagnostics() {
   if [ -n "${PROFILE_PROCESS_MONITOR_PID:-}" ]; then
     kill "$PROFILE_PROCESS_MONITOR_PID" 2>/dev/null || true
