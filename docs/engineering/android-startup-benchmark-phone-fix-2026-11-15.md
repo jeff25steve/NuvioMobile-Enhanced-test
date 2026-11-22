@@ -3331,9 +3331,9 @@ This is materially different from a receiver failure. If a process is discovered
 - The main manifest has no `android:process` or `isolatedProcess` declarations. There is no current evidence of a secondary process requiring the newer ProfileInstaller multi-process operation. ProfileInstaller `1.4.1` is the release that fixed sequential multi-process Baseline Profile recording; the main-process `SAVE_PROFILE` action is older and supported by this version.
 - AndroidX Benchmark `1.6.0-alpha01` already includes the documented fix for Baseline Profile capture of process names without a colon pattern. `1.6.0-alpha02` release notes do not identify a further process-discovery fix. A dependency upgrade is not justified by the current evidence.
 
-### A gap in the first diagnostic implementation
+### Initial diagnostic gap — addressed in the API-aware follow-up
 
-The new phone-runner monitor currently samples `ps -A` and filters the process name. That is useful corroboration, but it does not reproduce AndroidX's actual `pgrep -l -f` lookup and parser. A `ps` row can exist while AndroidX's `pgrep` result or exact-name filter is empty. Before the next device collection, the diagnostic should record both the raw AndroidX-equivalent `pgrep -l -f` output (using the escaped package pattern) and the independent `ps -A` snapshot at the same samples. It should also retain the `ProfileInstallBroadcast` process-enumeration log line and the ProfileInstaller receiver's SIGUSR1/profile-save log. The current fake-device fixture does not yet exercise the zero-process path, so it cannot prove this diagnosis or the new pgrep capture.
+The first monitor sampled `ps -A` only and therefore did not reproduce AndroidX's actual `Shell.pgrepLF` lookup or parser. The follow-up now records the raw API-aware pgrep command/output/exit status beside each independent `ps -A` snapshot and classifies parsed PID/process-name rows using AndroidX's exact-package, colon-child and dotted-prefix/subpackage rules. The regression fixtures now include successful discovery and a zero-match pgrep result. These source changes still require execution of the shell regression suite and a fresh device collection; they do not establish the device's actual flush-time result.
 
 ### What the supplied instrumentation log does and does not show
 
@@ -3354,19 +3354,19 @@ Additional references: [AndroidX multi-process profile flush implementation](htt
 
 ### 22 November 2026 — API-aware AndroidX process-discovery parity
 
-A further source check found an API-level detail that the initial \`ps -A\` diagnostic did not model:
+A further source check found an API-level detail that the initial `ps -A` diagnostic did not model:
 
-- AndroidX \`Shell.pgrepLF\` uses \`pgrep -l -f <escaped-package-pattern>\` on API 23–35.
-- On API 36 and later it adds \`-a\`: \`pgrep -l -f -a <escaped-package-pattern>\`. AndroidX commit [\`98d9090\`](https://github.com/androidx/androidx/commit/98d9090a01e04dc730484f09cd073e4d82f73d35) records the Toybox change: \`-a\` is required to print the full command line.
+- AndroidX `Shell.pgrepLF` uses `pgrep -l -f <escaped-package-pattern>` on API 23–35.
+- On API 36 and later it adds `-a`: `pgrep -l -f -a <escaped-package-pattern>`. AndroidX commit [`98d9090`](https://github.com/androidx/androidx/commit/98d9090a01e04dc730484f09cd073e4d82f73d35) records the Toybox change: `-a` is required to print the full command line.
 - AndroidX parses each non-empty line into PID and process name. Its package filter accepts the exact package name, colon child processes, and dotted-prefix names only when a separate installed package does not own that name.
 
 The phone runner's live process timeline now records, at the same approximately one-second samples:
-1. The independent \`ps -A\` process-name snapshot.
-2. The exact API-aware AndroidX-equivalent \`pgrep\` command, raw output and exit status.
+1. The independent `ps -A` process-name snapshot.
+2. The exact API-aware AndroidX-equivalent `pgrep` command, raw output and exit status.
 3. Parsed process-name classifications: accepted exact/colon child process, accepted uninstalled dotted child candidate, rejected separately installed dotted subpackage, or rejected unrelated process.
 
-The post-instrumentation failure snapshot also captures the AndroidX-equivalent lookup. This distinguishes a real zero-match result (pgrep exit status 1) from a pgrep execution error, and allows direct comparison when \`ps -A\` lists the app but AndroidX's lookup does not.
+The post-instrumentation failure snapshot also captures the AndroidX-equivalent lookup. This distinguishes a real zero-match result (pgrep exit status 1) from a pgrep execution error, and allows direct comparison when `ps -A` lists the app but AndroidX's lookup does not.
 
-Regression fixtures now cover API 33's command form, API 36+'s \`-a\` form, successful process parsing, and a zero-match result while the independent \`ps\` fixture still lists the app. The fixtures were added but **not executed** in this session: the GitHub source integration cannot run shell scripts, and no local checkout was available. No build, CI, instrumentation, profile collection, LADB command or physical-device run was started.
+Regression fixtures now cover API 33's command form, API 36+'s `-a` form, successful process parsing, and a zero-match result while the independent `ps` fixture still lists the app. The fixtures were added but **not executed** in this session: the GitHub source integration cannot run shell scripts, and no local checkout was available. No build, CI, instrumentation, profile collection, LADB command or physical-device run was started.
 
-This is a diagnostic-parity improvement, not a confirmed production root-cause fix. The next authorized device run must establish the actual API-aware pgrep result at the collection window and correlate it with AndroidX \`Saving profiles for process ...\` log entries. If the process is discovered but no save log follows, investigate the broadcast/receiver path; if pgrep returns no process, investigate the process lifecycle between the final readiness event and the flush.
+This is a diagnostic-parity improvement, not a confirmed production root-cause fix. The next authorized device run must establish the actual API-aware pgrep result at the collection window and correlate it with AndroidX `Saving profiles for process ...` log entries. If the process is discovered but no save log follows, investigate the broadcast/receiver path; if pgrep returns no process, investigate the process lifecycle between the final readiness event and the flush.
