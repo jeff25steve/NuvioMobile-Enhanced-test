@@ -184,14 +184,23 @@ internal class AndroidDownloadScheduler(val context: Context) {
         return store.get(fileName)?.takeIf { it.generation == generation }
     }
 
-    fun remove(fileName: String) {
+    fun remove(fileName: String) = removeIfGenerationMatches(fileName, expectedGeneration = null)
+
+    fun remove(fileName: String, generation: String) =
+        removeIfGenerationMatches(fileName, expectedGeneration = generation)
+
+    private fun removeIfGenerationMatches(fileName: String, expectedGeneration: String?) {
         val transfer = AndroidDownloadSchedulerLifecycleLock.withLock {
-            val current = store.get(fileName)
-            store.remove(fileName)
-            current?.let(::cancelScheduled)
-            current
-        }
-        transfer?.let { DownloadsLiveStatusPlatform.removeNotification(it.item.id) }
+            val current = store.get(fileName) ?: return@withLock null
+            if (expectedGeneration != null && current.generation != expectedGeneration) {
+                return@withLock null
+            }
+            val removed = store.remove(fileName, current.generation) ?: return@withLock null
+            cancelScheduled(removed)
+            removed
+        } ?: return
+
+        DownloadsLiveStatusPlatform.removeNotification(transfer.item.id)
         cleanupScope.launch {
             lock(fileName).withLock {
                 if (store.get(fileName) == null) {
@@ -199,7 +208,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
                     // Wait behind the worker's per-file lock, then remove a final file too:
                     // the worker may have passed its final active check just before cancellation.
                     File(directory, fileName).delete()
-                    transfer?.partialDocumentUri?.let(AndroidDownloadExport::delete)
+                    transfer.partialDocumentUri?.let(AndroidDownloadExport::delete)
                     DownloadSubtitleStorage(File(directory, fileName).toURI().toString()).remove()
                 }
             }
