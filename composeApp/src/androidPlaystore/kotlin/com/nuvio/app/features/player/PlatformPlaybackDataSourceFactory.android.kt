@@ -31,4 +31,15 @@ internal object PlatformPlaybackDataSourceFactory {
             )
         }
     }
+    
+    fun createHlsSegmentInspectionDataSourceFactory(
+        defaultRequestHeaders: Map<String, String>,
+        useLongReadTimeout: Boolean,
+        useYoutubeChunkedPlayback: Boolean,
+    ): DataSource.Factory =
+        PlayerPlaybackNetworking.createHttpDataSourceFactory(
+            defaultHeaders = defaultRequestHeaders,
+            useLongReadTimeout = useLongReadTimeout,
+            callTimeoutMs = HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS,
+        )
 }
