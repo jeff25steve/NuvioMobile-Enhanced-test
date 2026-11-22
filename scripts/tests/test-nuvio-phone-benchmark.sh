@@ -45,8 +45,8 @@ for expected in \
   'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
-  "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
-  "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
+  "logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
+  "logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
   'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
@@ -989,7 +989,8 @@ esac
 STUB
 cat > "$TMP/bin/logcat" <<'STUB'
 #!/bin/sh
-printf '11-22 02:00:00.000 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
+printf 'logcat %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+printf '11-22 02:00:00.000 12345-12345/? D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
 STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
@@ -1717,6 +1718,18 @@ grep -Fq 'pm path com.nuvio.media.benchmark.child' "$FAKE_COMMAND_LOG" || {
 }
 grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
   echo 'FAIL: live AndroidX logcat evidence was not retained during profile collection.' >&2
+  exit 1
+}
+grep -Fq '12345-12345/? D Benchmark:' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: profile-flush logcat evidence did not retain PID/TID fields.' >&2
+  exit 1
+}
+grep -Fq 'logcat -v threadtime -s Benchmark:* ProfileInstaller:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: live profile-flush logcat was not requested in threadtime format.' >&2
+  exit 1
+}
+grep -Fq 'logcat -d -v threadtime -s ProfileInstaller:* Benchmark:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: post-run profile-flush logcat was not requested in threadtime format.' >&2
   exit 1
 }
 for expected in 'Installed receiver evidence -> ' 'Live target-process timeline -> ' 'Live AndroidX/ProfileInstaller logcat -> '; do
