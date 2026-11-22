@@ -2093,6 +2093,24 @@ capture_profile_flush_diagnostics() {
   printf 'Saved failure diagnostics -> %s\n' "$diagnostics_file"
 }
 
+verify_profile_installer_receiver() {
+  # Macrobenchmark calls this receiver by its exact class name to flush ART
+  # profiles. Check the installed manifest before starting the long capture;
+  # source dependency declarations alone cannot prove a merged APK contains it.
+  receiver="androidx.profileinstaller.ProfileInstallReceiver"
+  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>/dev/null | grep -F "$receiver" || true)"
+  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check merged manifest/R8 output and rebuild the matching APK pair."
+
+  # Exercise the documented SAVE_PROFILE command while Nuvio is already
+  # launched. AndroidX expects result 12 (RESULT_SAVE_PROFILE_SIGNALLED).
+  # The explicit component avoids intent-filter/implicit-broadcast ambiguity.
+  broadcast_output="$(am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE "$APP_PACKAGE/$receiver" 2>&1)" ||
+    fail "Could not issue the ProfileInstaller SAVE_PROFILE preflight broadcast."
+  printf '%s\n' "$broadcast_output" > "$RUN_DIR/profile-installer-preflight.txt"
+  printf '%s\n' "$broadcast_output" | grep -Eq 'result=12([[:space:]]|$)' ||
+    fail "ProfileInstaller SAVE_PROFILE preflight did not return result=12. See $RUN_DIR/profile-installer-preflight.txt; do not start BaselineProfileRule until the installed receiver/dex is corrected."
+}
+
 reject_pending_wifi_debug_confirmation() {
   focus_state_file="$RUN_DIR/wireless-debug-focus-check.txt"
   {
@@ -2122,6 +2140,9 @@ run_instrumentation() {
     macrobenchmark) load_expected_install_provenance install ;;
   esac
   write_run_provenance
+  if [ "$rule" = BaselineProfile ]; then
+    verify_profile_installer_receiver
+  fi
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   printf 'Do not reopen LADB or run shell commands until instrumentation finishes. A foreground LADB/System UI window can invalidate the app-readiness check or interrupt profile collection.\n'
   if [ "$rule" = macrobenchmark ]; then
