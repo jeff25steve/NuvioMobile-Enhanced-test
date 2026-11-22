@@ -31,11 +31,11 @@ fail() {
 # Android's package manager cannot reliably install APKs directly from shared
 # Downloads storage. Stage the complete bundle in shell-readable local storage
 # automatically, so the user never has to copy files manually.
-mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
 case "$STAGING_DIR" in
   /*) ;;
   *) STAGING_DIR="./$STAGING_DIR" ;;
 esac
+mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
 STAGING_DIR="$(CDPATH= cd -P "$STAGING_DIR" && pwd)" || fail "Cannot resolve the temporary benchmark folder: $STAGING_DIR"
 
 if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
