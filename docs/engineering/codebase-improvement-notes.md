@@ -962,3 +962,30 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## Android download scheduler — reclaim idle per-file coroutine locks (Cycle 149, 22 November 2026)
+
+The target branch's `AndroidDownloadScheduler` held a `ConcurrentHashMap<String, Mutex>` and created an entry through `getOrPut(fileName)` for every `execute()` and removal cleanup. No code removed entries. Since completed and deleted filenames remain valid historical keys, the map retained one Mutex and key string for every distinct filename used during the scheduler object's lifetime.
+
+**Changed**
+- Replaced the unbounded map with a small `KeyedMutex` registry.
+- The registry increments a per-key user count under a short synchronized map section before a coroutine can wait for the Mutex.
+- The count includes both the current holder and every queued caller. The entry is removed only after `Mutex.withLock` exits and the final holder/waiter releases its reference.
+- Cancellation while waiting follows the same `finally` cleanup path. A cancelled waiter cannot remove an entry still used by the holder or another waiter.
+- Different filenames continue to use independent Mutex instances; same-filename work remains serialized.
+- Both worker execution and deferred file-removal cleanup now use the same registry. Download scheduling, transfer state, retry policy, file naming, and export behavior are unchanged.
+
+**Regression coverage authored**
+- Different keys enter their critical sections concurrently.
+- Same-key waiters serialize and the idle entry is reclaimed.
+- Cancelling a queued waiter preserves the holder's entry and does not allow a later same-key caller to bypass the holder.
+- Tests inspect active key/user counts only through internal test-facing accessors.
+
+**Evidence and verification boundary**
+- The target branch at base `0cf97a978085c1534057282d2f803f06e64f2d09` showed the map creation and both call sites; the registry had no removal operation.
+- Context7 resolved kotlinx.coroutines and supplied the 1.10.1 Mutex guidance. Context7 did not index the exact pinned 1.10.2 version, so the exact 1.10.2 tagged `Mutex.kt` source was fetched with Exa and used to verify that `Mutex.lock` is cancellable and releases a lock if cancellation wins after acquisition.
+- Exa also surfaced independent keyed-lock implementations that retain references before waiting and remove entries only after the final user exits. The implementation here uses Kotlin's own Mutex and a synchronized reference-count registry rather than copying another language's implementation.
+- The new host tests were written before the production helper, but were not executed because no Gradle task/build was authorised. Therefore the TDD red/green runtime confirmation, Kotlin compilation, and concurrency stress verification remain outstanding.
+- No build, CI, APK, device run, or performance benchmark was started. The established result is bounded lock-registry lifetime by active callers; no measured memory or throughput improvement is claimed.
+- This change is isolated on `fix/download-keyed-mutex-lifecycle-20261122`; `main-build-testing` was not modified. Do not merge until the focused host tests and Kotlin compilation are authorised and pass.
+
