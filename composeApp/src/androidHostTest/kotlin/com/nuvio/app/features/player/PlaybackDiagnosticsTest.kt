@@ -32,6 +32,36 @@ class PlaybackDiagnosticsTest {
     }
 
     @Test
+    fun rebufferLoadsAreCapturedOncePerRebufferAfterPlaybackHasStarted() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        diagnostics.markPlaybackStarted()
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MANIFEST))
+
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun beginningANewAttemptResetsRebufferDiagnosticState() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+        diagnostics.markPlaybackStarted()
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+
+        diagnostics.beginAttempt(250L)
+
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
     fun beginningANewAttemptResetsFirstLoadAndCompletionGuards() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)
