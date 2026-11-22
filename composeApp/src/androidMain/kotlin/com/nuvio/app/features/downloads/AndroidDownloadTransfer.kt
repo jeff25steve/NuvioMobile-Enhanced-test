@@ -41,6 +41,10 @@ internal suspend fun transferAndroidDownload(
         try {
             require(File(item.fileName).name == item.fileName && item.fileName.isNotBlank())
             var offset = sink.length()
+            // A byte range without a representation validator can join bytes from two
+            // different versions of a changing resource. Restart instead of sending an
+            // unconditional Range request when the saved partial has no validator.
+            if (offset > 0L && validator == null) offset = 0L
             var restarted = false
 
             while (true) {
