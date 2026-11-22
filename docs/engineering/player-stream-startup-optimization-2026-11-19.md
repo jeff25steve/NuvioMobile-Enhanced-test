@@ -298,3 +298,11 @@ No native compilation, build, CI or device validation was run.
 The MIME inference path now avoids local payload inspection when the URL already identifies a known progressive container. This removes the synchronous 4 KiB pre-read and main-thread wait from common local MP4/Matroska/WebM/TS/MOV/AVI/MPEG sources. Unknown local paths and adaptive-looking paths still inspect content, preserving the ability to correct a misleading adaptive extension before Media3 selects a source implementation. Explicit stream type and response-header MIME hints remain highest priority.
 
 A host regression test covers the decision policy. It has not been run; no Kotlin compilation, Gradle task, build, CI, device playback or startup benchmark was performed. The source-level behavior change is integrated, but runtime correctness and the magnitude of any startup improvement remain unverified. Content URIs without a recognizable path MIME still take the inspection path.
+
+## Native read-ahead memory and DataSource lifecycle corrections (Cycles 166–167, 22 November 2026)
+
+The native read-ahead queue previously counted queued bytes against the configured capacity but allocated every backing block at the fixed 16 MiB maximum and always requested 32 KiB from upstream. The producer now limits each upstream read to the remaining queue capacity and sizes each newly allocated block to the smaller of 16 MiB or the remaining configured window. Block boundaries use the actual mapped buffer capacity, so smaller custom read-ahead windows no longer require a full 16 MiB first allocation.
+
+The wrapper also now clears its cached URI and response headers when closed. On a failed upstream open it preserves the attempted-open metadata until close, as required by Media3's DataSource contract. This prevents stale resource metadata from surviving a completed close.
+
+The exact Android SharedMemory API documents that `create(name, size)` allocates the requested region and `mapReadWrite()` maps it. Media3 1.11.1 DataSource API/release notes document URI/header lifecycle, including failed opens. Host tests were added for block sizing; they were not run. No Kotlin compilation, Gradle task, build, CI, device playback or memory benchmark was performed. Memory reduction and playback impact remain unmeasured.
