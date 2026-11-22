@@ -983,6 +983,7 @@ The target branch still registered NetworkErrorInterceptor twice for both the AP
 - The focused shell guard failed against a fixture containing the duplicate API and Coil registrations (RED), then passed after removing those duplicate registrations in the fixture (GREEN).
 - The production files and test guard were re-fetched from the feature branch for static review. The guard was exercised on isolated fixtures, not against a complete checkout. The existing NetworkErrorInterceptorTest was not run.
 - No Gradle task, Kotlin compilation, build, CI, APK, device run or benchmark was started.
+
 ## Android download per-file lock registry — release idle entries (Cycle 146, 22 November 2026)
 
 A fresh review of the Android download scheduler found that its per-file serialization map was process-lifetime and unbounded: `ConcurrentHashMap<String, Mutex>` retained one mutex for every distinct download filename ever passed through `lock(fileName)`. The map had no removal path. A user who downloads and removes many distinct files could therefore grow this registry for the lifetime of the scheduler even after all corresponding work had finished.
