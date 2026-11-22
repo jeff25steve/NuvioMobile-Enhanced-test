@@ -36,6 +36,7 @@ for expected in \
   'profile-collection-logcat.txt' \
   'ps -A' \
   'pgrep -l -f' \
+  'pgrep -l -f -a' \
   'ANDROIDX_PROCESS_PATTERN=' \
   'capture_androidx_process_snapshot() {' \
   'AndroidX-equivalent pgrep -l -f' \
@@ -961,6 +962,11 @@ cat > "$TMP/bin/pgrep" <<'STUB'
 #!/bin/sh
 printf 'pgrep %s\n' "$*" >> "$FAKE_COMMAND_LOG"
 [ "$1" = "-l" ] && [ "$2" = "-f" ] || exit 2
+if [ "$3" = "-a" ]; then
+  [ -n "$4" ] || exit 2
+else
+  [ -n "$3" ] || exit 2
+fi
 case "${FAKE_PGREP_MODE:-match}" in
   missing) exit 1 ;;
   error) echo 'pgrep fixture error' >&2; exit 2 ;;
@@ -1590,8 +1596,23 @@ grep -Fq '12345 com.nuvio.media.benchmark' "$profile_result_dir/profile-process-
   echo 'FAIL: raw pgrep process output was not retained.' >&2
   exit 1
 }
-grep -Fq 'pgrep -l -f com\\.nuvio\\.media\\.benchmark' "$FAKE_COMMAND_LOG" || {
+grep -Fq 'pgrep -l -f com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
   echo 'FAIL: diagnostic did not invoke AndroidX-equivalent pgrep arguments.' >&2
+  exit 1
+}
+if ! FAKE_API=36 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-profile-collect.log" 2>&1; then
+  echo "FAIL: API 36 should collect profiles using AndroidX's -a pgrep flag." >&2
+  cat "$TMP/api36-profile-collect.log" >&2
+  exit 1
+fi
+api36_profile_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$api36_profile_result_dir" ] || { echo 'FAIL: API 36 Baseline Profile fixture did not produce a collect-* result.' >&2; exit 1; }
+grep -Fq "AndroidX-equivalent process lookup: pgrep -l -f -a 'com\.nuvio\.media\.benchmark'" "$api36_profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: API 36 diagnostic did not use AndroidX pgrep -a compatibility flag.' >&2
+  exit 1
+}
+grep -Fq 'pgrep -l -f -a com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: API 36 pgrep invocation did not include -a.' >&2
   exit 1
 }
 grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
