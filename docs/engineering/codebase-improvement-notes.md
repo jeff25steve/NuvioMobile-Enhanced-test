@@ -1011,8 +1011,8 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 **Confirmed defect**
 - The runner computes `SCRIPT_DIR` as an absolute directory path, but compares it directly with the raw `NUVIO_PHONE_STAGE_DIR` environment value.
-- A relative stage directory (for example `tmp/benchmark-stage`) can never compare equal to the absolute `SCRIPT_DIR`, even when it names the directory containing the re-executed runner. A stage path with a trailing slash has the same mismatch.
-- On the second invocation, the runner therefore attempts to stage the runner onto its own file path. This can fail as a same-file copy or keep the script in the staging branch rather than reaching the action handler. The existing test sets an absolute stage path without a trailing slash, so neither variant is covered.
+- A relative stage directory is valid when it resolves to a distinct directory. The defect occurs when a relative spelling (from the current working directory) or a trailing-slash spelling resolves to the same directory as `SCRIPT_DIR` but does not compare equal as a string.
+- In that same-directory case, the staging branch attempts to copy the runner onto its own file path before re-executing it. POSIX specifies that `cp` must not copy a source onto the same file and may emit a diagnostic; the exact exit behavior is implementation-dependent, so the reliable finding is the missed same-directory guard, not a guaranteed specific `cp` failure. The existing test sets an absolute stage path without a trailing slash, so these aliases are not covered.
 
 **Required regression**
 - Exercise the runner with a relative `NUVIO_PHONE_STAGE_DIR` and an absolute path with a trailing slash; both should normalize to the same canonical stage directory and execute the requested action once.
