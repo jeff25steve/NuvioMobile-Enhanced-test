@@ -3314,3 +3314,39 @@ AndroidX's collection implementation discovers the target package's running proc
 - No Gradle task, APK build, CI workflow, Macrobenchmark, profile generation, LADB command, or physical-device run was started. A fresh authorized phone run is still required to determine whether AndroidX now discovers and flushes the target process. No startup-performance improvement is claimed.
 
 References: [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark) · [AndroidX ProfileInstallBroadcast source](https://android.googlesource.com/platform/frameworks/support/+/a349cb5de77484f27bec23731f681017514e2d64/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/ProfileInstallBroadcast.kt) · [AndroidX MacrobenchmarkScope source](https://android.googlesource.com/platform/frameworks/support/+/4af516a7e6a30e7e47560dbd4b388105446d26dc/benchmark/benchmark-macro/src/main/java/androidx/benchmark/macro/MacrobenchmarkScope.kt)
+
+
+## 22 November 2026 — deeper AndroidX flush-path trace
+
+### What the exception actually proves
+
+The exact `Process com.nuvio.media.benchmark never flushed profiles in any process` message is thrown by `CompilationMode.Partial.compileImpl` when its `hasFlushedArtProfiles` check remains false. In the AndroidX profile-flush implementation, that state is set only after `ProfileInstallBroadcast.saveProfilesForAllProcesses(packageName)` discovers at least one running target process and completes the save path. The process lookup calls `Shell.getRunningPidsAndProcessesForPackage`, which uses `pgrep -l -f` with the package dots escaped, then accepts only the exact package process name or its `:<suffix>` child processes. A zero-process result therefore leaves the flush flag false and produces this exact check failure.
+
+This is materially different from a receiver failure. If a process is discovered but the `SAVE_PROFILE` broadcast is not received, AndroidX has a separate error path describing the missing/old ProfileInstaller receiver (or a rooted fallback). The observed `never flushed profiles` exception is not evidence that the receiver returned a bad result code. PR #15's standalone result-12 preflight could succeed while the later AndroidX process lookup still returns zero.
+
+### App/dependency checks
+
+- `androidApp/build.gradle.kts` includes `implementation(libs.androidx.profileinstaller)` and the version catalog pins ProfileInstaller `1.4.1`.
+- The isolated benchmark application ID is `com.nuvio.media.benchmark` (the benchmark build types append `.benchmark` to `com.nuvio.media`). This matches the package in the exception.
+- The main manifest has no `android:process` or `isolatedProcess` declarations. There is no current evidence of a secondary process requiring the newer ProfileInstaller multi-process operation. ProfileInstaller `1.4.1` is the release that fixed sequential multi-process Baseline Profile recording; the main-process `SAVE_PROFILE` action is older and supported by this version.
+- AndroidX Benchmark `1.6.0-alpha01` already includes the documented fix for Baseline Profile capture of process names without a colon pattern. `1.6.0-alpha02` release notes do not identify a further process-discovery fix. A dependency upgrade is not justified by the current evidence.
+
+### A gap in the first diagnostic implementation
+
+The new phone-runner monitor currently samples `ps -A` and filters the process name. That is useful corroboration, but it does not reproduce AndroidX's actual `pgrep -l -f` lookup and parser. A `ps` row can exist while AndroidX's `pgrep` result or exact-name filter is empty. Before the next device collection, the diagnostic should record both the raw AndroidX-equivalent `pgrep -l -f` output (using the escaped package pattern) and the independent `ps -A` snapshot at the same samples. It should also retain the `ProfileInstallBroadcast` process-enumeration log line and the ProfileInstaller receiver's SIGUSR1/profile-save log. The current fake-device fixture does not yet exercise the zero-process path, so it cannot prove this diagnosis or the new pgrep capture.
+
+### What the supplied instrumentation log does and does not show
+
+The recovered `instrumentation(5).log` contains 14 `startup` readiness records and seven `home_browse` readiness records, all with `iteration=0`. These are 21 successful readiness events, not 21 uniquely identified iterations. The old provenance file records APK byte hashes and a runner hash but no source commit, so the records cannot be attributed conclusively to the current branch's generator or AndroidX source. The iteration label should be treated as an instrumentation/provenance limitation until a fresh run from a known APK/source commit confirms it.
+
+The `instrumentation(6).log` independently confirms the LADB foreground interruption: six startup readiness successes are followed by a 16.7-second `active_window_timeout` with `com.draco.ladb` as the active package; its Home Browse path then hits the old stale-node stack. That run must remain classified as an environment-interrupted run plus an old-APK stale-node failure, not as evidence against the current reacquisition implementation.
+
+### Pull request status
+
+PR #16 was closed without merging by the repository's automation. Its closing comment says the legacy app is being discontinued in favor of a Compose Multiplatform rewrite and that legacy-codebase pull requests are no longer being reviewed. There are no review submissions or inline review comments. The implementation remains on `fix/baseline-profile-flush-evidence-final-20261122`; it is not in `main-build-testing`.
+
+### Next evidence required
+
+Do not change production app code or weaken readiness. First capture the exact `pgrep -l -f` result that AndroidX relies on during the BaselineProfile flush, alongside `ps -A`, the active foreground package, and AndroidX/ProfileInstaller logcat. If `ps` shows the target but pgrep/parser output does not, investigate process-name formatting and AndroidX matching. If both show no target, investigate who/what terminated the app between the final readiness event and the five-second-later flush. If pgrep shows the target but AndroidX still reports zero, compare the exact command pattern, output parsing, and test APK version against the pinned AndroidX implementation. No root cause beyond the zero-process condition is claimed until that evidence is captured.
+
+Additional references: [AndroidX multi-process profile flush implementation](https://github.com/androidx/androidx/commit/de16b7c8489100703778a0028fd3ee89dc0efaef) · [AndroidX ProfileInstaller 1.4.1 release notes](https://developer.android.com/jetpack/androidx/releases/profileinstaller) · [AndroidX Benchmark release notes](https://developer.android.com/jetpack/androidx/releases/benchmark)
