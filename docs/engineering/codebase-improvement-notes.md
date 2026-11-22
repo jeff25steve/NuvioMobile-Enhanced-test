@@ -1060,3 +1060,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Cycle 153 now classifies video and separate audio URLs independently for VOD buffering. Video response headers/stream type no longer misclassify the separate audio resource; opaque audio URLs without a recognizable MIME hint fail closed and are not assumed progressive. Added host coverage for progressive audio with HLS video, adaptive audio with progressive video, response-header isolation, unknown and blank audio URLs.
 - Cycle 154 fixed stale Compose factory captures: the DataSource factory now remembers the complete `playerSourceKey`, the current network-byte counter instance, subtitles, live-stream state and context. This ensures audio URL, stream type and byte-counter changes cannot leave a factory incrementing an obsolete counter or applying stale buffering decisions.
 - Compose `remember` key behavior was checked against Android Developers documentation and Context7. The repository pins Compose Multiplatform 1.13.0-beta01; Context7 did not expose that exact prerelease as a versioned entry. Tests and Kotlin compilation remain unexecuted; no Gradle task, build, CI, device playback or benchmark was started. No measured playback speedup is claimed.
+
+
+### HLS playlist rewrite memory bound (Cycles 155–156, 22 November 2026)
+
+- Cycle 155: known-length HLS manifests larger than 256 KiB bypass the optional SPS/PPS rewrite without reading their bodies during DataSource open().
+- Cycle 156: unresolved-length manifests are read only through the 256 KiB + 1-byte sentinel. Oversized manifests replay that exact prefix and continue from the open upstream source, avoiding truncation or data loss. Small manifests retain the existing repair path.
+- Added host regression cases for both paths. Media3 1.8.0 DataSource contract was checked from the exact AndroidX source after Context7 returned 1.8.1 rather than 1.8.0. Tests/compilation remain unexecuted; no build, CI, device playback or benchmark was run. No speedup is claimed.
