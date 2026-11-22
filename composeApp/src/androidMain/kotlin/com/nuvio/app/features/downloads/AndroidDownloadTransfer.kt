@@ -41,6 +41,10 @@ internal suspend fun transferAndroidDownload(
         try {
             require(File(item.fileName).name == item.fileName && item.fileName.isNotBlank())
             var offset = sink.length()
+            // A byte range without a representation validator can join bytes from two
+            // different versions of a changing resource. Restart instead of sending an
+            // unconditional Range request when the saved partial has no validator.
+            if (offset > 0L && !validator.isStrongEntityTag()) offset = 0L
             var restarted = false
 
             while (true) {
@@ -53,7 +57,7 @@ internal suspend fun transferAndroidDownload(
                     header("Accept-Encoding", "identity")
                     if (offset > 0L) {
                         header("Range", "bytes=$offset-")
-                        validator?.let { header("If-Range", it) }
+                        validator?.takeIf { it.isStrongEntityTag() }?.let { header("If-Range", it) }
                     }
                 }.build()
                 val call = client.newCall(request)
@@ -85,8 +89,10 @@ internal suspend fun transferAndroidDownload(
                         )
                     }
                     val totalBytes = range?.completeLength ?: contentLength?.let { startingBytes + it }
-                    val responseValidator = response.header("ETag")?.takeUnless { it.startsWith("W/") }
-                        ?: response.header("Last-Modified")
+                    // If-Range requires a strong validator. Last-Modified is implicitly
+                    // weak unless its strength can be proven from Date metadata, which this
+                    // persisted transfer record does not retain.
+                    val responseValidator = response.header("ETag")?.takeIf { it.isStrongEntityTag() }
                     onHeaders(totalBytes, responseValidator)
                     var downloaded = startingBytes
                     var responseBytesRead = 0L
@@ -144,3 +150,12 @@ internal suspend fun transferAndroidDownload(
     }
 }
 
+
+private fun String?.isStrongEntityTag(): Boolean {
+    if (this == null || length < 2 || first() != '"' || last() != '"') return false
+    return substring(1, lastIndex).all { character ->
+        character == '!' ||
+            character in '#'..'~' ||
+            character.code in 0x80..0xFF
+    }
+}
