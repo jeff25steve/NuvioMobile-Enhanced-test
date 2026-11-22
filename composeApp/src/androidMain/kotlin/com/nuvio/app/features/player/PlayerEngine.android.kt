@@ -135,6 +135,9 @@ import java.util.concurrent.atomic.AtomicReference
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 
+internal fun bufferedAheadDurationMs(currentPositionMs: Long, bufferedPositionMs: Long): Long =
+    (bufferedPositionMs.coerceAtLeast(0L) - currentPositionMs.coerceAtLeast(0L)).coerceAtLeast(0L)
+
 internal class PlaybackDiagnostics {
     var prepareStartedAtMs: Long = 0L
         private set
@@ -1129,7 +1132,7 @@ private fun ExoPlayerSurface(
                         "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)} " +
                         "code=${error.errorCodeName} cause=${error.cause?.javaClass?.simpleName ?: "none"} " +
                         "positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} " +
-                        "bufferedMs=${exoPlayer.bufferedPosition.coerceAtLeast(0L)} " +
+                        "bufferedAheadMs=${bufferedAheadDurationMs(exoPlayer.currentPosition, exoPlayer.bufferedPosition)} " +
                         "durationMs=${exoPlayer.duration.coerceAtLeast(0L)} " +
                         "message=${diagnosticPlayerMessage(error.message)} " +
                         "causeChain=${diagnosticThrowableChain(error)}",
