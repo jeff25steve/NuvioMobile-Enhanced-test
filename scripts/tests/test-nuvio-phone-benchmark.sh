@@ -981,7 +981,7 @@ case "${FAKE_PGREP_MODE:-match}" in
   missing) exit 1 ;;
   error) echo 'pgrep fixture error' >&2; exit 2 ;;
   empty) exit 0 ;;
-  *) printf '12345 com.nuvio.media.benchmark\n12346 com.nuvio.media.benchmark:remote\n12347 com.nuvio.media.benchmark.child.proc:remote\n' ;;
+  *) printf '12345 com.nuvio.media.benchmark\n12346 com.nuvio.media.benchmark:remote\n12347 com.nuvio.media.benchmark.child.proc:remote\n12348 com.other.app\n' ;;
 esac
 STUB
 cat > "$TMP/bin/logcat" <<'STUB'
