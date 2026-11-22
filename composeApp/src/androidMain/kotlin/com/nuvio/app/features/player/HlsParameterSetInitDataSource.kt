@@ -25,6 +25,7 @@ import java.util.concurrent.TimeoutException
  * (a DefaultDataSource can).
  */
 internal const val HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS = 2_500L
+internal const val HLS_PLAYLIST_REWRITE_MAX_BYTES = 256 * 1024
 
 @OptIn(UnstableApi::class)
 internal class HlsParameterSetInitDataSource(
@@ -44,6 +45,9 @@ internal class HlsParameterSetInitDataSource(
         playlistReadPosition = 0
         val length = upstream.open(dataSpec)
         if (dataSpec.position != 0L || !isPlaylist(dataSpec.uri, upstream.responseHeaders)) return length
+
+        // Large manifests are uncommon and not worth buffering just to attempt this optional repair.
+        if (length > HLS_PLAYLIST_REWRITE_MAX_BYTES) return length
 
         val body = readAll(upstream)
         val baseUri = (upstream.uri ?: dataSpec.uri).toString()
