@@ -997,7 +997,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The `measure` action likewise runs instrumentation against an already-installed BenchmarkRelease variant and does not call `apk_paths()`.
 - Therefore, adding `collect` or `measure` to the APK-copy staging case would be unnecessary and would encode the wrong dependency. The earlier proposed clean-stage APK regression for those actions is withdrawn.
 
-**Help-text correction implemented on the review branch**
+**Cycle 149 — CLI help parity implemented on the review branch**
 - Added `collect`, `install` and `measure` examples for both flavors to the usage output.
 - Documented the required installed-variant preconditions so profile collection and measurement are not presented as standalone install operations.
 - Added host regression assertions that invoke `help` through same-directory staging aliases and check the rendered output for these commands.
@@ -1019,7 +1019,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Exercise the runner with a relative `NUVIO_PHONE_STAGE_DIR` and an absolute path with a trailing slash; both should normalize to the same canonical stage directory and execute the requested action once.
 - Retain the existing absolute-path fixture and verify that staging still copies only the action's required APK pair.
 
-**Implementation on review branch `fix/phone-benchmark-stage-paths`**
+**Cycle 148 — implementation on review branch `fix/phone-benchmark-stage-paths`**
 - The runner now prefixes relative stage paths with `./` before passing them to `mkdir` (including relative names beginning with a dash), creates the directory, and resolves it with POSIX `cd -P`/`pwd` while suppressing `CDPATH` output.
 - The script path is likewise made option-safe before `dirname`, and `SCRIPT_DIR` uses the same physical-directory policy. Trailing-slash and relative aliases of the runner directory therefore compare consistently; distinct relative staging directories remain supported.
 - Added host regression fixtures for a trailing-slash alias and a relative path that resolves to the bundle directory. Both invoke the help action and assert it appears exactly once, which catches the previous same-file self-copy/re-exec path.
