@@ -4,6 +4,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -29,9 +30,9 @@ class KeyedMutexTest {
             keyedMutex.withLock("same") { secondEntered.complete(Unit) }
         }
 
-        yield()
+        awaitTrackedReferences(keyedMutex, "same", 2)
         assertFalse(secondEntered.isCompleted)
-        assertEquals(1, keyedMutex.trackedKeyCount, "A queued waiter must keep the shared mutex entry alive")
+        assertEquals(2, keyedMutex.trackedReferenceCount("same"))
 
         releaseFirst.complete(Unit)
         first.join()
@@ -59,7 +60,7 @@ class KeyedMutexTest {
             keyedMutex.withLock("second") { secondEntered.complete(Unit) }
         }
 
-        secondEntered.await()
+        withTimeout(1_000) { secondEntered.await() }
         releaseFirst.complete(Unit)
         first.join()
         second.join()
@@ -81,13 +82,19 @@ class KeyedMutexTest {
         }
         ownerEntered.await()
         val waiter = launch { keyedMutex.withLock("same") { error("cancelled waiter entered") } }
-        yield()
+        awaitTrackedReferences(keyedMutex, "same", 2)
         waiter.cancelAndJoin()
-        assertEquals(1, keyedMutex.trackedKeyCount, "The active owner must retain the entry after a waiter is cancelled")
+        assertEquals(1, keyedMutex.trackedReferenceCount("same"), "The active owner must retain the entry after a waiter is cancelled")
 
         releaseOwner.complete(Unit)
         owner.join()
 
         assertEquals(0, keyedMutex.trackedKeyCount)
+    }
+
+    private suspend fun awaitTrackedReferences(keyedMutex: KeyedMutex, key: String, expected: Int) {
+        withTimeout(1_000) {
+            while (keyedMutex.trackedReferenceCount(key) != expected) yield()
+        }
     }
 }
