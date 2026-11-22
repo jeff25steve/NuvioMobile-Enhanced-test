@@ -70,7 +70,7 @@ internal class AndroidDownloadStore(private val directory: File) {
 
     fun remove(fileName: String): AndroidDownloadTransfer? = synchronized(lock) {
         val current = get(fileName) ?: return@synchronized null
-        removeCurrent(fileName, current)
+        removeCurrent(fileName)
         current
     }
 
@@ -81,7 +81,7 @@ internal class AndroidDownloadStore(private val directory: File) {
         current
     }
 
-    private fun removeCurrent(fileName: String, current: AndroidDownloadTransfer) {
+    private fun removeCurrent(fileName: String) {
         AtomicFile(recordFile(fileName)).delete()
         stateFlow.value = stateFlow.value - fileName
     }
