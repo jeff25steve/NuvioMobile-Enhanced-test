@@ -989,22 +989,23 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 
 
-## Android phone benchmark runner — clean-stage action dispatch gap (Cycle 145, 22 November 2026)
+## Android phone benchmark runner — clean-stage action dispatch review (Cycle 145 correction, 22 November 2026)
 
-**Confirmed defect**
-- `apk_paths()` explicitly supports `full:collect` and `playstore:collect`, selecting the matching `BenchmarkRelease` app/test APK pair.
-- The initial auto-staging dispatch does not include either `collect:full` or `collect:playstore` in its `STAGE_APKS` case. A fresh invocation from the Downloads bundle therefore copies only the runner into the staging directory, then re-executes there with no benchmark APKs beside it. The subsequent collect action cannot use the APK paths it selected.
-- The existing host fixture invokes `collect full` only after earlier commands have populated the shared staging directory with BenchmarkRelease APKs. That order masks the clean-stage failure; it does not test collect as the first command from a fresh bundle.
-- The user-facing usage block does not list the supported `collect` command even though the final action dispatcher accepts it.
+**Correction to the earlier finding**
+- The earlier claim that `collect` needs the BenchmarkRelease APK pair copied into the staging directory was incorrect.
+- Although `apk_paths()` contains `full:collect` and `playstore:collect` mappings, the helper is called only by `install_variant()`. The `collect` action calls `run_instrumentation` directly against the already-installed profile-generation variant; it does not install from those APK paths.
+- The `measure` action likewise runs instrumentation against an already-installed BenchmarkRelease variant and does not call `apk_paths()`.
+- Therefore, adding `collect` or `measure` to the APK-copy staging case would be unnecessary and would encode the wrong dependency. The earlier proposed clean-stage APK regression for those actions is withdrawn.
 
-**Required regression**
-- Start with an empty `NUVIO_PHONE_STAGE_DIR`, invoke `collect full` and `collect playstore` independently from the source bundle, and assert that exactly the matching BenchmarkRelease APK pair is staged before instrumentation.
-- Also verify that the action help lists `collect` if it remains a supported public command.
+**Separate confirmed help-text gap**
+- The usage block documents `install-profile`, `run` and `memory-profile`, while the action dispatcher also accepts `collect`, `install` and `measure`.
+- This is a discoverability/documentation defect, not an APK-staging failure. If these commands remain supported, the help output and its regression fixture should list them with their required installed-state preconditions.
 
-**Implementation boundary**
-- This is a deterministic staging/action-dispatch defect in the benchmark tooling, not an application playback or startup-performance finding.
-- No script change was made because the available GitHub integration can inspect and edit repository files but cannot execute the focused POSIX-shell regression harness. Do not merge an unexecuted runner change. The previously authorized focused host tests should include the fresh-stage fixture when a checkout/command runner is available.
-- No build, CI, Gradle task, APK build, device run, profile collection or benchmark was started.
+**Evidence and verification boundary**
+- Re-fetched the complete runner and host test. Traced every `apk_paths()` call: the only call is inside `install_variant()`; the `collect` and `measure` dispatcher branches call `run_instrumentation` without invoking installation.
+- The host test intentionally performs `install-profile` before profile collection and later exercises measurement against installed-state variants; its shared stage directory does not establish a missing-APK defect for these instrumentation-only actions.
+- No production script or test was changed. This correction withdraws the false positive rather than introducing an unnecessary staging change. No test, build, CI, APK, device run, profile collection or benchmark was started.
+
 
 ## Android phone benchmark runner — staging path normalization gap (Cycle 146, 22 November 2026)
 
@@ -1020,3 +1021,23 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Implementation boundary**
 - The minimal safe correction is to create the stage directory, resolve it to an absolute canonical directory path, then compare that normalized path with `SCRIPT_DIR` before deciding whether to re-exec. The implementation must preserve Android shell portability and avoid relying on non-POSIX utilities.
 - No script change was made because the focused shell regression harness cannot be executed from this GitHub-only environment. No claim of a fix or test pass is made.
+
+
+## Android phone benchmark runner — normalize staging-directory identity (Cycle 147, 22 November 2026)
+
+**Confirmed path-identity defect**
+- The runner computes `SCRIPT_DIR` as an absolute path, but compares it with the unnormalized `NUVIO_PHONE_STAGE_DIR` value.
+- If the configured staging path resolves to the same directory but has a different spelling (for example, a trailing slash, or a relative path from a working directory that makes it resolve to the script directory), the string comparison incorrectly enters the staging branch.
+- The runner then passes its own script as both the source and destination of the `cp` operation. POSIX specifies that when source and destination refer to the same file, `cp` does not copy it and may emit a diagnostic. The runner's current flow does not correctly identify this same-directory case before attempting the copy/re-exec sequence.
+- A relative path that resolves to a genuinely different staging directory is valid and should continue to work; the regression must distinguish that normal case from a relative spelling of the script directory.
+
+**Required regression and correction**
+- Normalize the staging directory after creating it, using portable shell directory resolution, before comparing it with `SCRIPT_DIR`.
+- Compare both paths using the same physical/logical resolution policy. Avoid introducing non-POSIX utilities or changing symlink semantics unintentionally.
+- Add fixtures for an absolute path with a trailing slash and a relative path that resolves to the script directory. Also retain a relative path to a distinct staging directory to prove normal staging still works.
+- Assert that the same-directory cases execute the requested action exactly once and never invoke `cp` with identical source/destination files.
+
+**Evidence and verification boundary**
+- Re-fetched the complete runner and test harness from the live branch. The runner has the direct string comparison at the top-level staging guard; the current fixture uses only an absolute staging path without a trailing slash.
+- Checked the POSIX.1-2024 `cp` specification: when source and destination refer to the same file, the utility may diagnose the condition and must not copy that file. This confirms that the runner must resolve path identity before attempting the copy.
+- No script or test changes were made because this environment has GitHub file read/write access but no usable repository checkout or shell command runner. The previously authorized focused host suite remains the required verification before integration. No build, CI, Gradle task, APK, device run or benchmark was started.
