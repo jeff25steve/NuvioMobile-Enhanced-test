@@ -2101,13 +2101,13 @@ verify_profile_installer_receiver() {
   receiver="androidx.profileinstaller.ProfileInstallReceiver"
   receiver_state="$(dumpsys package "$APP_PACKAGE" 2>&1 | grep -C 2 -F "$receiver" || true)"
   {
-    printf 'Target package: %s\\n' "$APP_PACKAGE"
-    printf 'Expected receiver: %s\\n' "$receiver"
-    printf 'Installed package metadata evidence:\\n'
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Expected receiver: %s\n' "$receiver"
+    printf 'Installed package metadata evidence:\n'
     if [ -n "$receiver_state" ]; then
-      printf '%s\\n' "$receiver_state"
+      printf '%s\n' "$receiver_state"
     else
-      printf 'Receiver not present in installed package metadata.\\n'
+      printf 'Receiver not present in installed package metadata.\n'
     fi
   } > "$RUN_DIR/profile-installer-receiver.txt"
   [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
@@ -2120,24 +2120,24 @@ start_profile_collection_diagnostics() {
   logcat_timeline="$RUN_DIR/profile-collection-logcat.txt"
 
   {
-    printf 'Live target-process samples during BaselineProfile instrumentation\\n'
-    printf 'Target package: %s\\n' "$APP_PACKAGE"
-    printf 'Sampling interval: approximately 1 second\\n'
-    printf 'A missing sample is not proof that no process existed between samples.\\n'
+    printf 'Live target-process samples during BaselineProfile instrumentation\n'
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Sampling interval: approximately 1 second\n'
+    printf 'A missing sample is not proof that no process existed between samples.\n'
   } > "$process_timeline"
 
   if command -v ps >/dev/null 2>&1; then
     (
       while :; do
-        printf '\\nSample: '
-        date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\\n'
-        ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed at this sample.\\n'
+        printf '\nSample: '
+        date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+        ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed at this sample.\n'
         sleep 1
       done
     ) >> "$process_timeline" 2>&1 &
     PROFILE_PROCESS_MONITOR_PID=$!
   else
-    printf 'ps unavailable; process sampling was not started.\\n' >> "$process_timeline"
+    printf 'ps unavailable; process sampling was not started.\n' >> "$process_timeline"
   fi
 
   if command -v logcat >/dev/null 2>&1; then
@@ -2145,7 +2145,7 @@ start_profile_collection_diagnostics() {
       >> "$logcat_timeline" 2>&1 &
     PROFILE_LOGCAT_MONITOR_PID=$!
   else
-    printf 'logcat unavailable; AndroidX live log capture was not started.\\n' > "$logcat_timeline"
+    printf 'logcat unavailable; AndroidX live log capture was not started.\n' > "$logcat_timeline"
   fi
 }
 
@@ -2162,9 +2162,9 @@ stop_profile_collection_diagnostics() {
   fi
 
   {
-    printf '\\nFinal process snapshot after instrumentation: '
-    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\\n'
-    ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed after instrumentation.\\n'
+    printf '\nFinal process snapshot after instrumentation: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed after instrumentation.\n'
   } >> "$RUN_DIR/profile-process-timeline.txt" 2>&1
 }
 
