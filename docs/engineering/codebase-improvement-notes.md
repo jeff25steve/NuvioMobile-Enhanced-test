@@ -1046,3 +1046,24 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+## Bounded Android download locks and per-record store concurrency (22 November 2026)
+
+**Confirmed issues**
+- The scheduler retained one `Mutex` per filename in a `ConcurrentHashMap` with no removal path. Repeated downloads of distinct filenames therefore grew the lock registry for the process lifetime.
+- The download store used one monitor around every record's AtomicFile I/O and caller transform. A slow update for one filename blocked unrelated records. Concurrent updates also published map snapshots by read/modify/write assignment, allowing lost updates when different records changed simultaneously.
+- The shared OkHttp base client already installs `NetworkErrorInterceptor`; the API Ktor engine and Coil's preconfigured client added the same interceptor again.
+
+**Correction**
+- Replaced the scheduler map with a reference-counted keyed Mutex registry. Holders and queued waiters are counted before suspension; idle entries are removed only after the last user exits.
+- Replaced the store-wide monitor with reference-counted per-filename monitors. Same-record AtomicFile operations remain serialized while unrelated filenames can proceed independently.
+- Published map changes with `MutableStateFlow.update`; its update lambdas are pure so retry evaluation under contention is safe.
+- Added a separate job-ID allocation lock and monotonic allocator initialized from persisted records.
+- Preserved generation-aware removal while porting the store lock: bulk cleanup passes its snapshot generation, and the scheduler cancels only the matching current transfer.
+- Removed the duplicate interceptor additions from the API and Coil clients; the shared OkHttp base remains the single installation point.
+
+**Verification boundary**
+- The project pins kotlinx.coroutines 1.10.2. Exa inspected the upstream Mutex/StateFlow implementation; Context7's closest indexed version was 1.10.1. The documented contracts confirm prompt cancellation for Mutex.lock and that StateFlow.update may evaluate its lambda multiple times.
+- Added host tests for same-key serialization, different-key concurrency, cancelled waiters, independent store updates, same-record serialization, distinct job IDs and generation-safe removal.
+- Source and tests were re-fetched for static checks. Tests and Kotlin compilation have not been executed; no build or CI was started.
