@@ -26,7 +26,7 @@ class PlaybackDiagnosticsTest {
         assertFalse(diagnostics.claimFirstLoad(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_VIDEO, 4L))
         assertTrue(diagnostics.claimFirstLoad(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_AUDIO, 5L))
         assertFalse(diagnostics.claimFirstLoad(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_AUDIO, 6L))
-        assertFalse(diagnostics.claimFirstLoad(C.DATA_TYPE_DRM))
+        assertFalse(diagnostics.claimFirstLoad(C.DATA_TYPE_DRM, C.TRACK_TYPE_UNKNOWN, 7L))
     }
 
     @Test
@@ -58,7 +58,7 @@ class PlaybackDiagnosticsTest {
         assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_VIDEO, 20L))
         assertFalse(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_VIDEO, 21L))
         assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_AUDIO, 22L))
-        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MANIFEST))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MANIFEST, C.TRACK_TYPE_UNKNOWN, 8L))
 
         diagnostics.markReady()
         diagnostics.markRebufferStarted()
