@@ -26,6 +26,104 @@ class AndroidDownloadTransferTest {
     @get:Rule val temporary = TemporaryFolder()
 
     @Test
+    fun partialFileWithoutValidatorRestartsInsteadOfRequestingAnUnsafeRange(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+                override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse =
+                    if (request.getHeader("Range") != null) {
+                        MockResponse()
+                            .setResponseCode(206)
+                            .setHeader("Content-Range", "bytes 10-15/16")
+                            .setBody("-suffix")
+                    } else {
+                        MockResponse().setBody("new representation")
+                    }
+            }
+            val partial = File(temporary.newFolder(), "video.mkv.part").apply {
+                writeText("old prefix")
+            }
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(partial),
+                validator = null,
+                onHeaders = { _, _ -> },
+                onProgress = { _, _ -> },
+            )
+
+            assertNull(server.takeRequest().getHeader("Range"))
+            assertEquals("new representation", partial.readText())
+        }
+    }
+
+    @Test
+    fun lastModifiedAloneIsNotPersistedAsAResumeValidator(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setHeader("Last-Modified", "Wed, 21 Oct 2015 07:28:00 GMT")
+                    .setBody("complete representation"),
+            )
+            var receivedValidator: String? = "not-updated"
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(File(temporary.newFolder(), "video.mkv.part")),
+                validator = null,
+                onHeaders = { _, validator -> receivedValidator = validator },
+                onProgress = { _, _ -> },
+            )
+
+            assertNull(receivedValidator)
+        }
+    }
+
+    @Test
+    fun weakEntityTagIsNotPersistedAsAResumeValidator(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setHeader("ETag", "W/\"weak-version\"")
+                    .setBody("complete representation"),
+            )
+            var receivedValidator: String? = "not-updated"
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(File(temporary.newFolder(), "video.mkv.part")),
+                validator = null,
+                onHeaders = { _, validator -> receivedValidator = validator },
+                onProgress = { _, _ -> },
+            )
+
+            assertNull(receivedValidator)
+        }
+    }
+
+    @Test
+    fun legacyLastModifiedValidatorRestartsInsteadOfSendingIfRange(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setBody("current complete representation"))
+            val partial = File(temporary.newFolder(), "video.mkv.part").apply {
+                writeText("stale prefix")
+            }
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(partial),
+                validator = "Wed, 21 Oct 2015 07:28:00 GMT",
+                onHeaders = { _, _ -> },
+                onProgress = { _, _ -> },
+            )
+
+            val request = server.takeRequest()
+            assertNull(request.getHeader("Range"))
+            assertNull(request.getHeader("If-Range"))
+            assertEquals("current complete representation", partial.readText())
+        }
+    }
+
+    @Test
     fun resumesPartialFileWithRangeAndValidator(): Unit = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 5-10/11")
