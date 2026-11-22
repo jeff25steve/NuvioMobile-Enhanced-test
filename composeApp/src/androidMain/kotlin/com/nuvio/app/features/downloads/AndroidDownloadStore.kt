@@ -6,6 +6,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -24,7 +25,9 @@ internal data class AndroidDownloadTransfer(
 
 internal class AndroidDownloadStore(private val directory: File) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val lock = Any()
+    private val locks = KeyedSynchronizedLock()
+    private val jobIdLock = Any()
+    private var nextJobId: Long? = null
     private val state = lazy(LazyThreadSafetyMode.SYNCHRONIZED) { MutableStateFlow(load()) }
     private val stateFlow get() = state.value
     internal val isLoaded: Boolean get() = state.isInitialized()
@@ -32,27 +35,28 @@ internal class AndroidDownloadStore(private val directory: File) {
 
     fun get(fileName: String): AndroidDownloadTransfer? = stateFlow.value[fileName]
 
-    fun begin(item: DownloadItem, exportTreeUri: String? = null): AndroidDownloadTransfer = synchronized(lock) {
-        val previous = get(item.fileName)?.takeIf { it.item.id == item.id }
-        if (previous?.item?.status == DownloadStatus.Downloading) return@synchronized previous
-        val transfer = AndroidDownloadTransfer(
-            item = item.copy(status = DownloadStatus.Downloading, errorMessage = null, localFileUri = null),
-            jobId = previous?.jobId ?: ((stateFlow.value.values.maxOfOrNull { it.jobId } ?: 0) + 1),
-            generation = UUID.randomUUID().toString(),
-            validator = previous?.validator,
-            exportTreeUri = exportTreeUri,
-            partialDocumentUri = previous?.takeIf { it.exportTreeUri == exportTreeUri }?.partialDocumentUri,
-            directWrite = previous?.takeIf { it.exportTreeUri == exportTreeUri }?.directWrite ?: true,
-        )
-        save(transfer)
-        transfer
-    }
+    fun begin(item: DownloadItem, exportTreeUri: String? = null): AndroidDownloadTransfer =
+        locks.withLock(item.fileName) {
+            val previous = get(item.fileName)?.takeIf { it.item.id == item.id }
+            if (previous?.item?.status == DownloadStatus.Downloading) return@withLock previous
+            val transfer = AndroidDownloadTransfer(
+                item = item.copy(status = DownloadStatus.Downloading, errorMessage = null, localFileUri = null),
+                jobId = previous?.jobId ?: allocateJobId(),
+                generation = UUID.randomUUID().toString(),
+                validator = previous?.validator,
+                exportTreeUri = exportTreeUri,
+                partialDocumentUri = previous?.takeIf { it.exportTreeUri == exportTreeUri }?.partialDocumentUri,
+                directWrite = previous?.takeIf { it.exportTreeUri == exportTreeUri }?.directWrite ?: true,
+            )
+            save(transfer)
+            transfer
+        }
 
     fun pauseIfDownloading(fileName: String, generation: String): AndroidDownloadTransfer? =
-        synchronized(lock) {
+        locks.withLock(fileName) {
             val current = get(fileName)?.takeIf { it.generation == generation }
-                ?: return@synchronized null
-            if (current.item.status != DownloadStatus.Downloading) return@synchronized null
+                ?: return@withLock null
+            if (current.item.status != DownloadStatus.Downloading) return@withLock null
 
             current.copy(
                 item = current.item.copy(status = DownloadStatus.Paused, errorMessage = null),
@@ -63,14 +67,38 @@ internal class AndroidDownloadStore(private val directory: File) {
         fileName: String,
         generation: String,
         transform: (AndroidDownloadTransfer) -> AndroidDownloadTransfer,
-    ): AndroidDownloadTransfer? = synchronized(lock) {
-        val current = get(fileName)?.takeIf { it.generation == generation } ?: return@synchronized null
+    ): AndroidDownloadTransfer? = locks.withLock(fileName) {
+        val current = get(fileName)?.takeIf { it.generation == generation } ?: return@withLock null
         transform(current).also(::save)
     }
 
-    fun remove(fileName: String) = synchronized(lock) {
+    fun remove(fileName: String): AndroidDownloadTransfer? = locks.withLock(fileName) {
+        // Initialize the snapshot before touching the record so the first lazy load cannot
+        // race with this deletion and restore a record that has already been removed.
+        stateFlow.value
+        val current = get(fileName) ?: return@withLock null
+        removeCurrent(fileName)
+        current
+    }
+
+    fun remove(fileName: String, generation: String): AndroidDownloadTransfer? = locks.withLock(fileName) {
+        stateFlow.value
+        val current = get(fileName)?.takeIf { it.generation == generation }
+            ?: return@withLock null
+        removeCurrent(fileName)
+        current
+    }
+
+    private fun removeCurrent(fileName: String) {
         AtomicFile(recordFile(fileName)).delete()
-        stateFlow.value = stateFlow.value - fileName
+        stateFlow.update { current -> current - fileName }
+    }
+
+    private fun allocateJobId(): Int = synchronized(jobIdLock) {
+        val next = nextJobId ?: ((stateFlow.value.values.maxOfOrNull { it.jobId }?.toLong() ?: 0L) + 1L)
+        check(next <= Int.MAX_VALUE) { "Download job ID space exhausted" }
+        nextJobId = next + 1L
+        next.toInt()
     }
 
     private fun save(transfer: AndroidDownloadTransfer) {
@@ -84,7 +112,7 @@ internal class AndroidDownloadStore(private val directory: File) {
             file.failWrite(output)
             throw error
         }
-        stateFlow.value = stateFlow.value + (transfer.item.fileName to transfer)
+        stateFlow.update { current -> current + (transfer.item.fileName to transfer) }
     }
 
     private fun load(): Map<String, AndroidDownloadTransfer> = directory.listFiles().orEmpty()
