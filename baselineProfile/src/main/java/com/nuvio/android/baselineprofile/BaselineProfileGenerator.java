@@ -24,9 +24,10 @@ import org.junit.runner.RunWith;
  * part of a normal release build.
  *
  * Phone-only (LADB) tip: start the instrument command, then immediately leave
- * the terminal so {@code com.nuvio.media.benchmark} stays in front. Readiness
- * checks require Nuvio to own the active window and never relaunch it during
- * a measured startup; a shell-owned foreground window fails with diagnostics.
+ * the terminal. Do not reopen LADB, run shell commands, or interact with the
+ * phone until instrumentation finishes. Readiness checks require Nuvio to own
+ * the active window and never relaunch it during a measured startup; a
+ * shell-owned foreground window fails with diagnostics.
  */
 @RunWith(AndroidJUnit4.class)
 @LargeTest
@@ -49,7 +50,7 @@ public final class BaselineProfileGenerator {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startup");
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, "startup", scope.getIteration());
                     return Unit.INSTANCE;
                 }
         );
@@ -68,7 +69,7 @@ public final class BaselineProfileGenerator {
                     scope.startActivityAndWait();
                     UiDevice device = UiDevice.getInstance(
                             InstrumentationRegistry.getInstrumentation());
-                    StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse");
+                    StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse", scope.getIteration());
                     HomeBrowseReadiness.scrollRequired(
                             device,
                             "nuvio_benchmark_home_scroll",

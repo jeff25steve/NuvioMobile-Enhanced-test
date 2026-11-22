@@ -1,6 +1,5 @@
 package com.nuvio.android.baselineprofile;
 
-import android.graphics.Rect;
 import android.view.accessibility.AccessibilityNodeInfo;
 
 import androidx.test.uiautomator.Direction;
@@ -55,7 +54,7 @@ final class HomeBrowseReadiness {
 
         // The subtree predicate is not a substitute for our stricter active-window,
         // target-package and clipped-visible-bounds checks.
-        if (!markerHasVisibleBounds(device, targetMarker)) {
+        if (!StartupReadiness.targetMarkerHasVisibleBounds(device, targetMarker)) {
             throw new AssertionError(
                     "Home browse journey found selector '" + targetMarker
                             + "' while scrolling " + journeyStep + " " + direction
@@ -103,21 +102,14 @@ final class HomeBrowseReadiness {
 
     private static UiObject2 requireScrollable(
             UiDevice device, String marker, String journeyStep) {
-        UiObject2 scrollable = StartupReadiness.targetMarker(device, marker);
-        if (scrollable == null || !scrollable.isScrollable()) {
+        UiObject2 scrollable = StartupReadiness.targetScrollableMarker(device, marker);
+        if (scrollable == null) {
             throw new AssertionError(
                     "Home browse journey found '" + marker
                             + "' in the target active window, but it is not a scrollable "
                             + journeyStep + "." + StartupReadiness.diagnostics(device));
         }
         return scrollable;
-    }
-
-    private static boolean markerHasVisibleBounds(UiDevice device, String marker) {
-        UiObject2 object = StartupReadiness.targetMarker(device, marker);
-        if (object == null) return false;
-        Rect bounds = object.getVisibleBounds();
-        return bounds.width() > 0 && bounds.height() > 0;
     }
 
     private static AssertionError scrollFailure(

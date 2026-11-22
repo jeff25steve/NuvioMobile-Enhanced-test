@@ -1,6 +1,7 @@
 package com.nuvio.android.baselineprofile;
 
 import android.app.Instrumentation;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.os.SystemClock;
 
@@ -55,20 +56,55 @@ final class StartupReadiness {
     }
 
     static UiObject2 targetMarker(UiDevice device, String marker) {
-        UiWindow activeWindow = device.findWindow(By.Window.active(true));
-        if (activeWindow == null || !TARGET_APP_PACKAGE.equals(activeWindow.getPackageName())) {
-            return null;
-        }
-        UiObject2 object = activeWindow.findObject(composeTagSelector(marker));
-        if (object == null || !TARGET_APP_PACKAGE.equals(object.getApplicationPackage())) {
-            return null;
-        }
-        return object;
+        // UiObject2 is a snapshot of an accessibility node. Compose recomposition and
+        // LazyList movement can invalidate it between lookup and package verification.
+        // Reacquire the active window and marker on each bounded retry; never reuse a stale node.
+        return StaleNodeRetry.run(() -> {
+            UiWindow activeWindow = device.findWindow(By.Window.active(true));
+            if (activeWindow == null
+                    || !TARGET_APP_PACKAGE.equals(activeWindow.getPackageName())) {
+                return null;
+            }
+            UiObject2 object = activeWindow.findObject(composeTagSelector(marker));
+            if (object == null
+                    || !TARGET_APP_PACKAGE.equals(object.getApplicationPackage())) {
+                return null;
+            }
+            return object;
+        });
     }
 
     static boolean markerVisible(UiDevice device, String marker) {
         return targetMarker(device, marker) != null;
     }
+
+    /**
+     * Returns a scroll container only after its scrollability read succeeds.
+     * The lookup and property access share one retry so a stale UiObject2 is
+     * discarded and reacquired rather than read again.
+     */
+    static UiObject2 targetScrollableMarker(UiDevice device, String marker) {
+        return StaleNodeRetry.run(() -> {
+            UiObject2 object = targetMarker(device, marker);
+            return object != null && object.isScrollable() ? object : null;
+        });
+    }
+
+    /**
+     * Reads visible bounds inside the retry so a node invalidated during
+     * getVisibleBounds() is reacquired before the next read attempt.
+     */
+    static boolean targetMarkerHasVisibleBounds(UiDevice device, String marker) {
+        return StaleNodeRetry.run(() -> {
+            UiObject2 object = targetMarker(device, marker);
+            if (object == null) {
+                return false;
+            }
+            Rect bounds = object.getVisibleBounds();
+            return bounds.width() > 0 && bounds.height() > 0;
+        });
+    }
+
 
     static String diagnostics(UiDevice device) {
         String lastAccessibilityEventPackage = "<unavailable>";
