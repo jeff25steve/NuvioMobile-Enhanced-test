@@ -49,4 +49,19 @@ internal object PlatformPlaybackDataSourceFactory {
             sourceLabel = if (useYoutubeChunkedPlayback) "youtube-chunked" else "default-http",
         )
     }
+    
+    fun createHlsSegmentInspectionDataSourceFactory(
+        defaultRequestHeaders: Map<String, String>,
+        useLongReadTimeout: Boolean,
+        useYoutubeChunkedPlayback: Boolean,
+    ): DataSource.Factory? {
+        // The full flavor's YouTube chunked source has its own transport contract. Do not silently
+        // bypass it for inspection; retain its existing fallback behavior instead.
+        if (useYoutubeChunkedPlayback) return null
+        return PlayerPlaybackNetworking.createHttpDataSourceFactory(
+            defaultHeaders = defaultRequestHeaders,
+            useLongReadTimeout = useLongReadTimeout,
+            callTimeoutMs = HLS_SEGMENT_INSPECTION_CALL_TIMEOUT_MS,
+        )
+    }
 }
