@@ -78,7 +78,7 @@ class PlaybackDiagnosticsTest {
 
         diagnostics.beginAttempt(250L)
 
-        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_VIDEO, 31L))
     }
 
     @Test
@@ -98,7 +98,6 @@ class PlaybackDiagnosticsTest {
         assertTrue(diagnostics.claimFirstCompletion(C.DATA_TYPE_MANIFEST, C.TRACK_TYPE_UNKNOWN, 42L))
         assertTrue(diagnostics.claimFirstCompletion(C.DATA_TYPE_MEDIA, C.TRACK_TYPE_VIDEO, 43L))
     }
-}
 
     @Test
     fun delayedCompletionFromBeforeTheCurrentAttemptIsRejected() {
@@ -124,3 +123,4 @@ class PlaybackDiagnosticsTest {
         assertTrue(diagnostics.claimFirstLoad(C.DATA_TYPE_MANIFEST, C.TRACK_TYPE_UNKNOWN, 51L))
         assertTrue(diagnostics.claimFirstCompletion(C.DATA_TYPE_MANIFEST, C.TRACK_TYPE_UNKNOWN, 51L))
     }
+}
