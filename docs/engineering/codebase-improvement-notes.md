@@ -962,3 +962,22 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+
+## Android download transfer-store lock scope audit (Cycle 144, 22 November 2026)
+
+A new path outside the recent playback/network investigations was traced: Android download completion and the transfer-state store.
+
+**Confirmed source-level finding:** `AndroidDownloadStore.update()` executes its caller-supplied transform while holding the store-wide `synchronized(lock)`, then persists the result with `AtomicFile` before releasing that same monitor. In `AndroidDownloadScheduler.execute()`, the direct SAF-export completion transform calls `AndroidDownloadExport.finalizePartial()` (which can make repeated synchronous `DocumentsContract.renameDocument` calls), `AndroidDownloadExport.moveSubtitles()` (filesystem directory operations), and `AndroidDownloadExport.sink(...).length()`. The staged-export completion transform also calls `moveSubtitles()` and deletes the staged file from inside the transform. These are external provider/filesystem operations, not pure state calculations.
+
+This means one download's completion I/O holds the shared transfer-store monitor and serializes unrelated transfer-state updates, including progress writes and state transitions for other downloads. The source proves the lock scope and serialization; it does **not** prove a measured UI stall or a particular user-visible delay.
+
+**Why no speculative patch was made:** moving those operations outside the monitor without a per-transfer transaction boundary could race pause/remove/generation replacement and leave a renamed SAF document or subtitle directory orphaned while the persisted transfer remains paused, removed, or stale. A safe fix needs per-transfer operation serialization plus a short atomic state/persistence section, with regression coverage for concurrent different-file updates, same-file pause/remove, generation replacement, export failure after rename, and cancellation during finalization. That is a distinct concurrency change and should not be implemented without running its focused host tests.
+
+**UIDT API cross-check:** the Android 14 user-initiated data-transfer API explicitly permits `setPersisted()`, so the existing persisted-job setting is not an incompatibility and was left alone. Android's Task Manager Stop action terminates the app process without invoking `onStopJob()` and prevents user-visible jobs from being rescheduled; `STOP_REASON_USER` also covers other user-stop mechanisms. The existing explicit `reschedule()` branch for that stop reason was therefore not changed based on assumptions about the Task Manager path. A device-level stop-reason check is needed before altering that behavior.
+
+**Evidence and verification boundary**
+- Inspected the live `main-build-testing` implementations of `AndroidDownloadScheduler`, `AndroidDownloadStore`, `AndroidDownloadExport`, `DownloadsTransferJobService`, and the existing `AndroidDownloadStoreTest`.
+- Context7 queried the official Android Developers documentation for `JobService.onStopJob`, `JobParameters.STOP_REASON_USER`, UIDT stop behavior, `setPersisted()`, and UIDT-supported constraints.
+- Exa was attempted for independent source corroboration but the connected service returned HTTP 401 (invalid API key); no Exa result is claimed.
+- No production code or tests were changed in this audit. No Gradle task, test, compilation, build, CI, device run, or benchmark was started.
