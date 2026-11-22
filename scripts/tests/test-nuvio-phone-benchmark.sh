@@ -970,7 +970,7 @@ fi
 case "${FAKE_PGREP_MODE:-match}" in
   missing) exit 1 ;;
   error) echo 'pgrep fixture error' >&2; exit 2 ;;
-  *) printf '12345 com.nuvio.media.benchmark\n' ;;
+  *) printf '12345 com.nuvio.media.benchmark\n12346 com.nuvio.media.benchmark:remote\n' ;;
 esac
 STUB
 cat > "$TMP/bin/logcat" <<'STUB'
@@ -1598,6 +1598,10 @@ grep -Fq '12345 com.nuvio.media.benchmark' "$profile_result_dir/profile-process-
 }
 grep -Fq 'ANDROIDX_ACCEPTED pid=12345 processName=com.nuvio.media.benchmark' "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: pgrep output was not parsed using AndroidX process-name matching.' >&2
+  exit 1
+}
+grep -Fq 'ANDROIDX_ACCEPTED pid=12346 processName=com.nuvio.media.benchmark:remote' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: AndroidX colon-suffix child processes were not accepted.' >&2
   exit 1
 }
 grep -Fq 'pgrep -l -f com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
