@@ -2135,6 +2135,41 @@ capture_target_process_snapshot() {
   '
 }
 
+androidx_is_subpackage_installed() {
+  # Mirror Shell.isSubpackageInstalled(): strip any process suffix, then check
+  # every package prefix between APP_PACKAGE and the full dotted process name.
+  process_name="$1"
+  base_process_name="\${process_name%%:*}"
+  case "$base_process_name" in
+    "$APP_PACKAGE".*) ;;
+    *) return 1 ;;
+  esac
+
+  remaining="\${base_process_name#"$APP_PACKAGE".}"
+  candidate="$APP_PACKAGE"
+  while :; do
+    case "$remaining" in
+      *.*)
+        component="\${remaining%%.*}"
+        remaining="\${remaining#*.}"
+        candidate="$candidate.$component"
+        ;;
+      *)
+        candidate="$candidate.$remaining"
+        if pm path "$candidate" >/dev/null 2>&1; then
+          return 0
+        fi
+        break
+        ;;
+    esac
+
+    if pm path "$candidate" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 capture_androidx_process_snapshot() {
   # Reproduce AndroidX Shell.pgrepLF flags exactly for the device API level.
   printf 'AndroidX-equivalent process lookup: '
@@ -2168,7 +2203,7 @@ capture_androidx_process_snapshot() {
               printf 'ANDROIDX_ACCEPTED pid=%s processName=%s\n' "$process_pid" "$process_name"
               ;;
             "$APP_PACKAGE".*)
-              if pm path "$process_name" >/dev/null 2>&1; then
+              if androidx_is_subpackage_installed "$process_name"; then
                 printf 'ANDROIDX_REJECTED_INSTALLED_SUBPACKAGE pid=%s processName=%s\n' "$process_pid" "$process_name"
               else
                 printf 'ANDROIDX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=%s processName=%s\n' "$process_pid" "$process_name"
