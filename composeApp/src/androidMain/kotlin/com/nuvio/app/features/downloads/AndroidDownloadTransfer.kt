@@ -149,9 +149,11 @@ internal suspend fun transferAndroidDownload(
         activeCall.get()?.cancel()
     }
 }
-private fun String?.isStrongEntityTag(): Boolean =
-    this != null &&
-        length >= 2 &&
-        first() == '"' &&
-        last() == '"' &&
-        !startsWith("W/")
+private fun String?.isStrongEntityTag(): Boolean {
+    if (this == null || length < 2 || first() != '"' || last() != '"') return false
+    return substring(1, lastIndex).all { character ->
+        character == '\u0021' ||
+            character in '\u0023'..'\u007E' ||
+            character.code in 0x80..0xFF
+    }
+}
