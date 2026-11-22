@@ -28,12 +28,14 @@ for expected in \
   'Do not reopen LADB or run shell commands until instrumentation finishes.' \
   'capture_profile_flush_diagnostics() {' \
   'verify_profile_installer_receiver() {' \
+  'capture_target_process_snapshot() {' \
   'start_profile_collection_diagnostics() {' \
   'stop_profile_collection_diagnostics() {' \
   'profile-installer-receiver.txt' \
   'profile-process-timeline.txt' \
   'profile-collection-logcat.txt' \
   'ps -A' \
+  'awk -v package="$APP_PACKAGE"' \
   "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'"; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
