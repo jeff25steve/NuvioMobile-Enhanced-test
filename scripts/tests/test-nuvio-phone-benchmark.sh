@@ -25,7 +25,7 @@ for expected in \
   'text rules collected by the separate collect step are not installed into this APK.' \
   'Do not reopen LADB or run shell commands until instrumentation finishes.' \
   'capture_profile_flush_diagnostics() {' \
-  'ProfileInstaller:* AndroidRuntime:E'; do
+  "logcat -d -v time -s 'ProfileInstaller:*' 'AndroidRuntime:E'"; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
     exit 1
