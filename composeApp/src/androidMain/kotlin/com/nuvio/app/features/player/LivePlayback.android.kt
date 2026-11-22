@@ -112,7 +112,7 @@ internal class LiveStartLoadControl(private val delegate: LoadControl) : LoadCon
 
     override fun onReleased(playerId: PlayerId) = delegate.onReleased(playerId)
 
-    override fun getAllocator(): Allocator = delegate.allocator
+    override fun getAllocator(playerId: PlayerId): Allocator = delegate.getAllocator(playerId)
 
     override fun getBackBufferDurationUs(playerId: PlayerId): Long = delegate.getBackBufferDurationUs(playerId)
 
@@ -123,10 +123,11 @@ internal class LiveStartLoadControl(private val delegate: LoadControl) : LoadCon
         delegate.shouldContinueLoading(parameters)
 
     override fun shouldContinuePreloading(
+        playerId: PlayerId,
         timeline: Timeline,
         mediaPeriodId: MediaSource.MediaPeriodId,
         bufferedDurationUs: Long,
-    ): Boolean = delegate.shouldContinuePreloading(timeline, mediaPeriodId, bufferedDurationUs)
+    ): Boolean = delegate.shouldContinuePreloading(playerId, timeline, mediaPeriodId, bufferedDurationUs)
 
     private companion object {
         /** Media buffered before a channel starts. */
