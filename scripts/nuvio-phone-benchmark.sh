@@ -2271,12 +2271,12 @@ run_instrumentation() {
   case "$rule" in
     BaselineProfile)
       copy_recent_outputs profile
-      require_non_empty_startup_profile
-      require_non_empty_home_browse_profile
-      write_profile_audit_summary
       printf 'Installed receiver evidence -> %s\n' "$RUN_DIR/profile-installer-receiver.txt" >> "$RUN_DIR/copied-files.txt"
       printf 'Live target-process timeline -> %s\n' "$RUN_DIR/profile-process-timeline.txt" >> "$RUN_DIR/copied-files.txt"
       printf 'Live AndroidX/ProfileInstaller logcat -> %s\n' "$RUN_DIR/profile-collection-logcat.txt" >> "$RUN_DIR/copied-files.txt"
+      require_non_empty_startup_profile
+      require_non_empty_home_browse_profile
+      write_profile_audit_summary
       ;;
     macrobenchmark)
       copy_recent_outputs benchmark
