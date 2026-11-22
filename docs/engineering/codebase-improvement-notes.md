@@ -1046,3 +1046,20 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
 - The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
+
+
+## Android SAF export validation when providers omit document size (22 November 2026)
+
+**Confirmed defect**
+- `AndroidDownloadExport.copyInto()` compared `DocumentFile.length()` with the source length using strict equality.
+- AndroidX DocumentFile documents zero when a document size is unavailable. A successful Storage Access Framework provider copy can therefore report zero when it does not expose `COLUMN_SIZE`; treating that as a mismatch incorrectly deletes the copied target and reports export failure.
+
+**Correction**
+- A positive reported destination length must still exactly match the source length.
+- A zero destination length is treated as unknown, not as evidence that the copy is incomplete.
+- The existing stream-copy, flush and delete-on-error behavior is unchanged.
+- Added host regression cases for unknown destination length, known mismatch, exact match and empty files.
+
+**Verification boundary**
+- The repository pins AndroidX DocumentFile 1.0.1. Context7's AndroidX API reference confirms `length()` returns zero when the size is unavailable; the exact pinned-version implementation was independently inspected in the feature branch.
+- Source and test were re-fetched from this integration branch after writing. Tests and Kotlin compilation have not been executed in this session.
