@@ -188,3 +188,24 @@ No production code or tests changed in these audits. No test task, build, CI, ne
 ### VOD cache-size setting lifetime (21 November 2026)
 
 Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial LeastRecentlyUsedCacheEvictor limit after settings changed. Cycle 140 adds a runtime-adjustable LRU CacheEvictor on the same SimpleCache and observes the two policy fields through the settings StateFlow. Cycle 141 corrects an important reuse-path issue: PlayerEngine passes a remembered settings snapshot, so an existing cache must not reapply that potentially stale value or perform synchronous eviction on the playback setup caller. The live IO collector is now the sole authority for policy changes after cache creation. Host test source covers limit decreases/increases, span-touch LRU ordering and size calculation, but remains unexecuted. See Cycles 140–141 in the codebase improvement notes for the concurrency and stale-snapshot rationale. This fixes a settings correctness mismatch and removes synchronous eviction from the playback setup path; it is not a measured playback speedup.
+
+
+### Android playback source-factory invalidation and separate-audio buffering (Cycles 149–150, 22 November 2026)
+
+**Cycle 149 — source-specific buffering and remembered factory identity**
+- The dataSourceFactory Compose remember block captured sourceAudioUrl, normalizedStreamType and networkBytesRead but did not include them in its keys. When the same video URL was reused with a changed external audio URL or stream classification, the factory could retain the old buffered-URL set and byte counter.
+- Added all three captured values to the remember key.
+- The buffered-URL builder previously classified the separate audio URL using the video response headers and video stream type. A progressive MP4 audio source paired with an HLS video source was therefore incorrectly treated as adaptive and skipped by VOD cache/native read-ahead. The audio URL is now classified from its own URL, matching the MIME inference used when its MediaItem is created; video keeps its response-header and stream-type hints.
+- Added host regression cases in PlaybackDataSourceSelectionTest for progressive audio paired with HLS video and adaptive audio exclusion.
+
+**Cycle 150 — attempt-safe, track-specific load diagnostics**
+- First-load diagnostics used the callback's event timestamp relative to the current prepare start. A load started during an older attempt but completed after a retry could therefore be counted against the new attempt.
+- Media3 1.8.0 LoadEventInfo supplies the event's elapsed-realtime timestamp and load duration. The code now reconstructs the load start as elapsedRealtimeMs minus loadDurationMs and rejects loads that began before the current prepare.
+- Initial and rebuffer load completions are correlated to the exact loadTaskId recorded at start. Attempt resets clear the IDs.
+- Media loads are tracked per MediaLoadData.trackType, so separate audio and video sources merged by MergingMediaSource no longer compete for one generic first-media slot.
+- Added regression cases in PlaybackDiagnosticsTest for late completions, task-ID mismatch, separate audio/video tracks and rebuffer completion after the player returns to ready.
+
+**Evidence and verification boundary**
+- Repository pins Media3 1.8.0. The exact 1.8.0 LoadEventInfo source and load callback construction were inspected; Context7's indexed Media3 reference was 1.8.1, and Exa surfaced the Android API contract that load duration and elapsed realtime are relative to the corresponding load event.
+- Source and tests were re-fetched from the feature branch. The host tests and Kotlin compilation have not been run. No build, CI, device playback or benchmark was started.
+- These are source-selection and diagnostic correctness fixes. No numerical startup or playback improvement is claimed without device measurements.
