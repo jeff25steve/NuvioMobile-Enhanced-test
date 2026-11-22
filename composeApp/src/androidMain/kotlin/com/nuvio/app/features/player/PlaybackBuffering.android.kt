@@ -441,7 +441,17 @@ private class NativeReadAheadDataSource(
         }
         reader = null
         session = null
-        val length = upstream.open(dataSpec)
+        openedUri = null
+        openedHeaders = emptyMap()
+        val length = try {
+            upstream.open(dataSpec)
+        } catch (error: IOException) {
+            // Media3's DataSource contract exposes the attempted open's URI and headers until
+            // close(), including when open() fails (for example, an HTTP 404 response).
+            openedUri = upstream.uri
+            openedHeaders = upstream.responseHeaders
+            throw error
+        }
         openedUri = upstream.uri
         openedHeaders = upstream.responseHeaders
         val current = Session()
@@ -580,8 +590,13 @@ private class NativeReadAheadDataSource(
                 current.releaseIfIdle()
             }
         }
-        runCatching { upstream.close() }
-        reader?.let { if (it.isAlive) it.join(READER_CLOSE_WAIT_MS) }
+        try {
+            runCatching { upstream.close() }
+            reader?.let { if (it.isAlive) it.join(READER_CLOSE_WAIT_MS) }
+        } finally {
+            openedUri = null
+            openedHeaders = emptyMap()
+        }
     }
 
     private companion object {
