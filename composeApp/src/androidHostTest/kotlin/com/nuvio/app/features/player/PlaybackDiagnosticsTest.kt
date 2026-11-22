@@ -9,6 +9,13 @@ import kotlin.test.assertTrue
 class PlaybackDiagnosticsTest {
 
     @Test
+    fun bufferedDurationIsMeasuredAheadOfTheCurrentPlayhead() {
+        assertEquals(12_000L, bufferedAheadDurationMs(8_000L, 20_000L))
+        assertEquals(0L, bufferedAheadDurationMs(20_000L, 8_000L))
+        assertEquals(0L, bufferedAheadDurationMs(-1L, -1L))
+    }
+
+    @Test
     fun firstManifestAndMediaEventsAreLimitedToOnePerAttempt() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)
