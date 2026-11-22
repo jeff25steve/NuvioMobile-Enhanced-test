@@ -2127,6 +2127,11 @@ start_profile_collection_diagnostics() {
   } > "$process_timeline"
 
   if command -v ps >/dev/null 2>&1; then
+    {
+      printf 'Initial process snapshot immediately before instrumentation: '
+      date '%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed before instrumentation.\n'
+    } >> "$process_timeline" 2>&1
     (
       while :; do
         printf '\nSample: '
@@ -2159,6 +2164,11 @@ stop_profile_collection_diagnostics() {
     kill "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
     wait "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
     PROFILE_LOGCAT_MONITOR_PID=""
+  fi
+  if command -v logcat >/dev/null 2>&1; then
+    printf '\nPost-run AndroidX logcat snapshot (may repeat live entries):\n' >> "$RUN_DIR/profile-collection-logcat.txt"
+    logcat -d -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
+      >> "$RUN_DIR/profile-collection-logcat.txt" 2>&1 || true
   fi
 
   {
