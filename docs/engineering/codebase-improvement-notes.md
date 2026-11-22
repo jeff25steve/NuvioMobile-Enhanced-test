@@ -990,6 +990,7 @@ The transfer code previously used any `Last-Modified` response header as a resum
 
 **Regression coverage authored**
 - A response containing Last-Modified but no ETag does not produce a stored resume validator.
+- A weak ETag does not produce a stored resume validator.
 - A legacy Last-Modified value does not generate Range or If-Range and the old partial is replaced.
 - The existing strong-ETag resume test continues to assert Range, If-Range and append behavior.
 
