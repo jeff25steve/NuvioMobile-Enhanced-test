@@ -962,3 +962,24 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## SAF export copy verification when providers omit document size (Cycle 151, 22 November 2026)
+
+Audited the Android custom-download-location export path against the repository-pinned AndroidX DocumentFile 1.0.1 implementation.
+
+**Confirmed defect**
+- `AndroidDownloadExport.copyInto()` writes the completed private download to a SAF document, then compares `target.length()` with the source file length.
+- The exact DocumentFile 1.0.1 API contract says `length()` returns zero both when the document is absent and when its length is unknown. Its `DocumentsContractApi19.length()` implementation queries `COLUMN_SIZE` and uses zero as the fallback when the provider omits the column or the query fails.
+- Therefore a provider that successfully accepts the entire copy but does not expose `COLUMN_SIZE` makes the app treat the copy as incomplete; the catch path deletes the target and fails the export. This is not a valid completeness signal from the provider.
+
+**Correction**
+- Added `isDocumentCopyLengthMismatch(sourceLength, destinationLength)`.
+- A reported positive destination length is still checked strictly against the source length. A zero destination length is treated as unknown and is not used to reject the copy.
+- The existing write loop, flush, cleanup-on-write-error and SAF destination lifecycle are unchanged.
+- Added Android host regression cases for unknown destination length, a known mismatched length, an exact match and an empty source.
+
+**Evidence and verification boundary**
+- The version catalog pins `androidx-documentfile = 1.0.1`.
+- Context7 returned current AndroidX API reference material; Exa independently located the exact 1.0.1 source artifact and the upstream implementation of `DocumentsContractApi19.length()`. The exact 1.0.1 contract explicitly documents zero for unknown length.
+- Re-fetched the production file, test and this note from the feature branch after writing.
+- The new host tests are authored but unexecuted. No Gradle task, Kotlin compilation, build, CI, APK, device run or benchmark was started. This corrects export validation behavior; no transfer-speed or reliability percentage is claimed.
