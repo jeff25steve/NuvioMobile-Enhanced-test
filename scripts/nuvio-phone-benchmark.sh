@@ -313,6 +313,50 @@ copy_recent_outputs() {
   fi
 }
 
+require_recognizable_art_profile_rules() {
+  profile_file="$1"
+  # Validate the structural HRF markers emitted by ART: optional method flags,
+  # a DEX class descriptor, and (for method rules) a method signature. Comments
+  # and blank lines are allowed. This is deliberately a sanity check, not a
+  # replacement for profman's full descriptor/method resolution.
+  if ! awk '
+    function is_rule(line, annotation_end, method_separator, prefix, descriptor_start, flags, descriptor, method, open_paren, close_paren, return_type, i) {
+      sub(/\r$/, "", line)
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "" || substr(line, 1, 1) == "#") return 0
+      if (substr(line, 1, 1) == "{") {
+        annotation_end = index(line, "}")
+        if (annotation_end == 0) return 0
+        line = substr(line, annotation_end + 1)
+      }
+      method_separator = index(line, "->")
+      if (method_separator == 0) return line ~ /^\[*L[^;[:space:]]+;$/
+      prefix = substr(line, 1, method_separator - 1)
+      descriptor_start = 0
+      for (i = 1; i <= length(prefix); i++) {
+        if (substr(prefix, i, 1) == "L") descriptor_start = i
+      }
+      if (descriptor_start == 0) return 0
+      flags = substr(prefix, 1, descriptor_start - 1)
+      if (flags !~ /^[HSP]*$/) return 0
+      descriptor = substr(prefix, descriptor_start)
+      if (descriptor !~ /^\[*L[^;[:space:]]+;$/) return 0
+      method = substr(line, method_separator + 2)
+      if (method == "*") return 1
+      open_paren = index(method, "(")
+      close_paren = index(method, ")")
+      if (open_paren <= 1 || close_paren <= open_paren) return 0
+      return_type = substr(method, close_paren + 1, 1)
+      return return_type ~ /^[BCDFIJSVZL[]$/
+    }
+    is_rule($0) { valid_rules++ }
+    END { exit(valid_rules > 0 ? 0 : 1) }
+  ' "$profile_file"; then
+    fail "Generated profile contains no recognizable ART profile rules: $profile_file."
+  fi
+}
+
 require_non_empty_startup_profile() {
   startup_profile_count=0
   for profile_file in "$RUN_DIR"/*startup-prof*.txt; do
@@ -322,6 +366,7 @@ require_non_empty_startup_profile() {
     grep -Eq '[^[:space:]]' "$profile_file" || {
       fail "Generated startup profile contains no rules: $profile_file."
     }
+    require_recognizable_art_profile_rules "$profile_file"
   done
   [ "$startup_profile_count" -gt 0 ] || fail "No startup-prof text profile was produced. Check the Startup Profile collection and $RUN_DIR/instrumentation.log."
 }
@@ -384,6 +429,7 @@ require_non_empty_home_browse_profile() {
     grep -Eq '[^[:space:]]' "$profile_file" || {
       fail "Generated Home browse Baseline Profile contains no rules: $profile_file."
     }
+    require_recognizable_art_profile_rules "$profile_file"
   done
   [ "$home_browse_profile_count" -gt 0 ] || fail "No home_browse Baseline Profile text file was produced. Ensure Home has a populated, horizontally scrollable catalogue and check $RUN_DIR/instrumentation.log."
 }
