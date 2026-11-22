@@ -997,9 +997,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The `measure` action likewise runs instrumentation against an already-installed BenchmarkRelease variant and does not call `apk_paths()`.
 - Therefore, adding `collect` or `measure` to the APK-copy staging case would be unnecessary and would encode the wrong dependency. The earlier proposed clean-stage APK regression for those actions is withdrawn.
 
-**Separate confirmed help-text gap**
-- The usage block documents `install-profile`, `run` and `memory-profile`, while the action dispatcher also accepts `collect`, `install` and `measure`.
-- This is a discoverability/documentation defect, not an APK-staging failure. If these commands remain supported, the help output and its regression fixture should list them with their required installed-state preconditions.
+**Help-text correction implemented on the review branch**
+- Added `collect`, `install` and `measure` examples for both flavors to the usage output.
+- Documented the required installed-variant preconditions so profile collection and measurement are not presented as standalone install operations.
+- Added host regression assertions that invoke `help` through same-directory staging aliases and check the rendered output for these commands.
 
 **Evidence and verification boundary**
 - Re-fetched the complete runner and host test. Traced every `apk_paths()` call: the only call is inside `install_variant()`; the `collect` and `measure` dispatcher branches call `run_instrumentation` without invoking installation.
@@ -1018,9 +1019,14 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Exercise the runner with a relative `NUVIO_PHONE_STAGE_DIR` and an absolute path with a trailing slash; both should normalize to the same canonical stage directory and execute the requested action once.
 - Retain the existing absolute-path fixture and verify that staging still copies only the action's required APK pair.
 
-**Implementation boundary**
-- The minimal safe correction is to create the stage directory, resolve it to an absolute canonical directory path, then compare that normalized path with `SCRIPT_DIR` before deciding whether to re-exec. The implementation must preserve Android shell portability and avoid relying on non-POSIX utilities.
-- No script change was made because the focused shell regression harness cannot be executed from this GitHub-only environment. No claim of a fix or test pass is made.
+**Implementation on review branch `fix/phone-benchmark-stage-paths`**
+- The runner now creates the configured stage directory before resolving it, prefixes relative paths with `./` (including relative names beginning with a dash), and resolves it with `cd -P`/ `pwd` while suppressing `CDPATH` output.
+- `SCRIPT_DIR` is resolved with the same physical-directory policy, so trailing-slash and relative aliases of the runner directory compare consistently. Distinct relative staging directories remain supported.
+- Added host regression fixtures for a trailing-slash alias and a relative path that resolves to the bundle directory. Both invoke the help action and assert it appears exactly once, which catches the previous same-file self-copy/re-exec path.
+- The CLI help now documents the supported `collect`, `install` and `measure` commands and their installed-state preconditions (see the Cycle 145 correction section).
+
+**Verification boundary**
+- Re-fetched the updated runner and test source from the review branch and inspected the changed regions. A local checkout/command runner is still unavailable: GitHub clone failed because this environment could not resolve `github.com`. Therefore neither `sh -n` nor the focused host regression script has been executed. Do not treat the source edits as verified or merge them yet. No Gradle task, build, CI, APK, device run or benchmark was started.
 
 
 ## Android phone benchmark runner — normalize staging-directory identity (Cycle 147, 22 November 2026)
@@ -1038,6 +1044,5 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Assert that the same-directory cases execute the requested action exactly once and never invoke `cp` with identical source/destination files.
 
 **Evidence and verification boundary**
-- Re-fetched the complete runner and test harness from the live branch. The runner has the direct string comparison at the top-level staging guard; the current fixture uses only an absolute staging path without a trailing slash.
-- Checked the POSIX.1-2024 `cp` specification: when source and destination refer to the same file, the utility may diagnose the condition and must not copy that file. This confirms that the runner must resolve path identity before attempting the copy.
-- No script or test changes were made because this environment has GitHub file read/write access but no usable repository checkout or shell command runner. The previously authorized focused host suite remains the required verification before integration. No build, CI, Gradle task, APK, device run or benchmark was started.
+- The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
+- The source correction and alias fixtures are now present on `fix/phone-benchmark-stage-paths`; their execution remains pending because no local checkout/command runner is available in this environment.
