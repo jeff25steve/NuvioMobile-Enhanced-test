@@ -848,7 +848,9 @@ JSON
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
     if [ "${FAKE_MISSING_STARTUP_PROFILE:-0}" != "1" ]; then
-      if [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
+      if [ "${FAKE_INVALID_STARTUP_PROFILE:-0}" = "1" ]; then
+        printf 'not-an-art-profile-rule\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
+      elif [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
       elif [ "${FAKE_BLANK_STARTUP_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
@@ -857,7 +859,9 @@ JSON
       fi
     fi
     if [ "${FAKE_MISSING_HOME_BROWSE_PROFILE:-0}" != "1" ]; then
-      if [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+      if [ "${FAKE_INVALID_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+        printf 'not-an-art-profile-rule\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+      elif [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       elif [ "${FAKE_BLANK_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
@@ -1053,6 +1057,15 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  if FAKE_INVALID_STARTUP_PROFILE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-invalid-startup-profile.log" 2>&1; then
+    echo "FAIL: phone runner accepted non-HRF Startup Profile content ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "contains no recognizable ART profile rules" "$TMP/$flavor-invalid-startup-profile.log" || {
+    echo "FAIL: invalid Startup Profile rejection did not identify malformed ART rules ($flavor)." >&2
+    cat "$TMP/$flavor-invalid-startup-profile.log" >&2
+    exit 1
+  }
   for browse_profile_fixture in missing empty blank; do
     case "$browse_profile_fixture" in
       missing) browse_profile_env=FAKE_MISSING_HOME_BROWSE_PROFILE ;;
@@ -1077,6 +1090,15 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  if FAKE_INVALID_HOME_BROWSE_PROFILE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-invalid-home-browse-profile.log" 2>&1; then
+    echo "FAIL: phone runner accepted non-HRF Home browse profile content ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "contains no recognizable ART profile rules" "$TMP/$flavor-invalid-home-browse-profile.log" || {
+    echo "FAIL: invalid Home browse profile rejection did not identify malformed ART rules ($flavor)." >&2
+    cat "$TMP/$flavor-invalid-home-browse-profile.log" >&2
+    exit 1
+  }
   if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
