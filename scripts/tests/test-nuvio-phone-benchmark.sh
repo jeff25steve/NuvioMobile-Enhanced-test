@@ -40,6 +40,7 @@ for expected in \
   'ANDROIDX_PROCESS_PATTERN=' \
   'capture_androidx_process_snapshot() {' \
   'androidx_is_subpackage_installed() {' \
+  'Dotted-child package-prefix checks use shell pm path and are advisory only.' \
   'pm path "$candidate"' \
   'AndroidX-equivalent process lookup:' \
   'awk -v package="$APP_PACKAGE"' \
@@ -1614,7 +1615,7 @@ grep -Fq 'ANDROIDX_ACCEPTED pid=12346 processName=com.nuvio.media.benchmark:remo
   echo 'FAIL: AndroidX colon-suffix child processes were not accepted.' >&2
   exit 1
 }
-grep -Fq 'ANDROIDX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
+grep -Fq 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
   echo 'FAIL: AndroidX should accept a dotted custom process when no intermediate or full subpackage is installed.' >&2
   exit 1
 }
@@ -1690,7 +1691,7 @@ if ! FAKE_API=33 FAKE_INSTALLED_DOTTED_SUBPACKAGE=1 sh "$BUNDLE/nuvio-phone-benc
   exit 1
 fi
 installed_dotted_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
-grep -Fq 'ANDROIDX_REJECTED_INSTALLED_SUBPACKAGE pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$installed_dotted_dir/profile-process-timeline.txt" || {
+grep -Fq 'SHELL_APPROX_REJECTED_INSTALLED_SUBPACKAGE pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$installed_dotted_dir/profile-process-timeline.txt" || {
   echo 'FAIL: AndroidX dotted child was not rejected when an intermediate package prefix is installed.' >&2
   exit 1
 }
