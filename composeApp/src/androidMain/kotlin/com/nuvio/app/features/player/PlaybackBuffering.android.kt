@@ -63,6 +63,9 @@ internal fun playbackBufferedUrls(
     }
     audioUrl
         ?.takeIf { it.isNotBlank() }
+        // Without separate audio response headers, require a recognizable URL MIME hint.
+        // Unknown/opaque URLs may be adaptive manifests, so fail closed instead of caching them.
+        ?.takeIf { playbackMediaItemFromUrl(it).localConfiguration?.mimeType != null }
         ?.takeIf { isProgressivePlaybackSource(it, emptyMap(), null) }
         ?.let(::add)
 }
