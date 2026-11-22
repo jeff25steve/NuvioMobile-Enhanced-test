@@ -1026,7 +1026,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The CLI help now documents the supported `collect`, `install` and `measure` commands and their installed-state preconditions (see the Cycle 145 correction section).
 
 **Verification boundary**
-- Re-fetched the updated runner and test source from the review branch and inspected the changed regions. A local checkout/command runner is still unavailable: GitHub clone failed because this environment could not resolve `github.com`. Therefore neither `sh -n` nor the focused host regression script has been executed. Do not treat the source edits as verified or merge them yet. No Gradle task, build, CI, APK, device run or benchmark was started.
+- Re-fetched the updated runner and test source from the review branch and inspected the changed regions. At the time this cycle was recorded, a local checkout/command runner was unavailable: GitHub clone failed because this environment could not resolve `github.com`. Neither `sh -n` nor the focused host regression script was executed before integration. The changes were subsequently fast-forwarded into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`; source integration is confirmed, but shell syntax and host regression execution remain unverified. No Gradle task, build, CI, APK, device run or benchmark was started.
 
 
 ## Android phone benchmark runner — normalize staging-directory identity (Cycle 147, 22 November 2026)
@@ -1045,4 +1045,4 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 **Evidence and verification boundary**
 - The original finding was confirmed by re-fetching the top-level guard and existing host fixture. POSIX.1-2024 specifies that when source and destination refer to the same file, `cp` must not copy it and may diagnose the condition.
-- The source correction and alias fixtures are now present on `fix/phone-benchmark-stage-paths`; their execution remains pending because no local checkout/command runner is available in this environment.
+- The source correction and alias fixtures are integrated into `main-build-testing` at `70c103992c7995b6d449596c205968820aeb655a`. Their execution remains pending because no local checkout/command runner was available in this environment.
