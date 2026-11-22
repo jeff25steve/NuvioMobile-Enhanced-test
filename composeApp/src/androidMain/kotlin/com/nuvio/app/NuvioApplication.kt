@@ -52,7 +52,6 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                             HttpClient(OkHttp) {
                                 engine {
                                     preconfigured = SharedOkHttpClient.base
-                                    addInterceptor(NetworkErrorInterceptor())
                                 }
                             }
                         },
