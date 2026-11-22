@@ -2129,7 +2129,7 @@ start_profile_collection_diagnostics() {
   if command -v ps >/dev/null 2>&1; then
     {
       printf 'Initial process snapshot immediately before instrumentation: '
-      date '%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+      date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
       ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target package process listed before instrumentation.\n'
     } >> "$process_timeline" 2>&1
     (
