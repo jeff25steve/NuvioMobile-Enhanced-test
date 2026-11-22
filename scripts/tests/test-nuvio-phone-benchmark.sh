@@ -22,7 +22,10 @@ for expected in \
   'partial compilation without a Baseline Profile (3 warmups)' \
   'partial compilation requiring the packaged Baseline Profile' \
   'Compare TTID and TTFD medians and per-iteration traces.' \
-  'text rules collected by the separate collect step are not installed into this APK.'; do
+  'text rules collected by the separate collect step are not installed into this APK.' \
+  'Do not reopen LADB or run shell commands until instrumentation finishes.' \
+  'capture_profile_flush_diagnostics() {' \
+  'ProfileInstaller:* AndroidRuntime:E'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
     exit 1
@@ -44,8 +47,8 @@ for source in "$GENERATOR_SOURCE" "$BENCHMARK_SOURCE"; do
     exit 1
   }
   if [ "$source" = "$GENERATOR_SOURCE" ]; then
-    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup")' "$source" &&
-      grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse")' "$source" || {
+    grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "startup", scope.getIteration())' "$source" &&
+      grep -Fq 'StartupReadiness.awaitHomeAndFullyDrawn(device, "home_browse", scope.getIteration())' "$source" || {
       echo "FAIL: Baseline Profile journeys must label their readiness diagnostics." >&2
       exit 1
     }
