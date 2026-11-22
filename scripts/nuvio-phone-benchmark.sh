@@ -4,6 +4,8 @@
 set -eu
 
 APP_PACKAGE="com.nuvio.media.benchmark"
+# Keep this escaped regex identical to AndroidX Shell.getRunningPidsAndProcessesForPackage().
+ANDROIDX_PROCESS_PATTERN='com\.nuvio\.media\.benchmark'
 TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
@@ -2062,101 +2064,34 @@ capture_profile_flush_diagnostics() {
     date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'unavailable\n'
 
     printf '\nTarget package processes after instrumentation:\n'
-    if command -v ps >/dev/null 2>&1; then
-      capture_target_process_snapshot
-    else
-      printf 'ps unavailable\n'
-    fi
-
-    printf '\nProfileInstaller receiver in installed package metadata:\n'
-    if command -v dumpsys >/dev/null 2>&1; then
-      dumpsys package "$APP_PACKAGE" 2>&1 \
-        | grep -C 2 -F 'androidx.profileinstaller.ProfileInstallReceiver' \
-        || printf 'ProfileInstallReceiver was not found in dumpsys package output.\n'
-    else
-      printf 'dumpsys unavailable\n'
-    fi
-
-    printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
-    if command -v logcat >/dev/null 2>&1; then
-      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
-        || printf 'Filtered logcat capture failed.\n'
-    else
-      printf 'logcat unavailable\n'
-    fi
-
-    printf '\nInterpretation: this is a post-run diagnostic snapshot, not proof of process state at the exact profile-flush instant. Correlate it with instrumentation.log and foreground snapshots.\n'
-  } > "$diagnostics_file" 2>&1 || {
-    printf 'Could not write profile-flush diagnostics: %s\n' "$diagnostics_file" >&2
-    return 0
-  }
-  printf 'Saved failure diagnostics -> %s\n' "$diagnostics_file"
-}
-
-verify_profile_installer_receiver() {
-  # Verify the installed merged-manifest/package metadata exposes the receiver
-  # that AndroidX addresses during its own per-process collection flush.
-  # A standalone SAVE_PROFILE broadcast here is not a valid substitute for
-  # observing AndroidX's later process discovery and flush.
-  receiver="androidx.profileinstaller.ProfileInstallReceiver"
-  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>&1 | grep -C 2 -F "$receiver" || true)"
-  {
-    printf 'Target package: %s\n' "$APP_PACKAGE"
-    printf 'Expected receiver: %s\n' "$receiver"
-    printf 'Installed package metadata evidence:\n'
-    if [ -n "$receiver_state" ]; then
-      printf '%s\n' "$receiver_state"
-    else
-      printf 'Receiver not present in installed package metadata.\n'
-    fi
-  } > "$RUN_DIR/profile-installer-receiver.txt"
-  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
-}
-
-capture_target_process_snapshot() {
-  # Match the process-name column, not the grep/awk command line itself.
-  ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
-    $NF == package || index($NF, package ":") == 1 {
-      print
-      found = 1
-    }
-    END {
-      if (!found) print "No target package process listed in this snapshot."
-    }
-  '
-}
-
-start_profile_collection_diagnostics() {
-  PROFILE_PROCESS_MONITOR_PID=""
-  PROFILE_LOGCAT_MONITOR_PID=""
-  process_timeline="$RUN_DIR/profile-process-timeline.txt"
-  logcat_timeline="$RUN_DIR/profile-collection-logcat.txt"
-
-  {
-    printf 'Live target-process samples during BaselineProfile instrumentation\n'
-    printf 'Target package: %s\n' "$APP_PACKAGE"
+    {
     printf 'Sampling interval: approximately 1 second\n'
+    printf "AndroidX process pattern: %s\n" "$ANDROIDX_PROCESS_PATTERN"
+    printf 'Each sample records both ps -A and AndroidX-equivalent pgrep output.\n'
     printf 'A missing sample is not proof that no process existed between samples.\n'
   } > "$process_timeline"
 
-  if command -v ps >/dev/null 2>&1; then
-    {
-      printf 'Initial process snapshot immediately before instrumentation: '
+  {
+    printf 'Initial process snapshot immediately before instrumentation: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    printf '\nIndependent ps -A snapshot:\n'
+    capture_target_process_snapshot
+    printf '\n'
+    capture_androidx_process_snapshot
+  } >> "$process_timeline" 2>&1
+
+  (
+    while :; do
+      printf '\nSample: '
       date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+      printf '\nIndependent ps -A snapshot:\n'
       capture_target_process_snapshot
-    } >> "$process_timeline" 2>&1
-    (
-      while :; do
-        printf '\nSample: '
-        date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
-        capture_target_process_snapshot
-        sleep 1
-      done
-    ) >> "$process_timeline" 2>&1 &
-    PROFILE_PROCESS_MONITOR_PID=$!
-  else
-    printf 'ps unavailable; process sampling was not started.\n' >> "$process_timeline"
-  fi
+      printf '\n'
+      capture_androidx_process_snapshot
+      sleep 1
+    done
+  ) >> "$process_timeline" 2>&1 &
+  PROFILE_PROCESS_MONITOR_PID=$!
 
   if command -v logcat >/dev/null 2>&1; then
     logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E' \
@@ -2187,7 +2122,10 @@ stop_profile_collection_diagnostics() {
   {
     printf '\nFinal process snapshot after instrumentation: '
     date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    printf '\nIndependent ps -A snapshot:\n'
     capture_target_process_snapshot
+    printf '\n'
+    capture_androidx_process_snapshot
   } >> "$RUN_DIR/profile-process-timeline.txt" 2>&1
 }
 
