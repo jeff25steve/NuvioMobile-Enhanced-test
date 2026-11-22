@@ -49,6 +49,19 @@ class PlaybackBufferedUrlsTest {
     }
 
     @Test
+    fun opaqueAudioUrlIsNotAssumedToBeProgressive() {
+        assertEquals(
+            setOf("https://cdn.example/video.mp4"),
+            playbackBufferedUrls(
+                videoUrl = "https://cdn.example/video.mp4",
+                audioUrl = "https://cdn.example/audio?id=opaque",
+                videoResponseHeaders = emptyMap(),
+                videoStreamType = null,
+            ),
+        )
+    }
+
+    @Test
     fun blankOrMissingAudioDoesNotAddAnEmptyBufferKey() {
         assertEquals(
             setOf("https://cdn.example/video.mp4"),
