@@ -9,6 +9,13 @@ import kotlin.test.assertTrue
 class PlaybackDiagnosticsTest {
 
     @Test
+    fun bufferedDurationIsMeasuredAheadOfTheCurrentPlayhead() {
+        assertEquals(12_000L, bufferedAheadDurationMs(8_000L, 20_000L))
+        assertEquals(0L, bufferedAheadDurationMs(20_000L, 8_000L))
+        assertEquals(0L, bufferedAheadDurationMs(-1L, -1L))
+    }
+
+    @Test
     fun firstManifestAndMediaEventsAreLimitedToOnePerAttempt() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)
@@ -29,6 +36,40 @@ class PlaybackDiagnosticsTest {
         assertFalse(diagnostics.claimFirstCompletion(C.DATA_TYPE_MANIFEST))
         assertTrue(diagnostics.claimFirstCompletion(C.DATA_TYPE_MEDIA))
         assertFalse(diagnostics.claimFirstCompletion(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun rebufferLoadsAreCapturedOncePerRebufferAfterPlaybackHasStarted() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        diagnostics.markPlaybackStarted()
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MANIFEST))
+
+        diagnostics.markReady()
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+        assertTrue(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+        assertFalse(diagnostics.claimRebufferLoadCompletion(C.DATA_TYPE_MEDIA))
+    }
+
+    @Test
+    fun beginningANewAttemptResetsRebufferDiagnosticState() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+        diagnostics.markPlaybackStarted()
+        diagnostics.markRebufferStarted()
+        assertTrue(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
+
+        diagnostics.beginAttempt(250L)
+
+        assertFalse(diagnostics.claimRebufferLoad(C.DATA_TYPE_MEDIA))
     }
 
     @Test
