@@ -35,6 +35,10 @@ for expected in \
   'profile-process-timeline.txt' \
   'profile-collection-logcat.txt' \
   'ps -A' \
+  'pgrep -l -f' \
+  'ANDROIDX_PROCESS_PATTERN=' \
+  'capture_androidx_process_snapshot() {' \
+  'AndroidX-equivalent pgrep -l -f' \
   'awk -v package="$APP_PACKAGE"' \
   "logcat -v time -s 'Benchmark:*' 'ProfileInstaller:*' 'AndroidRuntime:E'" \
   "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'" \\
@@ -953,6 +957,16 @@ cat > "$TMP/bin/ps" <<'STUB'
 #!/bin/sh
 printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
 STUB
+cat > "$TMP/bin/pgrep" <<'STUB'
+#!/bin/sh
+printf 'pgrep %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+[ "$1" = "-l" ] && [ "$2" = "-f" ] || exit 2
+case "${FAKE_PGREP_MODE:-match}" in
+  missing) exit 1 ;;
+  error) echo 'pgrep fixture error' >&2; exit 2 ;;
+  *) printf '12345 com.nuvio.media.benchmark\n' ;;
+esac
+STUB
 cat > "$TMP/bin/logcat" <<'STUB'
 #!/bin/sh
 printf '11-22 02:00:00.000 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
@@ -1568,6 +1582,18 @@ for expected in 'androidx.profileinstaller.ProfileInstallReceiver' 'com.nuvio.me
     exit 1
   }
 done
+grep -Fq "AndroidX-equivalent pgrep -l -f 'com\\.nuvio\\.media\\.benchmark'" "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: exact AndroidX-equivalent pgrep command was not retained.' >&2
+  exit 1
+}
+grep -Fq '12345 com.nuvio.media.benchmark' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: raw pgrep process output was not retained.' >&2
+  exit 1
+}
+grep -Fq 'pgrep -l -f com\\.nuvio\\.media\\.benchmark' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: diagnostic did not invoke AndroidX-equivalent pgrep arguments.' >&2
+  exit 1
+}
 grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
   echo 'FAIL: live AndroidX logcat evidence was not retained during profile collection.' >&2
   exit 1
