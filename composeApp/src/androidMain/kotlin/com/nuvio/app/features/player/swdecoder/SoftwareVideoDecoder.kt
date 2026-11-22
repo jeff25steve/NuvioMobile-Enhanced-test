@@ -13,6 +13,25 @@ import androidx.media3.decoder.VideoDecoderOutputBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
+internal const val FFMPEG_INPUT_PADDING_SIZE = 64
+
+/** Ensures FFmpeg's required zeroed overread padding without copying the compressed sample. */
+internal fun prepareFfmpegPacketData(data: ByteBuffer): Int {
+    require(data.isDirect) { "FFmpeg packet input must be a direct buffer" }
+    require(data.position() == 0) { "FFmpeg packet input must be positioned at the sample start" }
+    val size = data.limit()
+    require(data.capacity() >= size + FFMPEG_INPUT_PADDING_SIZE) {
+        "FFmpeg packet input is missing its required padding"
+    }
+    val sampleLimit = data.limit()
+    data.limit(data.capacity())
+    for (index in sampleLimit until sampleLimit + FFMPEG_INPUT_PADDING_SIZE) {
+        data.put(index, 0)
+    }
+    data.limit(sampleLimit)
+    return size
+}
+
 internal class SoftwareVideoDecoderException(
     message: String,
     cause: Throwable? = null,
@@ -49,7 +68,7 @@ internal class SoftwareVideoDecoder(
     override fun getName(): String = "nuvio-sw-$codecName"
 
     override fun createInputBuffer(): DecoderInputBuffer =
-        DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT)
+        DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_DIRECT, FFMPEG_INPUT_PADDING_SIZE)
 
     override fun createOutputBuffer(): VideoDecoderOutputBuffer =
         VideoDecoderOutputBuffer { releaseOutputBuffer(it) }
@@ -64,7 +83,8 @@ internal class SoftwareVideoDecoder(
     ): SoftwareVideoDecoderException? {
         if (reset) nativeFlush(handle)
         val data = inputBuffer.data ?: return null
-        if (nativeSendPacket(handle, data, data.limit(), inputBuffer.timeUs) == RESULT_ERROR) {
+        val sampleSize = prepareFfmpegPacketData(data)
+        if (nativeSendPacket(handle, data, sampleSize, inputBuffer.timeUs) == RESULT_ERROR) {
             return SoftwareVideoDecoderException("Failed to decode $codecName sample")
         }
         when (nativeReceiveFrame(handle, frameInfo)) {
