@@ -523,12 +523,10 @@ private fun ExoPlayerSurface(
     val networkSpeedSampler = remember(playerSourceKey) { ByteRateSampler() }
     val dataSourceFactory = remember(
         context,
-        sourceUrl,
-        sanitizedSourceHeaders,
-        sanitizedSourceResponseHeaders,
-        useYoutubeChunkedPlayback,
+        playerSourceKey,
         externalSubtitles,
         liveStream,
+        networkBytesRead,
     ) {
         val loopbackSource = isLoopbackPlaybackSource(sourceUrl)
         PlatformPlaybackDataSourceFactory.create(
