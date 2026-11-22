@@ -1,6 +1,10 @@
 package com.nuvio.app.features.player
 
+import android.net.Uri
 import androidx.media3.common.C
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.TransferListener
 import androidx.media3.common.DataReader
 import androidx.media3.common.Format
 import androidx.media3.common.util.ParsableByteArray
@@ -41,7 +45,20 @@ class HlsParameterSetInitTest {
 
         assertEquals(VIDEO_PID, head.videoPid)
         assertTrue(head.reachedFirstSlice)
+        assertTrue(head.firstSliceIsIdr)
         assertFalse(head.hasParameterSets)
+    }
+
+    @Test
+    fun nonIdrFirstSliceIsNotTreatedAsIndependentlyDecodable() {
+        val head = assertNotNull(
+            HlsParameterSetInit.scanSegmentHead(
+                segment(withParameterSets = false, firstSliceNalType = 1)
+            )
+        )
+
+        assertTrue(head.reachedFirstSlice)
+        assertFalse(head.firstSliceIsIdr)
     }
 
     @Test
@@ -125,6 +142,47 @@ class HlsParameterSetInitTest {
             segment(withParameterSets = true)
         }
         assertNull(healthy)
+    }
+
+    @Test
+    fun playlistIsNotRewrittenWhenTheSecondSegmentStartsWithANonIdrSlice() {
+        val fetched = ArrayList<String>()
+        val rewritten = HlsParameterSetInit.withParameterSetInit(
+            mediaPlaylist(),
+            "https://host/hls/index.m3u8",
+        ) { uri ->
+            fetched += uri
+            segment(withParameterSets = false, firstSliceNalType = 1)
+        }
+
+        assertNull(rewritten)
+        assertEquals(listOf("https://host/hls/seg_001.ts"), fetched)
+    }
+
+    @Test
+    fun segmentInspectionUsesItsDedicatedDataSourceFactory() {
+        val playlist = """
+            #EXTM3U
+            #EXTINF:6.0,
+            seg_000.ts
+            #EXTINF:6.0,
+            seg_001.ts
+            #EXT-X-ENDLIST
+        """.trimIndent().toByteArray()
+        val upstreamFactory = CountingByteArrayDataSourceFactory(playlist)
+        val inspectionFactory = CountingByteArrayDataSourceFactory(ByteArray(0))
+        val source = HlsParameterSetInitDataSource.Factory(
+            upstreamFactory = upstreamFactory,
+            segmentInspectionFactory = inspectionFactory,
+        ).createDataSource()
+
+        try {
+            source.open(DataSpec.Builder().setUri(Uri.parse("https://host/hls/index.m3u8")).build())
+            assertEquals(1, upstreamFactory.createCount)
+            assertEquals(1, inspectionFactory.createCount)
+        } finally {
+            source.close()
+        }
     }
 
     @Test
@@ -232,6 +290,48 @@ class HlsParameterSetInitTest {
         return tracks.values.single { it.type == C.TRACK_TYPE_VIDEO }
     }
 
+    private class CountingByteArrayDataSourceFactory(
+        private val bytes: ByteArray,
+    ) : DataSource.Factory {
+        var createCount: Int = 0
+            private set
+
+        override fun createDataSource(): DataSource {
+            createCount += 1
+            return ByteArrayDataSource(bytes)
+        }
+    }
+
+    private class ByteArrayDataSource(private val bytes: ByteArray) : DataSource {
+        private var position = 0
+        private var openedUri: Uri? = null
+
+        override fun addTransferListener(transferListener: TransferListener) = Unit
+
+        override fun open(dataSpec: DataSpec): Long {
+            openedUri = dataSpec.uri
+            position = dataSpec.position.toInt()
+            return (bytes.size - position).coerceAtLeast(0).toLong()
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            if (length == 0) return 0
+            if (position >= bytes.size) return C.RESULT_END_OF_INPUT
+            val count = minOf(length, bytes.size - position)
+            bytes.copyInto(buffer, offset, position, position + count)
+            position += count
+            return count
+        }
+
+        override fun getUri(): Uri? = openedUri
+
+        override fun getResponseHeaders(): Map<String, List<String>> = emptyMap()
+
+        override fun close() {
+            openedUri = null
+        }
+    }
+
     private companion object {
         const val PMT_PID = 0x1000
         const val VIDEO_PID = 0x100
@@ -245,11 +345,12 @@ class HlsParameterSetInitTest {
         fun hex(value: String) = ByteArray(value.length / 2) { value.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
 
         /** A segment of three frames, opening on an IDR frame with or without the SPS and PPS before it. */
-        fun segment(withParameterSets: Boolean): ByteArray {
+        fun segment(withParameterSets: Boolean, firstSliceNalType: Int = 5): ByteArray {
             val out = ByteArrayOutputStream()
             out.write(tables())
+            val firstSliceHeader = if (firstSliceNalType == 5) 0x65 else 0x41
             val idr = AUD + (if (withParameterSets) START + SPS + START + PPS else ByteArray(0)) +
-                START + byteArrayOf(0x65, 0x88.toByte()) + ByteArray(400) { 0x11 }
+                START + byteArrayOf(firstSliceHeader.toByte(), 0x88.toByte()) + ByteArray(400) { 0x11 }
             val frames = listOf(idr, AUD + START + byteArrayOf(0x41, 0x9A.toByte()) + ByteArray(200) { 0x22 })
             frames.plus(frames[1]).forEachIndexed { index, frame ->
                 out.write(videoPes(frame, pts = 900_000L + index * 3_000L, continuityStart = index * 4))
