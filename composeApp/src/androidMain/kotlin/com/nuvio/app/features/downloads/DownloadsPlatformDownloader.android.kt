@@ -68,7 +68,7 @@ internal actual object DownloadsPlatformDownloader {
         val activeScheduler = scheduler(context)
         managedTransfers()
             .filter { it.item.status != DownloadStatus.Completed }
-            .forEach { transfer -> activeScheduler.remove(transfer.item.fileName) }
+            .forEach { transfer -> activeScheduler.remove(transfer.item.fileName, transfer.generation) }
     }
 
     actual fun start(
