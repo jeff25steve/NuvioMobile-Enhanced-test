@@ -217,7 +217,7 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 ### Cycle 153 — classify each progressive resource independently
 
 - The buffering URL selection previously passed the video's response headers and stream type to every URL, including a separately supplied audio URL. A progressive MP4 audio resource paired with an HLS video could be incorrectly excluded from VOD cache/native read-ahead; an adaptive audio URL paired with a progressive video could be incorrectly selected for progressive buffering.
-- Added `playbackBufferedUrls`: video classification uses its own response headers and stream type, while separate audio classification uses its own URL/MIME hints only. Blank or absent audio URLs are ignored. Existing exclusions for live streams, YouTube chunked playback and loopback sources remain unchanged.
+- Added `playbackBufferedUrls`: video classification uses its own response headers and stream type, while separate audio classification uses its own URL/MIME hints only. Blank or absent audio URLs are ignored, and opaque audio URLs without a recognizable MIME hint are excluded rather than assumed progressive. Existing exclusions for live streams, YouTube chunked playback and loopback sources remain unchanged.
 - Added host regression cases for progressive audio with HLS video, adaptive audio with progressive video, isolation from video response headers, and blank audio URLs.
 
 ### Cycle 154 — invalidate factories when captured dependencies change
