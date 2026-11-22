@@ -979,6 +979,7 @@ fi
 case "${FAKE_PGREP_MODE:-match}" in
   missing) exit 1 ;;
   error) echo 'pgrep fixture error' >&2; exit 2 ;;
+  empty) exit 0 ;;
   *) printf '12345 com.nuvio.media.benchmark\n12346 com.nuvio.media.benchmark:remote\n12347 com.nuvio.media.benchmark.child.proc:remote\n' ;;
 esac
 STUB
@@ -1647,6 +1648,20 @@ grep -Fq 'No matching process (pgrep exit status 1).' "$api36_no_match_dir/profi
   echo 'FAIL: zero-process pgrep result was not distinguished from a command error.' >&2
   exit 1
 }
+if ! FAKE_API=36 FAKE_PGREP_MODE=empty sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-pgrep-empty-success.log" 2>&1; then
+  echo 'FAIL: successful-but-empty pgrep output should be recorded without aborting collection.' >&2
+  cat "$TMP/api36-pgrep-empty-success.log" >&2
+  exit 1
+fi
+pgrep_empty_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+grep -Fq 'pgrep exited successfully but returned no process rows.' "$pgrep_empty_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: successful-but-empty pgrep output was not distinguished from no matches or command failure.' >&2
+  exit 1
+}
+if grep -Fq 'No matching process (pgrep exit status 1).' "$pgrep_empty_dir/profile-process-timeline.txt"; then
+  echo 'FAIL: successful-but-empty pgrep output was incorrectly labelled as no matching process.' >&2
+  exit 1
+fi
 if ! FAKE_API=36 FAKE_PGREP_MODE=error sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-pgrep-error.log" 2>&1; then
   echo 'FAIL: pgrep diagnostic error should be recorded without aborting collection.' >&2
   cat "$TMP/api36-pgrep-error.log" >&2
