@@ -77,7 +77,7 @@ internal class AndroidDownloadStore(private val directory: File) {
     fun remove(fileName: String, generation: String): AndroidDownloadTransfer? = synchronized(lock) {
         val current = get(fileName)?.takeIf { it.generation == generation }
             ?: return@synchronized null
-        removeCurrent(fileName, current)
+        removeCurrent(fileName)
         current
     }
 
