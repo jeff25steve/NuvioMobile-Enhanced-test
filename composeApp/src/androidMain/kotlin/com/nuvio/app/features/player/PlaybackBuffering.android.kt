@@ -46,6 +46,27 @@ internal fun isProgressivePlaybackSource(
     playbackMediaItemFromUrl(url, responseHeaders, streamType).localConfiguration?.mimeType,
 ) == C.CONTENT_TYPE_OTHER
 
+/**
+ * Select only independently classified progressive sources for VOD buffering.
+ *
+ * A separate audio URL has its own MIME hints in its URL. The video's response headers and
+ * stream type must never be reused to classify that second resource.
+ */
+internal fun playbackBufferedUrls(
+    videoUrl: String,
+    audioUrl: String?,
+    videoResponseHeaders: Map<String, String>,
+    videoStreamType: String?,
+): Set<String> = buildSet {
+    if (isProgressivePlaybackSource(videoUrl, videoResponseHeaders, videoStreamType)) {
+        add(videoUrl)
+    }
+    audioUrl
+        ?.takeIf { it.isNotBlank() }
+        ?.takeIf { isProgressivePlaybackSource(it, emptyMap(), null) }
+        ?.let(::add)
+}
+
 internal fun PlayerSettingsUiState.buildPlaybackLoadControl(localFileSource: Boolean = false): DefaultLoadControl {
     val heapLimitBytes = PlaybackMemoryInfo.javaHeapBufferLimitMb() * MB
     val builder = DefaultLoadControl.Builder()
