@@ -79,6 +79,28 @@ class AndroidDownloadTransferTest {
     }
 
     @Test
+    fun weakEntityTagIsNotPersistedAsAResumeValidator(): Unit = runBlocking {
+        MockWebServer().use { server ->
+            server.enqueue(
+                MockResponse()
+                    .setHeader("ETag", "W/\"weak-version\"")
+                    .setBody("complete representation"),
+            )
+            var receivedValidator: String? = "not-updated"
+
+            transferAndroidDownload(
+                downloadItem(server.url("/video").toString()),
+                FileDownloadSink(File(temporary.newFolder(), "video.mkv.part")),
+                validator = null,
+                onHeaders = { _, validator -> receivedValidator = validator },
+                onProgress = { _, _ -> },
+            )
+
+            assertNull(receivedValidator)
+        }
+    }
+
+    @Test
     fun legacyLastModifiedValidatorRestartsInsteadOfSendingIfRange(): Unit = runBlocking {
         MockWebServer().use { server ->
             server.enqueue(MockResponse().setBody("current complete representation"))
