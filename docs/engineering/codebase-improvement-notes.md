@@ -1107,7 +1107,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 **Evidence and verification boundary**
 - The exact AndroidX Media3 1.11.1 `VideoDecoderOutputBuffer` source documents `decoderPrivate` as decoder-private per-buffer data and shows output buffers are individually queued and later rendered by `DecoderVideoRenderer`. The app's existing native code computed a complete Android dataspace from each `AVFrame` but stored it on the shared decoder object. The source trace confirms the decode/render hand-off can be asynchronous, so the global field did not preserve frame association.
-- Test added but not run. No Gradle task, native/Kotlin compilation, build, CI, device playback or visual HDR validation was started. This corrects per-frame metadata association; no measured visual or performance result is claimed.
+- A final static diff review also caught and corrected the JNI metadata array declaration to hold all five values written by `SetLongArrayRegion`; this was corrected before branch integration. Test added but not run. No Gradle task, native/Kotlin compilation, build, CI, device playback or visual HDR validation was started. This corrects per-frame metadata association; no measured visual or performance result is claimed.
 
 
 ### Native video dataspace error handling (Cycle 163, 22 November 2026)
