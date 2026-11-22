@@ -247,7 +247,7 @@ JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlo
         d->has_frame = 1;
     }
     AVFrame *frame = d->frame;
-    jlong values[4] = {
+    jlong values[5] = {
         frame->pts != AV_NOPTS_VALUE ? frame->pts : frame->best_effort_timestamp,
         frame->width,
         frame->height,
