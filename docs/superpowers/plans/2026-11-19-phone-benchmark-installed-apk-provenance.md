@@ -127,3 +127,11 @@ The diagnostic output should be used to distinguish: (1) no target process was r
 - The complete repository shell regression scripts, Android compilation, instrumented tests, Baseline Profile collection and physical-device retest were not run in this session.
 - No APK was rebuilt, no CI was started, and no change was merged to \`main-build-testing\`.
 - The existing APK provenance matches remain valid for the captures that recorded them. They do not demonstrate that profile collection completed.
+
+
+**Reference material used in this cycle:**
+
+- AndroidX Benchmark release history (including 1.6.0-alpha02): https://developer.android.com/jetpack/androidx/releases/benchmark
+- AndroidX ProfileInstaller release history: https://developer.android.com/jetpack/androidx/releases/profileinstaller
+- UI Automator stale node exception API: https://developer.android.com/reference/androidx/test/uiautomator/StaleObjectException
+- ProfileInstaller receiver API and supported save-profile action: https://developer.android.com/reference/androidx/profileinstaller/ProfileInstallReceiver
