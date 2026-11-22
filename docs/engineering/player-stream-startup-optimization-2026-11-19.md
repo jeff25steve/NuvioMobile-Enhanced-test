@@ -229,3 +229,16 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 - The exact source and remember capture list were inspected on `main-build-testing`. Compose's documented `remember` contract compares all keys with `equals` and recalculates when any key changes; Context7 documentation and Android Developers guidance were checked. The repository pins Compose Multiplatform 1.13.0-beta01; the Context7 Android reference is current but does not expose that exact multiplatform prerelease as a versioned entry.
 - Four host regression tests were added for independent audio/video classification. The remember-key correction is a direct dependency-completeness fix; it reuses the existing `playerSourceKey` source identity and includes the newly captured byte-counter identity.
 - Host tests and Kotlin compilation were not run. No Gradle task, build, CI, device playback or benchmark was started. No numerical startup or playback improvement is claimed.
+
+
+## HLS playlist rewrite memory bound (Cycles 155–156, 22 November 2026)
+
+- The optional SPS/PPS playlist-repair wrapper previously buffered every eligible HLS media playlist in a ByteArrayOutputStream before its segment-inspection timeout began. That left manifest download size outside the existing inspection deadline and without a memory ceiling.
+- Cycle 155 adds a 256 KiB rewrite ceiling and immediately passes through a playlist whose DataSource.open() has already resolved a larger length. It does not consume any body bytes during open() on that path.
+- Cycle 156 applies the same ceiling when the response length is unresolved: it reads at most 256 KiB plus one sentinel byte. If the sentinel proves the playlist is oversized, the wrapper replays the buffered prefix and then continues reading directly from the still-open upstream DataSource. No manifest bytes are dropped, duplicated, or rewritten on this fallback path.
+- Small manifests retain the existing SPS/PPS inspection and rewrite behavior. The limit applies only to this optional playlist-repair buffer; it does not cap normal HLS playback or segment reads.
+
+**Evidence and verification boundary**
+- Repository dependency catalog pins Media3 1.8.0. Context7 resolved AndroidX Media3 but exposed 1.8.1 rather than the pinned 1.8.0; the exact 1.8.0 DataSource.java source was therefore checked through the AndroidX Media repository. It confirms that unbounded open() may return C.LENGTH_UNSET when length remains unresolved and that reads continue until RESULT_END_OF_INPUT.
+- Exa also checked the Android Developers DataSource API and HLS guidance. The fallback preserves the DataSource contract by replaying the exact prefix before delegating subsequent reads to upstream.
+- Added host regression coverage for both known-length bypass and unknown-length prefix replay/continuation. The tests were not executed in this environment. No Gradle task, Kotlin compilation, APK build, CI, network fault injection, device playback or benchmark was run. No playback-speed improvement is claimed; this bounds optional manifest buffering and preserves playback bytes.
