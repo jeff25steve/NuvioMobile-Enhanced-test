@@ -41,6 +41,18 @@ grep -Fq 'entry.users--' "$LOCK" || {
   echo "FAIL: keyed mutex does not release references after completion or cancellation." >&2
   exit 1
 }
+grep -Fq 'internal fun trackedReferenceCount(key: String): Int' "$LOCK" || {
+  echo "FAIL: keyed-lock regression tests cannot observe active holder/waiter references." >&2
+  exit 1
+}
+grep -Fq 'awaitTrackedReferences(keyedMutex, "same", 2)' "$TEST" || {
+  echo "FAIL: same-key regression does not prove a waiter has registered before asserting serialization." >&2
+  exit 1
+}
+grep -Fq 'assertEquals(1, keyedMutex.trackedReferenceCount("same")' "$TEST" || {
+  echo "FAIL: cancellation regression does not verify that the queued waiter's reference was released." >&2
+  exit 1
+}
 for case in sameKeyIsSerializedAndEntryIsReleasedAfterUse differentKeysCanEnterConcurrently cancelledWaiterReleasesItsKeyReference; do
   grep -Fq "fun $case()" "$TEST" || {
     echo "FAIL: missing keyed-lock concurrency regression: $case." >&2
@@ -48,4 +60,4 @@ for case in sameKeyIsSerializedAndEntryIsReleasedAfterUse differentKeysCanEnterC
   }
 done
 
-printf 'PASS: download execution and cleanup share bounded per-file locks with concurrency and cancellation coverage.\n'
+printf 'PASS: download execution and cleanup share bounded per-file locks; regression tests assert real holder/waiter references.\n'
