@@ -10,7 +10,7 @@ TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
 MEMORY_BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupMemoryBenchmark"
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+SCRIPT_DIR="$(CDPATH= cd -P -- "$(dirname -- "$0")" && pwd)"
 STAGING_DIR="${NUVIO_PHONE_STAGE_DIR:-/data/local/tmp/NuvioBenchmark}"
 OUTPUT_ROOT="${NUVIO_PHONE_OUTPUT_DIR:-/sdcard/Download/NuvioStartupBenchmark}"
 MEDIA_ROOT="${NUVIO_PHONE_MEDIA_ROOT:-/sdcard/Android/media}"
@@ -26,8 +26,14 @@ fail() {
 # Android's package manager cannot reliably install APKs directly from shared
 # Downloads storage. Stage the complete bundle in shell-readable local storage
 # automatically, so the user never has to copy files manually.
+mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
+case "$STAGING_DIR" in
+  /*) ;;
+  *) STAGING_DIR="./$STAGING_DIR" ;;
+esac
+STAGING_DIR="$(CDPATH= cd -P -- "$STAGING_DIR" && pwd)" || fail "Cannot resolve the temporary benchmark folder: $STAGING_DIR"
+
 if [ "$SCRIPT_DIR" != "$STAGING_DIR" ]; then
-  mkdir -p "$STAGING_DIR" || fail "Cannot create the temporary benchmark folder: $STAGING_DIR"
   case "${1:-}:${2:-}" in
     install-profile:full)
       STAGE_APKS="Nuvio-full-NonMinifiedRelease.apk Nuvio-full-NonMinifiedRelease-Tests.apk"
@@ -70,11 +76,22 @@ Keep all eight arm64-v8a APKs and this script together:
 
 Run from LADB (no computer required):
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile full
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect full
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install full
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh memory-profile full
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install-profile playstore
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh collect playstore
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh install playstore
+  sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh measure playstore
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh run playstore
   sh /sdcard/Download/NuvioBenchmark/nuvio-phone-benchmark.sh memory-profile playstore
+
+Command preconditions:
+  collect: run install-profile for the same flavor first.
+  measure and memory-profile: install the BenchmarkRelease pair first (install).
+  run: install-profile for the same flavor first; this collects, installs and measures.
 
 Results are copied to /sdcard/Download/NuvioStartupBenchmark.
 The benchmark app uses com.nuvio.media.benchmark; production Nuvio is untouched.
