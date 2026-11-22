@@ -1020,8 +1020,8 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Retain the existing absolute-path fixture and verify that staging still copies only the action's required APK pair.
 
 **Implementation on review branch `fix/phone-benchmark-stage-paths`**
-- The runner now creates the configured stage directory before resolving it, prefixes relative paths with `./` (including relative names beginning with a dash), and resolves it with `cd -P`/ `pwd` while suppressing `CDPATH` output.
-- `SCRIPT_DIR` is resolved with the same physical-directory policy, so trailing-slash and relative aliases of the runner directory compare consistently. Distinct relative staging directories remain supported.
+- The runner now creates the configured stage directory before resolving it, prefixes relative paths with `./` (including relative names beginning with a dash), and resolves it with POSIX `cd -P`/`pwd` while suppressing `CDPATH` output.
+- The script path is likewise made option-safe before `dirname`, and `SCRIPT_DIR` uses the same physical-directory policy. Trailing-slash and relative aliases of the runner directory therefore compare consistently; distinct relative staging directories remain supported.
 - Added host regression fixtures for a trailing-slash alias and a relative path that resolves to the bundle directory. Both invoke the help action and assert it appears exactly once, which catches the previous same-file self-copy/re-exec path.
 - The CLI help now documents the supported `collect`, `install` and `measure` commands and their installed-state preconditions (see the Cycle 145 correction section).
 
