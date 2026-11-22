@@ -1866,7 +1866,7 @@ printf 'PASS: phone runner auto-stages only required APK pairs, resolves the sel
   }
 done
 for documented_action in collect install measure; do
-  grep -Fq "nuvio-phone-benchmark.sh $documented_action full" "$BUNDLE/nuvio-phone-benchmark.sh" || {
+  printf '%s\\n' "$stage_output" | grep -Fq "nuvio-phone-benchmark.sh $documented_action full" || {
     echo "FAIL: usage output must document the supported $documented_action action." >&2
     exit 1
   }
