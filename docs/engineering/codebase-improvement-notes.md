@@ -962,3 +962,24 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 **Verification boundary**
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
+
+## Generation-safe bulk cleanup of Android downloads (Cycle 152, 22 November 2026)
+
+Traced the Android logout/unfinished-transfer cleanup path through `DownloadsPlatformDownloader.clearUnfinishedTransfers()`, `AndroidDownloadScheduler.remove()` and `AndroidDownloadStore`.
+
+**Confirmed race**
+- `clearUnfinishedTransfers()` takes a snapshot of transfers, filters unfinished entries, then removes each by filename only.
+- A transfer can be paused/replaced and a new generation can be enqueued under the same filename after the snapshot but before its stale snapshot entry is processed.
+- The old cleanup loop then removes by filename, so it can delete the replacement generation's persisted state and cancel its newly scheduled job. The store already uses generation checks for pause/update operations, but removal did not.
+
+**Correction**
+- Added an atomic `AndroidDownloadStore.remove(fileName, generation)` operation. It compares the current generation and deletes the record/state only when it still matches.
+- Added a generation-aware scheduler removal overload. The expected generation is checked while holding the scheduler lifecycle lock, and the store performs its own generation check before deleting; job cancellation therefore applies only to the generation actually removed.
+- Changed bulk unfinished-transfer cleanup to pass the generation from its snapshot. Existing filename-only removal remains available for explicit user removal of the current transfer.
+- Added host regression cases proving stale generations cannot remove a replacement and matching generations can still be removed.
+
+**Evidence and verification boundary**
+- Re-fetched the full live store, scheduler, platform downloader and lifecycle tests. The stale-snapshot-to-filename-only-removal path is present in the target branch.
+- Exa checked Android's WorkManager guidance: unique-work replacement cancels the previous request, and worker execution may be stopped while replacement work is enqueued. Exa also surfaced real generation-token completion guards in task schedulers; Context7 checked Kotlin/JVM synchronized block and labelled-return semantics for the atomic store guard.
+- Re-fetched the changed store, scheduler, bulk-cleanup caller, host tests and this note from the feature branch. The new host tests are authored but unexecuted.
+- No Gradle task, Kotlin compilation, build, CI, APK, device run or benchmark was started. This is a race-correctness fix; no performance claim is made.
