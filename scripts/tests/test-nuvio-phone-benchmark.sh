@@ -8,11 +8,13 @@ ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 GENERATOR_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/BaselineProfileGenerator.java"
 BENCHMARK_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupBenchmark.java"
 READINESS_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/StartupReadiness.java"
+HOME_BROWSE_SOURCE="$ROOT_DIR/baselineProfile/src/main/java/com/nuvio/android/baselineprofile/HomeBrowseReadiness.java"
 
 [ -f "$DESKTOP_RUNNER" ] || { echo "FAIL: desktop runner is missing." >&2; exit 1; }
-[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
+[ -f "$GENERATOR_SOURCE" ] && [ -f "$BENCHMARK_SOURCE" ] && [ -f "$READINESS_SOURCE" ] && [ -f "$HOME_BROWSE_SOURCE" ] || { echo "FAIL: baseline profile or readiness sources are missing." >&2; exit 1; }
 sh "$SCRIPT_DIR/tests/test-android-startup-initialization.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-startup-readiness.sh"
+sh "$SCRIPT_DIR/tests/test-android-ui-automator-stale-retry.sh" "$ROOT_DIR"
 sh "$SCRIPT_DIR/tests/test-android-baseline-profile.sh"
 sh "$SCRIPT_DIR/tests/test-android-benchmark-run-directory.sh"
 sh "$SCRIPT_DIR/tests/test-home-poster-style-propagation.sh" "$ROOT_DIR"
@@ -25,12 +27,37 @@ for expected in \
   'text rules collected by the separate collect step are not installed into this APK.' \
   'Do not reopen LADB or run shell commands until instrumentation finishes.' \
   'capture_profile_flush_diagnostics() {' \
-  "logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E'"; do
+  'verify_profile_installer_receiver() {' \
+  'capture_target_process_snapshot() {' \
+  'index($NF, package ".") == 1' \
+  'start_profile_collection_diagnostics() {' \
+  'stop_profile_collection_diagnostics() {' \
+  'profile-installer-receiver.txt' \
+  'profile-process-timeline.txt' \
+  'profile-collection-logcat.txt' \
+  'ps -A' \
+  'pgrep -l -f' \
+  'pgrep -l -f -a' \
+  'ANDROIDX_PROCESS_PATTERN=' \
+  'capture_androidx_process_snapshot() {' \
+  'androidx_is_subpackage_installed() {' \
+  'Dotted-child package-prefix checks use shell pm path and are advisory only.' \
+  'pm path "$candidate"' \
+  'AndroidX-equivalent process lookup:' \
+  'awk -v package="$APP_PACKAGE"' \
+  "logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E'" \
+  "logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'art:*' 'AndroidRuntime:E'" \\
+  "logcat -d -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E'" \\
+  'profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure.'; do
   grep -Fq "$expected" "$RUNNER_SOURCE" || {
     echo "FAIL: phone benchmark guidance is missing '$expected'." >&2
     exit 1
   }
 done
+if grep -Fq 'am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE' "$RUNNER_SOURCE"; then
+  echo "FAIL: standalone SAVE_PROFILE preflight must not gate BaselineProfileRule collection." >&2
+  exit 1
+fi
 collect_block="$(sed -n '/baselineProfileRule.collect(/,/^[[:space:]]*);/p' "$GENERATOR_SOURCE")"
 printf '%s\n' "$collect_block" | grep -Fq '"startup",' || {
   echo "FAIL: profile collection output prefix must remain startup." >&2
@@ -106,6 +133,7 @@ done
 # to marker lookup; best-effort diagnostics may legitimately report unavailable.
 for expected in \
   'device.getCurrentPackageName()' \
+  'StaleNodeRetry.run(() -> {' \
   'Last package to report an accessibility event' \
   'markerVisible(UiDevice device, String marker)' \
   'HomeScreen marker in target active window:' \
@@ -115,6 +143,10 @@ for expected in \
     exit 1
   }
 done
+grep -Fq 'StartupReadiness.targetMarkerHasVisibleBounds(device, targetMarker)' "$HOME_BROWSE_SOURCE" || {
+  echo "FAIL: Home browse visible-bounds reads must use the stale-node-safe reacquisition helper." >&2
+  exit 1
+}
 if grep -Fq 'dumpWindowHierarchy' "$READINESS_SOURCE"; then
   echo "FAIL: readiness diagnostics must not serialize the complete accessibility hierarchy." >&2
   exit 1
@@ -284,6 +316,13 @@ case "$1" in
         elif [ "${FAKE_SPLIT_INSTALLED_PACKAGE:-}" = app ]; then
           printf 'package:%s\npackage:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk" "$FAKE_INSTALLED_DIR/app-base.apk"
         else printf 'package:%s\n' "$FAKE_INSTALLED_DIR/app-base.apk"; fi
+        ;;
+      com.nuvio.media.benchmark.child)
+        if [ "${FAKE_INSTALLED_DOTTED_SUBPACKAGE:-0}" = "1" ]; then
+          printf 'package:%s\n' "$FAKE_INSTALLED_DIR/dotted-child.apk"
+        else
+          exit 1
+        fi
         ;;
       com.nuvio.android.baselineprofile)
         if [ "${FAKE_STALE_INSTALLED_PACKAGE:-}" = test ]; then
@@ -809,7 +848,9 @@ JSON
   *BaselineProfile*)
     mkdir -p "$FAKE_MEDIA_DIR"
     if [ "${FAKE_MISSING_STARTUP_PROFILE:-0}" != "1" ]; then
-      if [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
+      if [ "${FAKE_INVALID_STARTUP_PROFILE:-0}" = "1" ]; then
+        printf 'not-an-art-profile-rule\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
+      elif [ "${FAKE_EMPTY_STARTUP_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
       elif [ "${FAKE_BLANK_STARTUP_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/startup-startup-prof.txt"
@@ -818,7 +859,9 @@ JSON
       fi
     fi
     if [ "${FAKE_MISSING_HOME_BROWSE_PROFILE:-0}" != "1" ]; then
-      if [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+      if [ "${FAKE_INVALID_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
+        printf 'not-an-art-profile-rule\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
+      elif [ "${FAKE_EMPTY_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         : > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
       elif [ "${FAKE_BLANK_HOME_BROWSE_PROFILE:-0}" = "1" ]; then
         printf '  \n\t\n' > "$FAKE_MEDIA_DIR/home_browse-baseline-prof.txt"
@@ -839,6 +882,9 @@ STUB
 cat > "$TMP/bin/dumpsys" <<'STUB'
 #!/bin/sh
 case "$1" in
+  package)
+    printf 'Package: %s\nReceiver: androidx.profileinstaller.ProfileInstallReceiver\n' "$2"
+    ;;
   battery)
     if [ "${FAKE_ENV_DIAGNOSTICS_FAIL:-0}" = "1" ]; then
       echo 'level: unavailable'
@@ -924,6 +970,34 @@ cat > "$TMP/bin/su" <<'STUB'
 [ "${FAKE_SU_ROOT:-0}" = "1" ] || exit 1
 printf 'uid=0(root) gid=0(root)\n'
 STUB
+cat > "$TMP/bin/ps" <<'STUB'
+#!/bin/sh
+printf 'u0_a123 12345 1 123456 12345 S com.nuvio.media.benchmark\n'
+printf 'u0_a124 12347 1 123456 12345 S com.nuvio.media.benchmark.child.proc:remote\n'
+printf 'u0_a125 12348 1 123456 12345 S com.nuvio.media.benchmarking\n'
+STUB
+cat > "$TMP/bin/pgrep" <<'STUB'
+#!/bin/sh
+printf 'pgrep %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+[ "$1" = "-l" ] && [ "$2" = "-f" ] || exit 2
+if [ "$3" = "-a" ]; then
+  [ -n "$4" ] || exit 2
+else
+  [ -n "$3" ] || exit 2
+fi
+case "${FAKE_PGREP_MODE:-match}" in
+  missing) exit 1 ;;
+  error) echo 'pgrep fixture error' >&2; exit 2 ;;
+  empty) exit 0 ;;
+  *) printf '12345 com.nuvio.media.benchmark\n12346 com.nuvio.media.benchmark:remote\n12347 com.nuvio.media.benchmark.child.proc:remote\n12348 com.other.app\n' ;;
+esac
+STUB
+cat > "$TMP/bin/logcat" <<'STUB'
+#!/bin/sh
+printf 'logcat %s\n' "$*" >> "$FAKE_COMMAND_LOG"
+printf '11-22 02:00:00.000 12345 12345 D Benchmark: Saving profiles for process com.nuvio.media.benchmark\n'
+printf '11-22 02:00:00.001 12345 12346 I art: SIGUSR1 forcing GC (no HPROF) and profile save\n'
+STUB
 chmod +x "$TMP/bin/"*
 export PATH="$TMP/bin:$PATH"
 export FAKE_COMMAND_LOG="$TMP/commands.log" FAKE_MEDIA_ROOT="$TMP/media"
@@ -983,6 +1057,15 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  if FAKE_INVALID_STARTUP_PROFILE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-invalid-startup-profile.log" 2>&1; then
+    echo "FAIL: phone runner accepted non-HRF Startup Profile content ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "contains no recognizable ART profile rules" "$TMP/$flavor-invalid-startup-profile.log" || {
+    echo "FAIL: invalid Startup Profile rejection did not identify malformed ART rules ($flavor)." >&2
+    cat "$TMP/$flavor-invalid-startup-profile.log" >&2
+    exit 1
+  }
   for browse_profile_fixture in missing empty blank; do
     case "$browse_profile_fixture" in
       missing) browse_profile_env=FAKE_MISSING_HOME_BROWSE_PROFILE ;;
@@ -1007,6 +1090,15 @@ for flavor in full playstore; do
       exit 1
     }
   done
+  if FAKE_INVALID_HOME_BROWSE_PROFILE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect "$flavor" > "$TMP/$flavor-invalid-home-browse-profile.log" 2>&1; then
+    echo "FAIL: phone runner accepted non-HRF Home browse profile content ($flavor)." >&2
+    exit 1
+  fi
+  grep -Fq "contains no recognizable ART profile rules" "$TMP/$flavor-invalid-home-browse-profile.log" || {
+    echo "FAIL: invalid Home browse profile rejection did not identify malformed ART rules ($flavor)." >&2
+    cat "$TMP/$flavor-invalid-home-browse-profile.log" >&2
+    exit 1
+  }
   if sh "$BUNDLE/nuvio-phone-benchmark.sh" measure "$flavor" >/dev/null 2>&1; then
     echo 'FAIL: measure must reject the profile-generation app state.' >&2
     exit 1
@@ -1527,6 +1619,153 @@ if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api3
   cat "$TMP/api33-profile-collect.log" >&2
   exit 1
 fi
+profile_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$profile_result_dir" ] || { echo 'FAIL: Baseline Profile fixture did not produce a collect-* result.' >&2; exit 1; }
+for expected in 'androidx.profileinstaller.ProfileInstallReceiver' 'com.nuvio.media.benchmark'; do
+  grep -Fq "$expected" "$profile_result_dir/profile-installer-receiver.txt" "$profile_result_dir/profile-process-timeline.txt" || {
+    echo "FAIL: profile collection evidence is missing '$expected'." >&2
+    exit 1
+  }
+done
+grep -Fq "AndroidX-equivalent process lookup: pgrep -l -f 'com\\.nuvio\\.media\\.benchmark'" "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: exact AndroidX-equivalent pgrep command was not retained.' >&2
+  exit 1
+}
+grep -Fq '12345 com.nuvio.media.benchmark' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: raw pgrep process output was not retained.' >&2
+  exit 1
+}
+grep -Fq 'ANDROIDX_ACCEPTED pid=12345 processName=com.nuvio.media.benchmark' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep output was not parsed using AndroidX process-name matching.' >&2
+  exit 1
+}
+grep -Fq 'ANDROIDX_ACCEPTED pid=12346 processName=com.nuvio.media.benchmark:remote' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: AndroidX colon-suffix child processes were not accepted.' >&2
+  exit 1
+}
+grep -Fq 'ANDROIDX_REJECTED pid=12348 processName=com.other.app' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep command-line false positives were not rejected by process-name filtering.' >&2
+  exit 1
+}
+ps_snapshot="$(awk '/Independent ps -A snapshot:/{in_ps=1; next} /AndroidX-equivalent process lookup:/{in_ps=0} in_ps' "$profile_result_dir/profile-process-timeline.txt")"
+printf '%s\n' "$ps_snapshot" | grep -Fq 'com.nuvio.media.benchmark.child.proc:remote' || {
+  echo 'FAIL: independent ps snapshot omitted the dotted child process supported by AndroidX.' >&2
+  exit 1
+}
+if printf '%s\n' "$ps_snapshot" | grep -Fq 'com.nuvio.media.benchmarking'; then
+  echo 'FAIL: independent ps snapshot matched a non-boundary package-name prefix.' >&2
+  exit 1
+fi
+grep -Fq 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: AndroidX should accept a dotted custom process when no intermediate or full subpackage is installed.' >&2
+  exit 1
+}
+grep -Fq 'pgrep -l -f com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: diagnostic did not invoke AndroidX-equivalent pgrep arguments.' >&2
+  exit 1
+}
+if ! FAKE_API=36 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-profile-collect.log" 2>&1; then
+  echo "FAIL: API 36 should collect profiles using AndroidX's -a pgrep flag." >&2
+  cat "$TMP/api36-profile-collect.log" >&2
+  exit 1
+fi
+api36_profile_result_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$api36_profile_result_dir" ] || { echo 'FAIL: API 36 Baseline Profile fixture did not produce a collect-* result.' >&2; exit 1; }
+grep -Fq "AndroidX-equivalent process lookup: pgrep -l -f -a 'com\.nuvio\.media\.benchmark'" "$api36_profile_result_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: API 36 diagnostic did not use AndroidX pgrep -a compatibility flag.' >&2
+  exit 1
+}
+grep -Fq 'pgrep -l -f -a com\.nuvio\.media\.benchmark' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: API 36 pgrep invocation did not include -a.' >&2
+  exit 1
+}
+if ! FAKE_API=36 FAKE_PGREP_MODE=missing sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-no-pgrep-match.log" 2>&1; then
+  echo "FAIL: a zero-process diagnostic sample should be recorded without aborting profile collection." >&2
+  cat "$TMP/api36-no-pgrep-match.log" >&2
+  exit 1
+fi
+api36_no_match_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+[ -n "$api36_no_match_dir" ] || { echo 'FAIL: API 36 no-match fixture did not produce a collect-* result.' >&2; exit 1; }
+grep -Fq 'No matching process (pgrep exit status 1).' "$api36_no_match_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: zero-process pgrep result was not distinguished from a command error.' >&2
+  exit 1
+}
+if ! FAKE_API=36 FAKE_PGREP_MODE=empty sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-pgrep-empty-success.log" 2>&1; then
+  echo 'FAIL: successful-but-empty pgrep output should be recorded without aborting collection.' >&2
+  cat "$TMP/api36-pgrep-empty-success.log" >&2
+  exit 1
+fi
+pgrep_empty_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+grep -Fq 'pgrep exited successfully but returned no process rows.' "$pgrep_empty_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: successful-but-empty pgrep output was not distinguished from no matches or command failure.' >&2
+  exit 1
+}
+if grep -Fq 'No matching process (pgrep exit status 1).' "$pgrep_empty_dir/profile-process-timeline.txt"; then
+  echo 'FAIL: successful-but-empty pgrep output was incorrectly labelled as no matching process.' >&2
+  exit 1
+fi
+if ! FAKE_API=36 FAKE_PGREP_MODE=error sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/api36-pgrep-error.log" 2>&1; then
+  echo 'FAIL: pgrep diagnostic error should be recorded without aborting collection.' >&2
+  cat "$TMP/api36-pgrep-error.log" >&2
+  exit 1
+fi
+pgrep_error_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+grep -Fq 'pgrep command failed (exit status 2).' "$pgrep_error_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep execution failure was not distinguished from zero matching processes.' >&2
+  exit 1
+}
+grep -Fq 'pgrep fixture error' "$pgrep_error_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: pgrep stderr was not preserved for diagnosis.' >&2
+  exit 1
+}
+if grep -Fq 'MALFORMED pgrep row' "$pgrep_error_dir/profile-process-timeline.txt"; then
+  echo 'FAIL: pgrep error text was incorrectly parsed as a process row.' >&2
+  exit 1
+fi
+grep -Fq 'com.nuvio.media.benchmark' "$api36_no_match_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: independent ps snapshot was not retained alongside the pgrep no-match result.' >&2
+  exit 1
+}
+if ! FAKE_API=33 FAKE_INSTALLED_DOTTED_SUBPACKAGE=1 sh "$BUNDLE/nuvio-phone-benchmark.sh" collect full > "$TMP/installed-dotted-child.log" 2>&1; then
+  echo 'FAIL: dotted-subpackage filtering diagnostic collection failed.' >&2
+  cat "$TMP/installed-dotted-child.log" >&2
+  exit 1
+fi
+installed_dotted_dir="$(find "$TMP/output/full" -mindepth 1 -maxdepth 1 -type d -name 'collect-*' -print | sort | tail -n 1)"
+grep -Fq 'SHELL_APPROX_REJECTED_INSTALLED_SUBPACKAGE pid=12347 processName=com.nuvio.media.benchmark.child.proc:remote' "$installed_dotted_dir/profile-process-timeline.txt" || {
+  echo 'FAIL: AndroidX dotted child was not rejected when an intermediate package prefix is installed.' >&2
+  exit 1
+}
+grep -Fq 'pm path com.nuvio.media.benchmark.child' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: diagnostic did not check the intermediate dotted package prefix.' >&2
+  exit 1
+}
+grep -Fq 'Saving profiles for process com.nuvio.media.benchmark' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: live AndroidX logcat evidence was not retained during profile collection.' >&2
+  exit 1
+}
+grep -Fq '12345 12345 D Benchmark:' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: profile-flush logcat evidence did not retain PID/TID fields.' >&2
+  exit 1
+}
+grep -Fq '12345 12346 I art: SIGUSR1 forcing GC (no HPROF) and profile save' "$profile_result_dir/profile-collection-logcat.txt" || {
+  echo 'FAIL: ART SIGUSR1 profile-save confirmation was not retained.' >&2
+  exit 1
+}
+grep -Fq 'logcat -v threadtime -s Benchmark:* ProfileInstaller:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: live profile-flush logcat was not requested in threadtime format.' >&2
+  exit 1
+}
+grep -Fq 'logcat -d -v threadtime -s Benchmark:* ProfileInstaller:* art:* AndroidRuntime:E' "$FAKE_COMMAND_LOG" || {
+  echo 'FAIL: post-run profile-flush logcat was not requested in threadtime format.' >&2
+  exit 1
+}
+for expected in 'Installed receiver evidence -> ' 'Live target-process timeline -> ' 'Live AndroidX/ProfileInstaller logcat -> '; do
+  grep -Fq "$expected" "$profile_result_dir/copied-files.txt" || {
+    echo "FAIL: copied-files manifest is missing '$expected'." >&2
+    exit 1
+  }
+done
 if ! FAKE_API=33 sh "$BUNDLE/nuvio-phone-benchmark.sh" install full > "$TMP/api33-install.log" 2>&1; then
   echo "FAIL: API 33 fixture could not install the matching Full benchmark variant." >&2
   cat "$TMP/api33-install.log" >&2

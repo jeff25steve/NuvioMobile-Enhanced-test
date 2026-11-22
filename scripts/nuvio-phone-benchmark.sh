@@ -4,6 +4,8 @@
 set -eu
 
 APP_PACKAGE="com.nuvio.media.benchmark"
+# Match AndroidX Shell.pgrepLF: API 36+ requires -a for the full command line.
+ANDROIDX_PROCESS_PATTERN='com\.nuvio\.media\.benchmark'
 TEST_PACKAGE="com.nuvio.android.baselineprofile"
 GENERATOR_CLASS="com.nuvio.android.baselineprofile.BaselineProfileGenerator"
 BENCHMARK_CLASS="com.nuvio.android.baselineprofile.StartupBenchmark"
@@ -311,6 +313,50 @@ copy_recent_outputs() {
   fi
 }
 
+require_recognizable_art_profile_rules() {
+  profile_file="$1"
+  # Validate the structural HRF markers emitted by ART: optional method flags,
+  # a DEX class descriptor, and (for method rules) a method signature. Comments
+  # and blank lines are allowed. This is deliberately a sanity check, not a
+  # replacement for profman's full descriptor/method resolution.
+  if ! awk '
+    function is_rule(line, annotation_end, method_separator, prefix, descriptor_start, flags, descriptor, method, open_paren, close_paren, return_type, i) {
+      sub(/\r$/, "", line)
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line == "" || substr(line, 1, 1) == "#") return 0
+      if (substr(line, 1, 1) == "{") {
+        annotation_end = index(line, "}")
+        if (annotation_end == 0) return 0
+        line = substr(line, annotation_end + 1)
+      }
+      method_separator = index(line, "->")
+      if (method_separator == 0) return line ~ /^\[*L[^;[:space:]]+;$/ || line ~ /^\[*[BCDFIJSZ]$/
+      prefix = substr(line, 1, method_separator - 1)
+      descriptor_start = 0
+      for (i = 1; i <= length(prefix); i++) {
+        if (substr(prefix, i, 1) == "L") descriptor_start = i
+      }
+      if (descriptor_start == 0) return 0
+      flags = substr(prefix, 1, descriptor_start - 1)
+      if (flags !~ /^[HSP]*$/) return 0
+      descriptor = substr(prefix, descriptor_start)
+      if (descriptor !~ /^\[*L[^;[:space:]]+;$/) return 0
+      method = substr(line, method_separator + 2)
+      if (method == "*") return 1
+      open_paren = index(method, "(")
+      close_paren = index(method, ")")
+      if (open_paren <= 1 || close_paren <= open_paren) return 0
+      return_type = substr(method, close_paren + 1, 1)
+      return (return_type ~ /^[BCDFIJSVZL]$/ || return_type == "[")
+    }
+    is_rule($0) { valid_rules++ }
+    END { exit(valid_rules > 0 ? 0 : 1) }
+  ' "$profile_file"; then
+    fail "Generated profile contains no recognizable ART profile rules: $profile_file."
+  fi
+}
+
 require_non_empty_startup_profile() {
   startup_profile_count=0
   for profile_file in "$RUN_DIR"/*startup-prof*.txt; do
@@ -320,6 +366,7 @@ require_non_empty_startup_profile() {
     grep -Eq '[^[:space:]]' "$profile_file" || {
       fail "Generated startup profile contains no rules: $profile_file."
     }
+    require_recognizable_art_profile_rules "$profile_file"
   done
   [ "$startup_profile_count" -gt 0 ] || fail "No startup-prof text profile was produced. Check the Startup Profile collection and $RUN_DIR/instrumentation.log."
 }
@@ -382,6 +429,7 @@ require_non_empty_home_browse_profile() {
     grep -Eq '[^[:space:]]' "$profile_file" || {
       fail "Generated Home browse Baseline Profile contains no rules: $profile_file."
     }
+    require_recognizable_art_profile_rules "$profile_file"
   done
   [ "$home_browse_profile_count" -gt 0 ] || fail "No home_browse Baseline Profile text file was produced. Ensure Home has a populated, horizontally scrollable catalogue and check $RUN_DIR/instrumentation.log."
 }
@@ -2063,10 +2111,13 @@ capture_profile_flush_diagnostics() {
 
     printf '\nTarget package processes after instrumentation:\n'
     if command -v ps >/dev/null 2>&1; then
-      ps -A 2>&1 | grep -F "$APP_PACKAGE" || printf 'No target process listed.\n'
+      capture_target_process_snapshot
     else
       printf 'ps unavailable\n'
     fi
+
+    printf '\nAndroidX-equivalent process lookup:\n'
+    capture_androidx_process_snapshot
 
     printf '\nProfileInstaller receiver in installed package metadata:\n'
     if command -v dumpsys >/dev/null 2>&1; then
@@ -2079,7 +2130,7 @@ capture_profile_flush_diagnostics() {
 
     printf '\nProfileInstaller and AndroidRuntime logcat entries:\n'
     if command -v logcat >/dev/null 2>&1; then
-      logcat -d -v time -s 'ProfileInstaller:*' 'Benchmark:*' 'AndroidRuntime:E' 2>&1 \
+      logcat -d -v threadtime -s 'ProfileInstaller:*' 'Benchmark:*' 'art:*' 'AndroidRuntime:E' 2>&1 \
         || printf 'Filtered logcat capture failed.\n'
     else
       printf 'logcat unavailable\n'
@@ -2094,21 +2145,214 @@ capture_profile_flush_diagnostics() {
 }
 
 verify_profile_installer_receiver() {
-  # Macrobenchmark calls this receiver by its exact class name to flush ART
-  # profiles. Check the installed manifest before starting the long capture;
-  # source dependency declarations alone cannot prove a merged APK contains it.
+  # Verify the installed merged-manifest/package metadata exposes the receiver
+  # that AndroidX addresses during its own per-process collection flush.
+  # A standalone SAVE_PROFILE broadcast here is not a valid substitute for
+  # observing AndroidX's later process discovery and flush.
   receiver="androidx.profileinstaller.ProfileInstallReceiver"
-  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>/dev/null | grep -F "$receiver" || true)"
-  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check merged manifest/R8 output and rebuild the matching APK pair."
+  receiver_state="$(dumpsys package "$APP_PACKAGE" 2>&1 | grep -C 2 -F "$receiver" || true)"
+  {
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Expected receiver: %s\n' "$receiver"
+    printf 'Installed package metadata evidence:\n'
+    if [ -n "$receiver_state" ]; then
+      printf '%s\n' "$receiver_state"
+    else
+      printf 'Receiver not present in installed package metadata.\n'
+    fi
+  } > "$RUN_DIR/profile-installer-receiver.txt"
+  [ -n "$receiver_state" ] || fail "Installed benchmark APK does not expose $receiver in package metadata. Check the merged manifest/R8 output and rebuild the matching APK pair. See $RUN_DIR/profile-installer-receiver.txt."
+}
 
-  # Exercise the documented SAVE_PROFILE command while Nuvio is already
-  # launched. AndroidX expects result 12 (RESULT_SAVE_PROFILE_SIGNALLED).
-  # The explicit component avoids intent-filter/implicit-broadcast ambiguity.
-  broadcast_output="$(am broadcast -a androidx.profileinstaller.action.SAVE_PROFILE "$APP_PACKAGE/$receiver" 2>&1)" ||
-    fail "Could not issue the ProfileInstaller SAVE_PROFILE preflight broadcast."
-  printf '%s\n' "$broadcast_output" > "$RUN_DIR/profile-installer-preflight.txt"
-  printf '%s\n' "$broadcast_output" | grep -Eq 'result=12([[:space:]]|$)' ||
-    fail "ProfileInstaller SAVE_PROFILE preflight did not return result=12. See $RUN_DIR/profile-installer-preflight.txt; do not start BaselineProfileRule until the installed receiver/dex is corrected."
+capture_target_process_snapshot() {
+  # Record exact, colon-child and dotted-prefix candidates. Dotted names may
+  # belong to a separately installed package; this is a raw snapshot, not ownership proof.
+  if ! command -v ps >/dev/null 2>&1; then
+    printf 'ps unavailable; independent process snapshot could not be captured.\n'
+    return 0
+  fi
+  ps -A 2>&1 | awk -v package="$APP_PACKAGE" '
+    $NF == package || index($NF, package ":") == 1 || index($NF, package ".") == 1 {
+      print
+      found = 1
+    }
+    END {
+      if (!found) print "No target package process listed in this snapshot."
+    }
+  '
+}
+
+androidx_is_subpackage_installed() {
+  # Approximate Shell.isSubpackageInstalled(): strip the process suffix, then check
+  # every dotted package prefix. AndroidX uses the instrumentation context's
+  # PackageManager; pm path runs as shell, so package-visibility results may differ.
+  process_name="$1"
+  base_process_name="${process_name%%:*}"
+  case "$base_process_name" in
+    "$APP_PACKAGE".*) ;;
+    *) return 1 ;;
+  esac
+
+  remaining="${base_process_name#"$APP_PACKAGE".}"
+  candidate="$APP_PACKAGE"
+  while :; do
+    case "$remaining" in
+      *.*)
+        component="${remaining%%.*}"
+        remaining="${remaining#*.}"
+        candidate="$candidate.$component"
+        ;;
+      *)
+        candidate="$candidate.$remaining"
+        if pm path "$candidate" >/dev/null 2>&1; then
+          return 0
+        fi
+        break
+        ;;
+    esac
+
+    if pm path "$candidate" >/dev/null 2>&1; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+capture_androidx_process_snapshot() {
+  # Reproduce AndroidX Shell.pgrepLF flags exactly for the device API level.
+  printf 'AndroidX-equivalent process lookup: '
+  if [ "$api" -ge 36 ]; then
+    printf "pgrep -l -f -a '%s'\n" "$ANDROIDX_PROCESS_PATTERN"
+    if pgrep_output="$(pgrep -l -f -a "$ANDROIDX_PROCESS_PATTERN" 2>&1)"; then
+      pgrep_status=0
+    else
+      pgrep_status=$?
+    fi
+  else
+    printf "pgrep -l -f '%s'\n" "$ANDROIDX_PROCESS_PATTERN"
+    if pgrep_output="$(pgrep -l -f "$ANDROIDX_PROCESS_PATTERN" 2>&1)"; then
+      pgrep_status=0
+    else
+      pgrep_status=$?
+    fi
+  fi
+
+  if [ "$pgrep_status" -eq 0 ]; then
+    if [ -n "$pgrep_output" ]; then
+      printf 'Raw pgrep output:\n%s\n' "$pgrep_output"
+      printf 'Process-name classification (exact package/colon; dotted prefix uses shell pm path approximation):\n'
+      printf 'Dotted-child package-prefix checks use shell pm path and are advisory only.\n'
+      printf '%s\n' "$pgrep_output" | while read -r process_pid process_name remainder; do
+        case "$process_pid" in
+          ''|*[!0-9]*)
+            printf 'MALFORMED pgrep row: %s\n' "$process_pid $process_name $remainder"
+            ;;
+          *)
+            case "$process_name" in
+              "$APP_PACKAGE"|"$APP_PACKAGE":*)
+                printf 'ANDROIDX_ACCEPTED pid=%s processName=%s\n' "$process_pid" "$process_name"
+                ;;
+              "$APP_PACKAGE".*)
+                if androidx_is_subpackage_installed "$process_name"; then
+                  printf 'SHELL_APPROX_REJECTED_INSTALLED_SUBPACKAGE pid=%s processName=%s\n' "$process_pid" "$process_name"
+                else
+                  printf 'SHELL_APPROX_ACCEPTED_UNINSTALLED_DOTTED_CHILD pid=%s processName=%s\n' "$process_pid" "$process_name"
+                fi
+                ;;
+              *)
+                printf 'ANDROIDX_REJECTED pid=%s processName=%s\n' "$process_pid" "$process_name"
+                ;;
+            esac
+            ;;
+        esac
+      done
+    else
+      printf 'pgrep exited successfully but returned no process rows.\n'
+    fi
+  elif [ "$pgrep_status" -eq 1 ]; then
+    printf 'No matching process (pgrep exit status 1).\n'
+  else
+    printf 'pgrep command failed (exit status %s).\n' "$pgrep_status"
+    if [ -n "$pgrep_output" ]; then
+      printf 'pgrep error output:\n%s\n' "$pgrep_output"
+    else
+      printf 'pgrep returned no error output.\n'
+    fi
+  fi
+  printf 'pgrep exit status: %s\n' "$pgrep_status"
+}
+
+start_profile_collection_diagnostics() {
+  PROFILE_PROCESS_MONITOR_PID=""
+  PROFILE_LOGCAT_MONITOR_PID=""
+  process_timeline="$RUN_DIR/profile-process-timeline.txt"
+  logcat_timeline="$RUN_DIR/profile-collection-logcat.txt"
+
+  {
+    printf 'Live target-process samples during BaselineProfile instrumentation\n'
+    printf 'Target package: %s\n' "$APP_PACKAGE"
+    printf 'Sampling interval: approximately 1 second\n'
+    printf "AndroidX process pattern: %s\n" "$ANDROIDX_PROCESS_PATTERN"
+    printf 'Each sample records both ps -A and the API-correct AndroidX pgrep lookup.\n'
+    printf 'Logcat uses threadtime format for PID/TID and includes ART, Benchmark and ProfileInstaller tags for per-process profile-save correlation.\n'
+    printf 'A missing sample is not proof that no process existed between samples.\n'
+  } > "$process_timeline"
+
+  {
+    printf 'Initial process snapshot immediately before instrumentation: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    printf '\nIndependent ps -A snapshot:\n'
+    capture_target_process_snapshot
+    printf '\n'
+    capture_androidx_process_snapshot
+  } >> "$process_timeline" 2>&1
+
+  (
+    while :; do
+      printf '\nSample: '
+      date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+      printf '\nIndependent ps -A snapshot:\n'
+      capture_target_process_snapshot
+      printf '\n'
+      capture_androidx_process_snapshot
+      sleep 1
+    done
+  ) >> "$process_timeline" 2>&1 &
+  PROFILE_PROCESS_MONITOR_PID=$!
+
+  if command -v logcat >/dev/null 2>&1; then
+    logcat -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E' \
+      >> "$logcat_timeline" 2>&1 &
+    PROFILE_LOGCAT_MONITOR_PID=$!
+  else
+    printf 'logcat unavailable; AndroidX live log capture was not started.\n' > "$logcat_timeline"
+  fi
+}
+stop_profile_collection_diagnostics() {
+  if [ -n "${PROFILE_PROCESS_MONITOR_PID:-}" ]; then
+    kill "$PROFILE_PROCESS_MONITOR_PID" 2>/dev/null || true
+    wait "$PROFILE_PROCESS_MONITOR_PID" 2>/dev/null || true
+    PROFILE_PROCESS_MONITOR_PID=""
+  fi
+  if [ -n "${PROFILE_LOGCAT_MONITOR_PID:-}" ]; then
+    kill "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
+    wait "$PROFILE_LOGCAT_MONITOR_PID" 2>/dev/null || true
+    PROFILE_LOGCAT_MONITOR_PID=""
+  fi
+  if command -v logcat >/dev/null 2>&1; then
+    printf '\nPost-run AndroidX logcat snapshot (may repeat live entries):\n' >> "$RUN_DIR/profile-collection-logcat.txt"
+    logcat -d -v threadtime -s 'Benchmark:*' 'ProfileInstaller:*' 'art:*' 'AndroidRuntime:E' \
+      >> "$RUN_DIR/profile-collection-logcat.txt" 2>&1 || true
+  fi
+
+  {
+    printf '\nFinal process snapshot after instrumentation: '
+    date '+%Y-%m-%d %H:%M:%S %z' 2>/dev/null || printf 'timestamp unavailable\n'
+    printf '\nIndependent ps -A snapshot:\n'
+    capture_target_process_snapshot
+    printf '\n'
+    capture_androidx_process_snapshot
+  } >> "$RUN_DIR/profile-process-timeline.txt" 2>&1
 }
 
 reject_pending_wifi_debug_confirmation() {
@@ -2142,6 +2386,7 @@ run_instrumentation() {
   write_run_provenance
   if [ "$rule" = BaselineProfile ]; then
     verify_profile_installer_receiver
+    start_profile_collection_diagnostics
   fi
   printf 'Running %s on %s. Keep the phone cool, plugged in, and otherwise idle.\n' "$rule" "$FLAVOR"
   printf 'Do not reopen LADB or run shell commands until instrumentation finishes. A foreground LADB/System UI window can invalidate the app-readiness check or interrupt profile collection.\n'
@@ -2166,6 +2411,9 @@ run_instrumentation() {
     -e class "$class_name" \
     "$INSTRUMENTATION" > "$RUN_DIR/instrumentation.log" 2>&1
   result=$?
+  if [ "$rule" = BaselineProfile ]; then
+    stop_profile_collection_diagnostics
+  fi
   set -e
   capture_foreground_state after
   if [ "$rule" = macrobenchmark ]; then
@@ -2178,12 +2426,18 @@ run_instrumentation() {
   if [ "$result" -ne 0 ] || grep -Eiq 'FAILURES!!!|INSTRUMENTATION_FAILED|INSTRUMENTATION_STATUS_CODE: -[0-9]' "$RUN_DIR/instrumentation.log"; then
     capture_profile_flush_diagnostics
     cat "$RUN_DIR/instrumentation.log"
+    if [ "$rule" = BaselineProfile ]; then
+      fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt, profile-installer-receiver.txt, profile-process-timeline.txt, profile-collection-logcat.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption, missing target-process discovery and an ART profile-save failure."
+    fi
     fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure."
   fi
   cat "$RUN_DIR/instrumentation.log"
   case "$rule" in
     BaselineProfile)
       copy_recent_outputs profile
+      printf 'Installed receiver evidence -> %s\n' "$RUN_DIR/profile-installer-receiver.txt" >> "$RUN_DIR/copied-files.txt"
+      printf 'Live target-process timeline -> %s\n' "$RUN_DIR/profile-process-timeline.txt" >> "$RUN_DIR/copied-files.txt"
+      printf 'Live AndroidX/ProfileInstaller logcat -> %s\n' "$RUN_DIR/profile-collection-logcat.txt" >> "$RUN_DIR/copied-files.txt"
       require_non_empty_startup_profile
       require_non_empty_home_browse_profile
       write_profile_audit_summary
