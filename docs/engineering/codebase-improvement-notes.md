@@ -963,6 +963,26 @@ Completed the missing diagnostic attempt boundaries identified in Cycle 138. A s
 - Re-fetched PlayerEngine.android.kt and counted six exoPlayer.prepare() calls, each preceded by exactly one beginExoPlayerPrepareAttempt call. Existing PlaybackDiagnosticsTest covers guard reset semantics but was not executed in this session.
 - No Gradle task, Kotlin compile, APK build, CI, physical-device playback or startup benchmark was run.
 
+## Android network error interceptor de-duplication (Cycle 145, 22 November 2026)
+
+The target branch still registered NetworkErrorInterceptor twice for both the API Ktor client and Coil's Ktor network fetcher. SharedOkHttpClient.base already owns one interceptor; both Ktor engines set that client as preconfigured and then appended another instance.
+
+**Changed**
+- Removed the redundant Ktor engine registration from ApiHttpClient.android.kt.
+- Removed the redundant Coil Ktor engine registration from NuvioApplication.kt and its now-unused import.
+- Kept the shared OkHttp client, DNS, redirect policy, retry configuration, Ktor timeouts, Coil cache policy, fetcher strategy and other client configuration unchanged.
+- Added scripts/tests/test-shared-network-error-interceptor.sh to guard the single shared registration and both preconfigured call sites.
+
+**Exact dependency evidence**
+- The project pins Ktor 3.4.1. Context7 resolved Ktor but did not index that exact version.
+- Exa fetched the exact tagged upstream 3.4.1 OkHttpEngine.kt: createOkHttpClient() starts from (config.preconfigured ?: okHttpClientPrototype).newBuilder() and applies the engine configuration.
+- Exa fetched the exact tagged upstream 3.4.1 OkHttpConfig.kt: addInterceptor() appends to the engine builder configuration.
+- This proves the preconfigured client's interceptor remains and the extra engine registration appends a second instance.
+
+**Verification boundary**
+- The focused shell guard failed against a fixture containing the duplicate API and Coil registrations (RED), then passed after removing those duplicate registrations in the fixture (GREEN).
+- The production files and test guard were re-fetched from the feature branch for static review. The guard was exercised on isolated fixtures, not against a complete checkout. The existing NetworkErrorInterceptorTest was not run.
+- No Gradle task, Kotlin compilation, build, CI, APK, device run or benchmark was started.
 ## Android download per-file lock registry — release idle entries (Cycle 146, 22 November 2026)
 
 A fresh review of the Android download scheduler found that its per-file serialization map was process-lifetime and unbounded: `ConcurrentHashMap<String, Mutex>` retained one mutex for every distinct download filename ever passed through `lock(fileName)`. The map had no removal path. A user who downloads and removes many distinct files could therefore grow this registry for the lifetime of the scheduler even after all corresponding work had finished.
