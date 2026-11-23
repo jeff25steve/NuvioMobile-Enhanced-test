@@ -34,7 +34,7 @@ class NativeReadAheadAllocationCleanupTest {
         }
 
         assertSame(allocationFailure, thrown)
-        assertEquals(0, thrown.suppressed.size)
+        assertEquals("cleanup failed", thrown.suppressed.single().message)
     }
 
     @Test
