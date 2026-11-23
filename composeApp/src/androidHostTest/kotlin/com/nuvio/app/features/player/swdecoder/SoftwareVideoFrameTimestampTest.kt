@@ -26,6 +26,14 @@ class SoftwareVideoFrameTimestampTest {
         assertEquals(1_300_000L, resolveSoftwareFrameTimestampUs(Long.MIN_VALUE, Long.MIN_VALUE, 1_300_000L))
     }
     @Test
+    fun requiresEvenDimensionsForYv12SurfaceOutput() {
+        assertEquals(true, supportsYv12SurfaceSize(1920, 1080))
+        assertEquals(false, supportsYv12SurfaceSize(1919, 1080))
+        assertEquals(false, supportsYv12SurfaceSize(1920, 1079))
+        assertEquals(false, supportsYv12SurfaceSize(0, 1080))
+    }
+
+    @Test
     fun computesRequiredYuv420BufferSizeForOddDimensionsAndAlignedStrides() {
         assertEquals(64L * 3L + 64L * 2L * 2L, requiredSoftwareYuv420BufferSize(3, 3, 64, 64))
     }
