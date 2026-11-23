@@ -2331,6 +2331,11 @@ private fun ExoPlayerSurface(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
                 PlayerView(viewContext).apply {
+                    // Media3's opt-in SurfaceSyncGroup workaround fixes SurfaceView
+                    // resizing/clipping when PlayerView is hosted in Compose AndroidView on API 34.
+                    if (shouldEnableComposeSurfaceSyncWorkaround(Build.VERSION.SDK_INT)) {
+                        setEnableComposeSurfaceSyncWorkaround(true)
+                    }
                     useController = useNativeController
                     layoutParams = android.view.ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     player = exoPlayer
