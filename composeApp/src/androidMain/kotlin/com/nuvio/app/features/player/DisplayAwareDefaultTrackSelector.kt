@@ -241,11 +241,9 @@ private fun isSdrFallbackFormat(format: Format): Boolean {
     val transfer = colorInfo?.colorTransfer
     val explicitlySdrTransfer =
         colorInfo?.hdrStaticInfo == null &&
-            (
-                transfer == C.COLOR_TRANSFER_SDR ||
-                    transfer == C.COLOR_TRANSFER_GAMMA_2_2 ||
-                    transfer == C.COLOR_TRANSFER_SRGB
-                )
+            (transfer == C.COLOR_TRANSFER_SDR ||
+                transfer == C.COLOR_TRANSFER_GAMMA_2_2 ||
+                transfer == C.COLOR_TRANSFER_SRGB)
     // isTransferHdr(false) is not proof of SDR: BT.2020/10-bit content with an unset
     // transfer characteristic is ambiguous. Use Media3's stricter assumed-SDR predicate.
     return ColorInfo.isEquivalentToAssumedSdrDefault(colorInfo) || explicitlySdrTransfer
