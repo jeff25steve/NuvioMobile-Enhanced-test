@@ -81,6 +81,41 @@ class StyledSubtitleCuesTest {
     }
 
     @Test
+    fun cueAxisPlacementRespectsStartMiddleAndEndAnchors() {
+        assertEquals(200, subtitleCueAxisOffset(1_000, 200, 0.2f, 0f))
+        assertEquals(100, subtitleCueAxisOffset(1_000, 200, 0.2f, 0.5f))
+        assertEquals(0, subtitleCueAxisOffset(1_000, 200, 0.2f, 1f))
+    }
+
+    @Test
+    fun cueAxisPlacementClampsToTheViewport() {
+        assertEquals(0, subtitleCueAxisOffset(1_000, 300, 0.1f, 1f))
+        assertEquals(700, subtitleCueAxisOffset(1_000, 300, 0.9f, 0f))
+    }
+
+    @Test
+    fun cueWidthShrinksToFitThePositionedAnchor() {
+        assertEquals(0.2f, subtitleCueWidthFraction(0.2f, 1f, 0.8f))
+        assertEquals(0.4f, subtitleCueWidthFraction(0.2f, 0.5f, 0.8f))
+        assertEquals(0.2f, subtitleCueWidthFraction(0.8f, 0f, 0.8f))
+        assertEquals(0.5f, subtitleCueWidthFraction(null, 0.5f, 0.5f))
+        assertEquals(null, subtitleCueWidthFraction(null, 0.5f, null))
+    }
+
+    @Test
+    fun cuesWithDifferentFractionalPlacementAreNotMerged() {
+        val cues = styledSubtitleCues(
+            listOf(
+                StyledSubtitleBlock(AnnotatedString("Left"), positionX = 0.1f),
+                StyledSubtitleBlock(AnnotatedString("Right"), positionX = 0.9f),
+            ),
+        )
+
+        assertEquals(2, cues.blocks.size)
+        assertEquals(listOf(0.1f, 0.9f), cues.blocks.map { it.positionX })
+    }
+
+    @Test
     fun fileColorsFollowTheTextOpacity() {
         assertEquals(Color.Yellow.copy(alpha = 0.5f), subtitleFileColor(Color.Yellow, textAlpha = 0.5f))
     }

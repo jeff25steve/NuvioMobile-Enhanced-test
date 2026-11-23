@@ -5,6 +5,7 @@ package com.nuvio.app.features.player
 import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Typeface
+import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -17,6 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -84,19 +86,79 @@ class SubtitleCuePresenterTest {
 
         val block = presenter.cues.blocks.single()
         assertEquals(SubtitleVerticalPosition.TOP, block.vertical)
-        assertEquals(SubtitleHorizontalPosition.START, block.horizontal)
+        assertEquals(0.08f, block.positionX)
+        assertEquals(0f, block.positionXAnchor)
         assertEquals(Color.Yellow, block.text.spanStyles.single().item.color)
     }
 
     @Test
-    fun lineNumberCuesUseTheTopForNonNegativeLines() {
+    fun lineNumberCuesStayOnTheNativeRenderer() {
         val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
         val top = Cue.Builder().setText("Top row").setLine(0f, Cue.LINE_TYPE_NUMBER).build()
         val bottom = Cue.Builder().setText("Bottom row").setLine(-1f, Cue.LINE_TYPE_NUMBER).build()
 
-        presenter.present(listOf(top, bottom))
+        assertEquals(listOf(top, bottom), presenter.present(listOf(top, bottom)))
+        assertTrue(presenter.cues.isEmpty)
+    }
 
-        assertEquals("Top row", presenter.cues.topText.text)
-        assertEquals("Bottom row", presenter.cues.bottomText.text)
+    @Test
+    fun fractionalCueGeometryAndTextAlignmentArePreserved() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder()
+            .setText("Positioned")
+            .setPosition(0.2f)
+            .setPositionAnchor(Cue.ANCHOR_TYPE_END)
+            .setLine(0.8f, Cue.LINE_TYPE_FRACTION)
+            .setLineAnchor(Cue.ANCHOR_TYPE_MIDDLE)
+            .setSize(0.6f)
+            .setTextAlignment(Layout.Alignment.ALIGN_OPPOSITE)
+            .build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(0.2f, block.positionX)
+        assertEquals(1f, block.positionXAnchor)
+        assertEquals(0.8f, block.positionY)
+        assertEquals(0.5f, block.positionYAnchor)
+        assertEquals(0.2f, block.widthFraction)
+        assertEquals(SubtitleHorizontalPosition.END, block.textAlignment)
+        assertTrue(block.fillCueWidth)
+    }
+
+    @Test
+    fun cuesWithoutExplicitSizeUseMeasuredTextWidth() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder().setText("Measured").setPosition(0.75f).setPositionAnchor(Cue.ANCHOR_TYPE_MIDDLE).build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(0.75f, block.positionX)
+        assertEquals(0.5f, block.positionXAnchor)
+        assertEquals(null, block.widthFraction)
+        assertFalse(block.fillCueWidth)
+    }
+
+    @Test
+    fun textAlignmentDoesNotMoveTheDefaultBottomCenterCueBox() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder().setText("Aligned").setTextAlignment(Layout.Alignment.ALIGN_OPPOSITE).build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(SubtitleHorizontalPosition.CENTER, block.horizontal)
+        assertEquals(SubtitleHorizontalPosition.END, block.textAlignment)
+        assertEquals(null, block.positionX)
+    }
+
+    @Test
+    fun verticalWritingCuesStayOnTheNativeRenderer() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder().setText("縦書き").setVerticalType(Cue.VERTICAL_TYPE_RL).build()
+
+        assertEquals(listOf(cue), presenter.present(listOf(cue)))
+        assertTrue(presenter.cues.isEmpty)
     }
 }
