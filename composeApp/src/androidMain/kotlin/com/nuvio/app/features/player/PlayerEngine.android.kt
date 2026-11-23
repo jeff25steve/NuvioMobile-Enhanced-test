@@ -1187,6 +1187,12 @@ private fun ExoPlayerSurface(
         durationMs: Long = exoPlayer.duration,
     ) {
         val preference = context.videoFrameRateUserPreference()
+        // Keep the manual CHANGE_FRAME_RATE_ALWAYS request aligned with the actual playback
+        // cadence, not just the source cadence (e.g. 24 fps at 1.5x requests 36 fps).
+        alwaysFrameRateController?.updateVideoFrameRate(
+            currentVideoFrameRate,
+            exoPlayer.playbackParameters.speed,
+        )
         val alwaysRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             shouldUseAlwaysSurfaceFrameRateMatching(preference)
         val manualModeActive = alwaysRequested &&
@@ -1473,6 +1479,7 @@ private fun ExoPlayerSurface(
             }
 
             override fun onPlaybackParametersChanged(playbackParameters: androidx.media3.common.PlaybackParameters) {
+                updateAlwaysFrameRateState()
                 InAppLogger.debug(
                     "ExoPlayer/Android",
                     "playbackSpeed=${playbackParameters.speed} pitch=${playbackParameters.pitch}",
@@ -1703,7 +1710,6 @@ private fun ExoPlayerSurface(
                 decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
             ) {
                 currentVideoFrameRate = format.frameRate
-                alwaysFrameRateController?.updateVideoFrameRate(currentVideoFrameRate)
                 updateAlwaysFrameRateState()
             }
 
@@ -2266,7 +2272,6 @@ private fun ExoPlayerSurface(
                 alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
             }
         }
-        alwaysFrameRateController?.updateVideoFrameRate(currentVideoFrameRate)
         updateAlwaysFrameRateState()
     }
 

@@ -42,6 +42,22 @@ class PlaybackFrameRateMatchingTest {
     }
 
     @Test
+    fun manualSurfaceFrameRateIncludesPlaybackSpeed() {
+        assertEquals(36f, playbackSurfaceFrameRate(24f, 1.5f))
+        assertEquals(29.97f, playbackSurfaceFrameRate(23.976f, 1.25f), 0.001f)
+        assertEquals(30f, playbackSurfaceFrameRate(60f, 0.5f))
+    }
+
+    @Test
+    fun invalidMediaFrameRateOrPlaybackSpeedClearsManualSurfaceRequest() {
+        assertEquals(0f, playbackSurfaceFrameRate(Float.NaN, 1f))
+        assertEquals(0f, playbackSurfaceFrameRate(-1f, 1f))
+        assertEquals(0f, playbackSurfaceFrameRate(24f, 0f))
+        assertEquals(0f, playbackSurfaceFrameRate(24f, Float.NaN))
+        assertEquals(0f, playbackSurfaceFrameRate(Float.MAX_VALUE, Float.MAX_VALUE))
+    }
+
+    @Test
     fun nonSeamlessMatchingIsLimitedToLongVODOrLivePlaybackThatIsIntendedToRun() {
         assertFalse(shouldApplyAlwaysVideoFrameRate(
             playWhenReady = false,

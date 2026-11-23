@@ -25,6 +25,18 @@ internal fun videoFrameRateStrategyForSystemPreference(userPreference: Int): Int
 internal fun shouldUseAlwaysSurfaceFrameRateMatching(userPreference: Int): Boolean =
     userPreference == DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS
 
+/**
+ * Resolves the frame rate requested from the display for the current playback speed.
+ *
+ * Media3's VideoFrameReleaseHelper uses mediaFrameRate * playbackSpeed for the Surface request.
+ * Return zero for unknown or invalid inputs so the caller clears any stale manual request.
+ */
+internal fun playbackSurfaceFrameRate(mediaFrameRate: Float, playbackSpeed: Float): Float {
+    if (!mediaFrameRate.isFinite() || mediaFrameRate <= 0f) return 0f
+    if (!playbackSpeed.isFinite() || playbackSpeed <= 0f) return 0f
+    return (mediaFrameRate * playbackSpeed).takeIf { it.isFinite() && it > 0f } ?: 0f
+}
+
 private const val MIN_NON_SEAMLESS_MATCH_DURATION_MS = 300_000L
 
 internal fun shouldApplyAlwaysVideoFrameRate(
@@ -83,10 +95,10 @@ internal class AlwaysVideoFrameRateController(
     val hasRequestedFrameRate: Boolean
         get() = requestedFrameRate > 0f
 
-    fun updateVideoFrameRate(frameRate: Float) {
+    fun updateVideoFrameRate(frameRate: Float, playbackSpeed: Float) {
         // PlayerEngine first disables Media3's seamless request when manual Always mode
         // becomes eligible, then calls updatePlaybackState() to apply this stored rate.
-        requestedFrameRate = frameRate.takeIf { it.isFinite() && it > 0f } ?: 0f
+        requestedFrameRate = playbackSurfaceFrameRate(frameRate, playbackSpeed)
     }
 
     fun updatePlaybackState(

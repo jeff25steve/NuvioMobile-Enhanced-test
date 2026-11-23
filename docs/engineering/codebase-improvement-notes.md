@@ -1879,3 +1879,29 @@ Verification boundary:
 - Community research included mpv-android's [subtitle settings issue #495](https://github.com/mpv-android/mpv-android/issues/495), the [Plex ASS/SSA Android discussion](https://forums.plex.tv/t/is-it-so-hard-to-support-ass-subtitles-on-android-device/784751), and Reddit searches for HDR/subtitle readability. Reddit did not return a reproducible implementation worth porting; no unsupported community claim was used.
 - Added regression sources for Android/iOS font range policy, the 60sp-to-183 mpv mapping, and idempotent libass scale changes. These tests were not executed.
 - A fresh iOS compile, Android host tests, full build, CI, benchmark or device playback was not run. The iOS recovery correction and new Android range/performance changes are source-audited only pending authorization.
+
+
+## Android manual frame-rate matching follows playback speed — 23 November 2026
+
+The Android player's Match content frame rate → Always path manually calls Surface.setFrameRate(..., CHANGE_FRAME_RATE_ALWAYS) after disabling Media3's seamless-only Surface request. The source format's frame rate was previously passed through unchanged. That diverged from Media3's VideoFrameReleaseHelper, which derives the Surface playback frame rate as surfaceMediaFrameRate * playbackSpeed and recalculates it when playback speed changes.
+
+Changed:
+- Added the pure playbackSurfaceFrameRate(mediaFrameRate, playbackSpeed) resolver. Unknown, non-positive, non-finite and overflowed values resolve to 0f, clearing a stale request instead of sending an invalid rate.
+- Centralized the manual controller's frame-rate refresh inside updateAlwaysFrameRateState, using the active ExoPlayer.playbackParameters.speed. Format changes, player state changes and controller creation now share the same update path.
+- onPlaybackParametersChanged now refreshes the manual Surface request immediately, so speed changes update the display hint without waiting for a track or state transition.
+- Added host regression cases for 24 fps at 1.5x (36 fps), 23.976 fps at 1.25x (29.97 fps), half-speed playback, invalid inputs and multiplication overflow.
+
+Compatibility:
+- The system preference still controls whether the manual non-seamless mode is used.
+- The existing long-VOD/live eligibility gate, short-clip seamless-only behaviour, pause/end clearing, Surface lifecycle, Media3 default mode and libmpv path are unchanged.
+- No dependency version, renderer, decoder, HDR pipeline or global refresh-rate policy was changed.
+
+Evidence:
+- AndroidX Media3 VideoFrameReleaseHelper source documents onPlaybackSpeed(float) and computes surfaceMediaFrameRate * playbackSpeed before calling Surface.setFrameRate: https://github.com/androidx/media/blob/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/VideoFrameReleaseHelper.java
+- Android's frame-rate API documentation says video surfaces should report their intended fixed source rate and that platform switching is a hint, not a guarantee: https://developer.android.com/media/optimize/performance/frame-rate
+- Context7 documentation for AndroidX Media3 confirms that VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF is required when the app owns CHANGE_FRAME_RATE_ALWAYS requests.
+- Community research also surfaced unresolved 4K AV1 output-frame drops in mpv-android across renderer/decoder combinations on some devices. That is device-specific evidence, not a safe basis for globally changing Nuvio's renderer.
+
+Verification boundary:
+- Source-level checks confirm the manual request uses the current playback speed and is refreshed by the playback-parameters callback.
+- Kotlin host tests were added but not executed. No Gradle task, compilation, build, CI, benchmark or device playback was run, as requested. The visual effect still needs a device check on a 24 fps source at 1.5x and a 23.976 fps source at 1.25x, with Android's system preference set to Always.
