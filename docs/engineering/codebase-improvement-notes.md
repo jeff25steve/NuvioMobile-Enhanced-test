@@ -2163,7 +2163,9 @@ Corrections:
 - Matched Media3's MAX_ASPECT_RATIO_DEFORMATION_FRACTION = 0.01f tolerance so near-matching aspect ratios remain full-frame instead of applying a spurious inset.
 - Reject invalid/non-finite dimensions and aspect ratios before calculating normalized bounds.
 - Routed ExoPlayer bitmap subtitle remapping through the selected PlayerResizeMode, so FILL no longer applies FIT letterboxing and ZOOM can represent crop bounds outside the viewport.
+- Extracted the bitmap cue coordinate transform into a tested helper covering position, size, fractional line, and bitmap height; the renderer now uses the same helper the regression tests exercise.
 - Changed PiP's saved reference dimensions to the actual PlayerView viewport, not its potentially expanded subtitle child.
+- Kept the renderer's resize-mode provider current with rememberUpdatedState, so changing Fit/Fill/Zoom during an active session does not leave the cue geometry using the mode captured when the renderer factory was created.
 - Made PiP subtitle reference height mode-aware: FIT uses the contained video height; FILL and ZOOM use the viewport height actually visible to the viewer.
 
 Regression coverage:
