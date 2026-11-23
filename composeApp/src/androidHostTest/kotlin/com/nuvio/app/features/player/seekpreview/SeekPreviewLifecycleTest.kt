@@ -96,7 +96,7 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
-    fun seekPreviewAspectRatioKeepsPortraitFramesInsideTheBubbleWithoutCropping() {
+    fun seekPreviewAspectRatioBoundsPortraitFramesToTheSquareBubble() {
         assertEquals(1f, seekPreviewDisplayAspectRatio(180, 320))
     }
 
