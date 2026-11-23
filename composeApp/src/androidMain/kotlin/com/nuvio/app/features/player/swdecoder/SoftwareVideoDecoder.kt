@@ -635,6 +635,9 @@ internal class SoftwareVideoDecoder(
             flushRequested = false
             lock.notifyAll()
         }
+        // Wake the renderer after the flush barrier: the worker may just have returned
+        // the input buffer that was in flight when flush() was requested.
+        dispatchInputBufferAvailable()
     }
 
     private fun maybeThrowExceptionLocked() {
