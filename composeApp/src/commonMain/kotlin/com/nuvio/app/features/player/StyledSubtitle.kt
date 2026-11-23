@@ -168,7 +168,7 @@ private fun PositionedSubtitleBlock(
                     block.positionY == null &&
                     block.vertical == SubtitleVerticalPosition.BOTTOM
             ) {
-                subtitleBottomLetterboxTopPx(
+                subtitleBottomDisplayTopPx(
                     viewportHeightPx = viewportHeight,
                     videoBottomPx = videoTop + videoHeight,
                     contentHeightPx = placeable.height,
