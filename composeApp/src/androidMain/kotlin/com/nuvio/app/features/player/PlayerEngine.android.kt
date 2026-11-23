@@ -767,7 +767,10 @@ private fun ExoPlayerSurface(
                 if (sidecarControllerRef?.isSidecarActive() == true) emptyList()
                 else subtitlePresenter.present(
                     cues,
-                    format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA,
+                    canStyle = format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA,
+                    allowLetterboxPlacement = supportsLetterboxTextSubtitleMimeType(
+                        format?.sampleMimeType ?: latestExternalSubtitleMimeType.value,
+                    ),
                 )
             },
             videoBoundsFractionProvider = {
@@ -1095,7 +1098,14 @@ private fun ExoPlayerSurface(
             getPlayer = { exoPlayer },
             getSubtitleDelayMs = { latestSubtitleDelayMs.value },
             getAudioDelayUs = audioDelayUs::get,
-            presentCues = { cues -> subtitlePresenter.present(cues, sidecarControllerRef?.subtitleMimeType != MimeTypes.TEXT_SSA) },
+            presentCues = { cues ->
+                val mimeType = sidecarControllerRef?.subtitleMimeType
+                subtitlePresenter.present(
+                    cues,
+                    canStyle = mimeType != MimeTypes.TEXT_SSA,
+                    allowLetterboxPlacement = supportsLetterboxTextSubtitleMimeType(mimeType),
+                )
+            },
         ).also { sidecarControllerRef = it }
     }
 
@@ -1903,6 +1913,7 @@ private fun ExoPlayerSurface(
         onControllerReady(
             autoSyncCoordinator.wrap(object : PlayerEngineController { // AutoSync hook
                 override val playbackEngine = AndroidPlaybackEngine.ExoPlayer
+                override val supportsLetterboxTextSubtitles = true
 
                 private var lastAppliedVolume: Float? = null
 
