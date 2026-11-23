@@ -111,6 +111,12 @@ internal fun shouldNormalizeExternalVttCuePosition(
     placeUnpositionedTextInLetterbox: Boolean,
 ): Boolean = mimeType == MimeTypes.TEXT_VTT && !placeUnpositionedTextInLetterbox
 
+internal fun shouldAllowLetterboxTextSubtitlePlacement(
+    mimeType: String?,
+    placeUnpositionedTextInLetterbox: Boolean,
+): Boolean = supportsLetterboxTextSubtitleMimeType(mimeType) &&
+    !shouldNormalizeExternalVttCuePosition(mimeType, placeUnpositionedTextInLetterbox)
+
 internal fun supportsLetterboxTextSubtitleMimeType(mimeType: String?): Boolean =
     mimeType == MimeTypes.APPLICATION_SUBRIP ||
         mimeType == MimeTypes.TEXT_VTT ||
