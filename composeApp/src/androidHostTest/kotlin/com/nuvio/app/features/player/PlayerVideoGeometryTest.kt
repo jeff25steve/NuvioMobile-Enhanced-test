@@ -142,8 +142,4 @@ class PlayerVideoGeometryTest {
         assertEquals(0.8f, mapped.line, 0.0001f)
         assertEquals(0.25f, mapped.bitmapHeight, 0.0001f)
     }
-
-
-
-
 }
