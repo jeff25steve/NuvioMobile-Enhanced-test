@@ -89,4 +89,28 @@ class SoftwareVideoFrameTimestampTest {
     fun rejectsYuv420BuffersLargerThanByteBufferCapacityCanRepresent() {
         assertEquals(null, requiredSoftwareYuv420BufferSize(Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE))
     }
+    @Test
+    fun frameHandlePoolReusesHandlesAndBoundsRetainedOwners() {
+        val pool = SoftwareVideoFrameHandlePool(2)
+
+        assertEquals(0L, pool.acquire())
+        assertEquals(true, pool.recycle(101L))
+        assertEquals(true, pool.recycle(202L))
+        assertEquals(false, pool.recycle(303L))
+
+        assertEquals(101L, pool.acquire())
+        assertEquals(202L, pool.acquire())
+        assertEquals(0L, pool.acquire())
+    }
+
+    @Test
+    fun frameHandlePoolDrainsRetainedOwnersForDecoderShutdown() {
+        val pool = SoftwareVideoFrameHandlePool(3)
+        pool.recycle(11L)
+        pool.recycle(22L)
+
+        assertEquals(listOf(11L, 22L), pool.drain())
+        assertEquals(emptyList(), pool.drain())
+    }
+
 }
