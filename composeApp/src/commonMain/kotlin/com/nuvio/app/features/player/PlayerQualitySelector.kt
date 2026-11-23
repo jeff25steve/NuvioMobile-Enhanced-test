@@ -17,6 +17,8 @@ data class PlayerQualityVariant(
     val audioGroupId: String?,
     val absoluteUri: String,
     val playbackUrl: String,
+    val videoRange: String? = null,
+    val frameRate: Double? = null,
 ) {
     val isAv1: Boolean
         get() = codecs.split(',').any { codec -> codec.trim().startsWith("av01", ignoreCase = true) }
@@ -30,6 +32,10 @@ data class PlayerQualityVariant(
     val displayLabel: String
         get() = buildString {
             append(qualityName)
+            playerVideoRangeLabel(videoRange)?.let { append(" · ").append(it) }
+            frameRate?.takeIf { it.isFinite() && it > 0.0 }?.let {
+                append(" · ").append(formatFrameRate(it))
+            }
             codecLabel.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
             bandwidthLabel.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
             if (!isLikelyHardwareDecodable) append(" · Software decode")
@@ -66,6 +72,22 @@ data class PlayerQualityVariant(
                 "${formatOneDecimal(value / 1_000.0)} Kbps"
             }
         }
+}
+
+internal fun playerVideoRangeLabel(value: String?): String? = when (value?.trim()?.uppercase()) {
+    "PQ" -> "HDR (PQ)"
+    "HLG" -> "HDR (HLG)"
+    "SDR" -> "SDR"
+    else -> null
+}
+
+internal fun parsePlayerFrameRate(value: String?): Double? =
+    value?.trim()?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 }
+
+private fun formatFrameRate(value: Double): String {
+    val rounded = kotlin.math.round(value * 100.0) / 100.0
+    val text = rounded.toString()
+    return "${if (text.endsWith(".0")) text.dropLast(2) else text} fps"
 }
 
 data class PlayerQualitySelectionState(
@@ -302,6 +324,8 @@ private data class HlsMasterPlaylist(
                                 codecs = attributes["CODECS"].orEmpty(),
                                 audioGroupId = attributes["AUDIO"],
                                 absoluteUri = absolutizeHlsUri(baseUrl, variantUri),
+                                videoRange = attributes["VIDEO-RANGE"]?.trim()?.uppercase(),
+                                frameRate = parsePlayerFrameRate(attributes["FRAME-RATE"]),
                             )
                             index = uriIndex
                         }
@@ -342,6 +366,8 @@ private data class HlsVariant(
     val codecs: String,
     val audioGroupId: String?,
     val absoluteUri: String,
+    val videoRange: String?,
+    val frameRate: Double?,
 ) {
     fun toUiVariant(index: Int, playbackUrl: String): PlayerQualityVariant = PlayerQualityVariant(
         id = id.ifBlank { "q$index" },
@@ -353,6 +379,8 @@ private data class HlsVariant(
         audioGroupId = audioGroupId,
         absoluteUri = absoluteUri,
         playbackUrl = playbackUrl,
+        videoRange = videoRange,
+        frameRate = frameRate,
     )
 }
 
@@ -419,11 +447,11 @@ private fun parseAttributes(attributeText: String): Map<String, String> {
 }
 
 private fun rewriteAttribute(line: String, attributeName: String, value: String): String {
-    val pattern = Regex("$attributeName=\"[^\"]*\"", RegexOption.IGNORE_CASE)
+    val pattern = Regex("$attributeName=\\"[^\\"]*\\"", RegexOption.IGNORE_CASE)
     return if (pattern.containsMatchIn(line)) {
-        pattern.replace(line, "$attributeName=\"$value\"")
+        pattern.replace(line, "$attributeName=\\"$value\\"")
     } else {
-        "$line,$attributeName=\"$value\""
+        "$line,$attributeName=\\"$value\\""
     }
 }
 
