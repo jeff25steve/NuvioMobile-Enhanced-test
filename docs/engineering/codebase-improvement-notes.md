@@ -1195,3 +1195,33 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The native allocation cleanup added in Cycle 173 still called `SharedMemory.close()` only after `SharedMemory.unmap()` returned normally. If unmapping failed, the backing file descriptor could remain open despite the allocation failure being reported.
 - Shared-memory cleanup now always attempts descriptor close after unmap, both for failed allocation rollback and normal block release. If both operations fail, the descriptor-close failure is propagated with the unmap failure attached as suppressed. The file-backed fallback likewise attempts temporary-file deletion even when closing its RandomAccessFile fails.
 - Added host coverage for descriptor close after unmap failure and preservation of both cleanup failures. Tests not run. Android's SharedMemory API specifies that closing the descriptor does not itself unmap existing mappings, so both operations remain necessary.
+### Make seek-preview teardown cancel promptly and reject stale work (Cycles 175–180, 23 November 2026)
+
+**Cycle 175 — cancel a pending ExoPlayer frame wait**
+- The ExoPlayer-backed seek-preview source inherited the default no-op SeekPreviewFrameSource.cancel(). Its CompletableFuture.get() wait could therefore remain blocked for the full 20-second frame timeout after the controller asked it to cancel.
+- The source now cancels the pending frame future, immediately unblocking the waiting decode thread with CancellationException. Decoder release uses the same cancellation path.
+
+**Cycle 176 — detach the exact source before asynchronous close**
+- releaseConnection() and dispose() previously scheduled a coroutine that read the mutable source field later. If a new source was installed before that coroutine ran, cleanup could close the replacement rather than the source being released.
+- Teardown now increments the generation, detaches the current source and resets open state synchronously under a lock. It cancels that captured instance immediately and closes that same instance asynchronously. A source that finishes opening after its generation was invalidated is rejected and closed rather than installed.
+
+**Cycle 177 — reject results from an invalidated source generation**
+- The frame worker now carries the generation captured before decoding and checks it again before treating a result as success or failure, caching the bitmap, or publishing it to Compose state.
+- A late frame or late failure from a released/disposed source can no longer overwrite the current preview or count against the replacement source's failure budget.
+
+**Cycle 178 — stop native thumbnail decode and delivery after feed close**
+- Native thumbnail feed closure is now an atomic, immediate state transition instead of being set only after its queued native close operation runs.
+- The JPEG decode path checks that state both before and after decoding, and main-thread success/error callbacks check it again before delivery. Late callbacks no longer spend CPU decoding thumbnails for a closed preview or update a disposed controller.
+
+**Cycle 179 — make the initial frame cancellable too**
+- The first ExoPlayer grabber is now published to the source as soon as it is constructed, before waiting for its first frame. Previously the source did not retain the grabber until after the first-frame wait returned, so cancellation could not reach the initial wait.
+- Grabber release is idempotent to safely handle cancellation, timeout cleanup and normal close racing with one another.
+
+**Cycle 180 — suppress queued open errors after close**
+- The asynchronous feed-open failure callback now checks the same closed flag on the main thread, matching the success callback and preventing a late error from reopening fallback work after teardown.
+
+**Regression coverage added (not executed)**
+- Added composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/seekpreview/SeekPreviewLifecycleTest.kt covering pending-future cancellation, stale/disposed generation rejection, skipping thumbnail decode after close, and discarding a decode that overlaps close.
+- Context7 was attempted for the coroutine and API documentation but its monthly quota was exhausted. The repository's pinned versions were checked directly (kotlinx-coroutines 1.10.2 and Media3 1.11.1). Exa retrieved the official Kotlin coroutine cancellation documentation and Oracle CompletableFuture API documentation; Oracle specifies that cancelling a CompletableFuture completes it with CancellationException and unblocks waiters. No dependency versions or APIs were changed.
+- These changes target seek-preview cancellation latency, stale-frame correctness and avoiding obsolete thumbnail CPU work. No measured latency or battery improvement is claimed.
+- No tests, Kotlin compilation, Gradle tasks, builds, CI, device playback, Macrobenchmark or Perfetto capture were run. Static review and remote-source verification only.
