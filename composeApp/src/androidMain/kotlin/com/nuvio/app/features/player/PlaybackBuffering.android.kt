@@ -56,6 +56,16 @@ internal fun shouldReleaseReadAheadBlock(
         (writtenBytes == capacityBytes || readerFinished)
 }
 
+internal fun shouldRecycleReadAheadBlock(
+    consumedBytes: Int,
+    capacityBytes: Int,
+    readerFinished: Boolean,
+): Boolean {
+    require(capacityBytes > 0)
+    require(consumedBytes in 0..capacityBytes)
+    return consumedBytes == capacityBytes && !readerFinished
+}
+
 internal fun closePlaybackDataSource(
     closeUpstream: () -> Unit,
     awaitReader: () -> Unit,
@@ -569,6 +579,10 @@ private class NativeReadAheadDataSource(
         } finally {
             synchronized(current.lock) {
                 current.readerDone = true
+                // Once the producer has stopped, recycled blocks cannot be used again.
+                // Release them now rather than retaining mapped memory until DataSource.close().
+                current.freeBlocks.forEach { it.free() }
+                current.freeBlocks.clear()
                 current.lock.notifyAll()
                 current.releaseIfIdle()
             }
@@ -596,11 +610,15 @@ private class NativeReadAheadDataSource(
                         )
                     ) {
                         current.chunks.removeFirst()
-                        if (head.consumed == head.block.buffer.capacity()) {
+                        if (shouldRecycleReadAheadBlock(
+                                consumedBytes = head.consumed,
+                                capacityBytes = head.block.buffer.capacity(),
+                                readerFinished = current.ended || current.readerDone,
+                            )
+                        ) {
                             current.freeBlocks.addLast(head.block)
                         } else {
-                            // A short final block can never be filled again once the reader has
-                            // reached EOF (or exited after a terminal read failure).
+                            // After EOF, even a full block is final and cannot be reused.
                             head.block.free()
                         }
                     }
