@@ -308,10 +308,12 @@ internal class SoftwareVideoDecoder(
     }
 
     override fun flush() {
-        var interrupted = false
         synchronized(lock) {
             if (released) return
             flushRequested = true
+            exception = null
+            flushed = true
+            hasQueuedInputSinceFlush = false
             dequeuedInputBuffer?.let {
                 recycleInputBufferLocked(it)
                 dequeuedInputBuffer = null
@@ -323,15 +325,7 @@ internal class SoftwareVideoDecoder(
                 recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
             }
             lock.notifyAll()
-            while (flushRequested && !released) {
-                try {
-                    lock.wait()
-                } catch (_: InterruptedException) {
-                    interrupted = true
-                }
-            }
         }
-        if (interrupted) Thread.currentThread().interrupt()
     }
 
     override fun release() {
@@ -609,18 +603,22 @@ internal class SoftwareVideoDecoder(
     private fun isFlushRequested(): Boolean = synchronized(lock) { flushRequested || released }
 
     private fun fail(error: SoftwareVideoDecoderException) {
-        synchronized(lock) {
-            if (exception == null) exception = error
+        val notifyError = synchronized(lock) {
+            val staleDecode = flushRequested
+            if (!staleDecode && exception == null) exception = error
             pendingInputBuffer?.let {
                 recycleInputBufferLocked(it)
                 pendingInputBuffer = null
             }
-            while (queuedInputBuffers.isNotEmpty()) recycleInputBufferLocked(queuedInputBuffers.removeFirst())
-            while (queuedOutputBuffers.isNotEmpty()) recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
-            flow.reset()
+            if (!staleDecode) {
+                while (queuedInputBuffers.isNotEmpty()) recycleInputBufferLocked(queuedInputBuffers.removeFirst())
+                while (queuedOutputBuffers.isNotEmpty()) recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
+                flow.reset()
+            }
             lock.notifyAll()
+            !staleDecode
         }
-        dispatchOutputBufferAvailable()
+        if (notifyError) dispatchOutputBufferAvailable()
     }
 
     private fun processFlush() {
@@ -634,8 +632,6 @@ internal class SoftwareVideoDecoder(
         nativeFlush(handle)
         synchronized(lock) {
             exception = null
-            flushed = true
-            hasQueuedInputSinceFlush = false
             flushRequested = false
             lock.notifyAll()
         }
