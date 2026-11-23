@@ -15,6 +15,8 @@ import java.nio.ByteBuffer
 
 internal const val FFMPEG_INPUT_PADDING_SIZE = 64
 
+internal fun softwareFrameColorSpace(frameInfo: LongArray): Int = frameInfo[4].toInt()
+
 internal fun resolveSoftwareFrameTimestampUs(ptsUs: Long, bestEffortTimestampUs: Long, packetTimestampUs: Long): Long =
     when {
         ptsUs != Long.MIN_VALUE -> ptsUs
@@ -119,7 +121,7 @@ internal class SoftwareVideoDecoder(
         val height = frameInfo[3].toInt()
         val yStride = align(width)
         val uvStride = align((width + 1) / 2)
-        if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, frameInfo[3].toInt())) {
+        if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, softwareFrameColorSpace(frameInfo))) {
             return SoftwareVideoDecoderException("Invalid $codecName frame ${width}x$height")
         }
         val frameData = outputBuffer.data

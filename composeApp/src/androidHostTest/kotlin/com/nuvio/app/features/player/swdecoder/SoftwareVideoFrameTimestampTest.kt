@@ -5,6 +5,13 @@ import kotlin.test.assertEquals
 
 class SoftwareVideoFrameTimestampTest {
     @Test
+    fun readsColorSpaceFromTheFrameInfoColorSpaceSlotNotTheHeightSlot() {
+        val frameInfo = longArrayOf(1_000_000L, 1_000_000L, 1920L, 1080L, 2L, 0x01234567L)
+
+        assertEquals(2, softwareFrameColorSpace(frameInfo))
+    }
+
+    @Test
     fun prefersDecodedPresentationTimestamp() {
         assertEquals(1_250_000L, resolveSoftwareFrameTimestampUs(1_250_000L, 1_200_000L, 1_300_000L))
     }
