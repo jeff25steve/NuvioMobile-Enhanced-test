@@ -1146,3 +1146,19 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Metadata is now cleared after close, including when close/join exits exceptionally. Before a new open, prior metadata is cleared; if the upstream open fails, the wrapper captures the upstream's attempted-open URI and headers until the caller closes it, matching the Media3 1.11.1 DataSource contract.
 - The exact Media3 DataSource API says URI/headers describe the currently open source, and Media3 1.11.1 release notes explicitly require failed-open URI/headers to remain observable until the subsequent close. This avoids stale-source attribution without changing network requests or buffering policy.
 - No test, compilation, build, CI or device playback was run. The lifecycle change is source-reviewed only.
+
+
+### Read-ahead final-block reclamation (Cycle 168, 22 November 2026)
+
+- The native read-ahead consumer recycled a block only when `consumed == block.capacity`. A short final block is smaller than its capacity, so after the reader reached EOF and the consumer drained its written bytes, that mapped block remained retained in the session until `DataSource.close()`.
+- The consumer now removes and frees a partially filled block once all written bytes have been consumed and the producer has reached EOF or finished after a terminal read failure. Full blocks continue to enter the reusable block pool; a partial block is never freed while the producer can still append to it.
+- Added host coverage for partial-block release after producer completion, retaining a partial block while the producer may append, and recycling a full block before producer completion. Tests not run.
+- This is bounded native-memory reclamation at end of input, not a measured playback speedup. No Gradle task, compilation, build, CI, device playback or memory benchmark was run.
+
+### Read-ahead close error propagation (Cycle 169, 22 November 2026)
+
+- `NativeReadAheadDataSource.close()` previously wrapped `upstream.close()` in `runCatching`, silently discarding close failures. That hid resource-cleanup errors from Media3 and made a failed close appear successful.
+- Close now always attempts the reader wait even if upstream close fails, then propagates the upstream failure. If both operations fail, the reader-wait failure remains primary and the upstream-close failure is attached as suppressed. URI and response-header metadata are still cleared in `finally`.
+- Added host coverage for propagation, ensuring the reader wait still runs, and retaining both failures when both cleanup steps fail. Tests not run.
+- Context7's exact Media3 1.11.1 API documents `DataSource.close()` as a potentially failing operation; the 1.11.1 DataSource contract requires callers to close after open failures. Exa inspected the Media3 OkHttpDataSource close implementation and OkHttp response-body cleanup guidance. This preserves cleanup diagnostics; it does not claim faster playback.
+- No Gradle task, compilation, build, CI, device playback or benchmark was run.
