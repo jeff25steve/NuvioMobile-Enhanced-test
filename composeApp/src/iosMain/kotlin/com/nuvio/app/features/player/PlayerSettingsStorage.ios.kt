@@ -62,6 +62,9 @@ actual object PlayerSettingsStorage {
     private const val androidLibmpvHardwareDecodingEnabledKey = "android_libmpv_hardware_decoding_enabled"
     private const val androidLibmpvVideoOutputKey = "android_libmpv_video_output"
     private const val androidLibmpvRenderQualityKey = "android_libmpv_render_quality"
+    private const val androidLibmpvUpscalerKey = "android_libmpv_upscaler"
+    private const val androidLibmpvDownscalerKey = "android_libmpv_downscaler"
+    private const val androidLibmpvChromaScalerKey = "android_libmpv_chroma_scaler"
     private const val androidLibmpvDebandEnabledKey = "android_libmpv_deband_enabled"
     private const val androidLibmpvYuv420pEnabledKey = "android_libmpv_yuv420p_enabled"
     private const val androidAnimeUpscaleEnabledKey = "android_anime_upscale_enabled"
@@ -765,6 +768,27 @@ actual object PlayerSettingsStorage {
 
     actual fun saveAndroidLibmpvRenderQuality(quality: String) {
         NSUserDefaults.standardUserDefaults.setObject(quality, forKey = ProfileScopedKey.of(androidLibmpvRenderQualityKey))
+    }
+
+    actual fun loadAndroidLibmpvUpscaler(): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(androidLibmpvUpscalerKey))
+
+    actual fun saveAndroidLibmpvUpscaler(filter: String) {
+        NSUserDefaults.standardUserDefaults.setObject(filter, forKey = ProfileScopedKey.of(androidLibmpvUpscalerKey))
+    }
+
+    actual fun loadAndroidLibmpvDownscaler(): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(androidLibmpvDownscalerKey))
+
+    actual fun saveAndroidLibmpvDownscaler(filter: String) {
+        NSUserDefaults.standardUserDefaults.setObject(filter, forKey = ProfileScopedKey.of(androidLibmpvDownscalerKey))
+    }
+
+    actual fun loadAndroidLibmpvChromaScaler(): String? =
+        NSUserDefaults.standardUserDefaults.stringForKey(ProfileScopedKey.of(androidLibmpvChromaScalerKey))
+
+    actual fun saveAndroidLibmpvChromaScaler(filter: String) {
+        NSUserDefaults.standardUserDefaults.setObject(filter, forKey = ProfileScopedKey.of(androidLibmpvChromaScalerKey))
     }
 
     actual fun loadAndroidLibmpvDebandEnabled(): Boolean? {
