@@ -84,7 +84,11 @@ internal fun mpvMediaInfo(property: (String) -> String?): PlayerMediaInfo {
         videoCodec = videoCodec?.let(::mpvCodecLabel),
         videoWidth = property("video-params/w")?.toIntOrNull()?.takeIf { it > 0 },
         videoHeight = property("video-params/h")?.toIntOrNull()?.takeIf { it > 0 },
-        videoFrameRate = property("container-fps")?.toFloatOrNull()?.takeIf { it > 0f },
+        videoFrameRate = property("estimated-vf-fps")
+            ?.toDoubleOrNull()
+            ?.let(::mpvPlaybackEstimatedFps)
+            ?.toFloat()
+            ?.takeIf { it.isFinite() && it > 0f },
         videoBitrate = property("video-bitrate")?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 },
         audioCodec = property("current-tracks/audio/codec")?.let(::mpvCodecLabel),
         audioChannels = property("audio-params/channel-count")?.toIntOrNull()?.takeIf { it > 0 },
