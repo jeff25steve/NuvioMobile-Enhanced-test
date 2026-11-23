@@ -2345,6 +2345,7 @@ Changed:
 
 Regression coverage authored:
 
+- Added 11 new regression test cases across four existing test files; none were executed in this cycle.
 - Default-off behaviour, Compose-overlay activation, reset behaviour, legacy JSON decoding, and device-preference round-tripping.
 - Display-bottom placement when the full cue fits, fallback when the letterbox is too short, full-frame/Zoom placement, and invalid/offscreen inset handling.
 - Distinct layout grouping for video-relative versus display-relative cues.
