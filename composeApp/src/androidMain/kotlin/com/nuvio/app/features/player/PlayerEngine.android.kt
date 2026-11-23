@@ -3183,12 +3183,16 @@ private class NuvioLibmpvView(
             val colorMatrix = mpv.getPropertyString("video-params/colormatrix").orEmpty()
             val colorLevels = mpv.getPropertyString("video-params/colorlevels").orEmpty()
             val colorRange = mpvPlaybackColorRange(colorLevels).orEmpty()
+            val outputColorLevels = mpv.getPropertyString("video-out-params/colorlevels").orEmpty()
+            val outputColorRange = mpvPlaybackColorRange(outputColorLevels).orEmpty()
             val pixelFormat = mpv.getPropertyString("video-out-params/pixelformat").orEmpty()
             val sourcePixelFormat = mpv.getPropertyString("video-params/pixelformat").orEmpty()
             val bitDepth = mpvBitDepth(sourcePixelFormat) ?: 0
+            val outputBitDepth = mpvBitDepth(pixelFormat) ?: 0
             val videoWidth = mpv.getPropertyInt("video-params/w") ?: 0
             val videoHeight = mpv.getPropertyInt("video-params/h") ?: 0
             val fps = mpv.getPropertyDouble("container-fps") ?: 0.0
+            val estimatedOutputFps = mpvPlaybackEstimatedFps(mpv.getPropertyDouble("estimated-vf-fps")) ?: 0.0
             val hwdecCurrent = mpv.getPropertyString("hwdec-current").orEmpty()
 
             for (node in nodes) {
@@ -3259,12 +3263,18 @@ private class NuvioLibmpvView(
                 append(',')
                 appendJsonString("colorRange", colorRange)
                 append(',')
+                appendJsonString("sourcePixelFormat", sourcePixelFormat)
+                append(',')
                 appendJsonString("pixelFormat", pixelFormat)
+                append(',')
+                appendJsonString("outputColorRange", outputColorRange)
                 append(',')
                 append("\"videoWidth\":").append(videoWidth).append(',')
                 append("\"videoHeight\":").append(videoHeight).append(',')
                 append("\"bitDepth\":").append(bitDepth).append(',')
+                append("\"outputBitDepth\":").append(outputBitDepth).append(',')
                 append("\"fps\":").append(if (fps.isFinite()) fps else 0.0).append(',')
+                append("\"estimatedOutputFps\":").append(estimatedOutputFps).append(',')
                 appendJsonString("hwdecCurrent", hwdecCurrent)
                 append(',')
                 appendJsonString("audioCodec", audioCodec)
