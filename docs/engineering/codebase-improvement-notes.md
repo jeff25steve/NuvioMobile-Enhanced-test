@@ -1352,6 +1352,9 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The Cast-aware controller disables the capability while a remote session is active and prevents scrubbing-mode commands from reaching the paused local ExoPlayer. This also prevents repeated drag updates from becoming a burst of remote Cast seek requests.
 - The default capability is enabled only for ExoPlayer-backed controllers; MPV and other implementations remain on their existing behavior.
 
+**Cycle 205 — make scrub cleanup safe across player disposal**
+- The ExoPlayer controller now ignores late timeline cleanup callbacks after its player has been released. The release path explicitly exits scrubbing mode before marking the instance released and calling release(), preventing a disposed timeline from sending a command to a dead player.
+
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
 - Exa independently retrieved FFmpeg 8.0's official send/receive API documentation. It confirms that a send-side EAGAIN requires receiving output before retrying the same packet; receive must be repeated until EAGAIN; a packet may produce zero or multiple frames; and EOS requires a null packet followed by receive calls through AVERROR_EOF. The AndroidX renderer source confirms that its callback executor wakes the playback thread and that it queues EOS during decoder replacement.
