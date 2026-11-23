@@ -388,10 +388,6 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         return RESULT_ERROR;
     }
 
-    uint8_t *dst = buffer.bits;
-    for (int y = 0; y < height; y++) {
-        memcpy(dst + (size_t) y * buffer.stride, src + (size_t) y * y_stride, width);
-    }
     int chroma_stride = ALIGN(buffer.stride / 2, 16);
     int chroma_rows = (height + 1) / 2;
     int chroma_columns = (width + 1) / 2;
@@ -399,6 +395,10 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
         if (unlock_result) LOGW("ANativeWindow_unlockAndPost failed after invalid chroma stride: %d", unlock_result);
         return RESULT_ERROR;
+    }
+    uint8_t *dst = buffer.bits;
+    for (int y = 0; y < height; y++) {
+        memcpy(dst + (size_t) y * buffer.stride, src + (size_t) y * y_stride, width);
     }
     uint8_t *dst_v = dst + (size_t) buffer.stride * buffer.height;
     uint8_t *dst_u = dst_v + (size_t) chroma_stride * ((buffer.height + 1) / 2);
