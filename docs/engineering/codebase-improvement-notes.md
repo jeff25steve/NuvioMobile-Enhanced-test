@@ -2045,6 +2045,22 @@ Verification boundary:
 - Regression tests were added but not executed, as requested. No tests, compilation, build, CI or device playback were run.
 
 
+### Follow-up: keep HDR fallback detection inside the same TrackGroup
+
+A subsequent review found that the first app-side selector implementation searched every video TrackGroup on a renderer for any supported SDR track, then used that single result to decide whether to mask HDR formats in every group. This is too broad: Media3 defines a TrackGroup as alternate formats of the same content, while separate groups may represent a different camera angle or video feed. An unrelated SDR feed must not be treated as a fallback for an HDR-only group.
+
+Correction:
+- Moved the SDR fallback check inside the per-TrackGroup loop. An HDR format is now masked only when a genuinely supported SDR alternative exists in that same group.
+- Kept the strict renderer-support check, existing display capability rules, and Media3's own selection/quality algorithm unchanged.
+- Added host regression cases for an HDR-only group alongside a separate SDR group, and for HDR/SDR variants within the same group.
+
+Evidence:
+- The exact pinned Media3 1.12.0-beta01 `TrackGroup.java` documentation states that all tracks in a group present the same content, and gives separate camera angles as separate groups.
+- The exact pinned Media3 `DefaultTrackSelector.selectTracksForType` implementation creates adaptive candidates within each TrackGroup; it does not combine tracks across groups.
+
+Verification boundary:
+- The implementation and regression sources were updated on `main-build-testing`; tests were not run. No compilation, build, CI or device playback was performed.
+
 ### Android Auto engine: recognize standardized HDR transfer labels
 
 The Auto engine resolver previously recognized only the consumer labels `HDR`, `HDR10`, `HDR10+`, `DV`, and `Dolby Vision`. This left real-world metadata forms such as `HLG`, `PQ`, `ST 2084`, `SMPTE ST 2084`, `BT.2100`, `ARIB STD-B67`, `HDR10Plus`, `DOVI`, and separator variants of Dolby Vision undetected. When an anime identifier/genre was also present, the resolver could consequently choose libmpv instead of the ExoPlayer path that Nuvio already uses for HDR-tagged streams.
