@@ -22,6 +22,8 @@
 #define RESULT_OK 0
 #define RESULT_SKIP 1
 #define RESULT_ERROR (-1)
+#define RESULT_AGAIN 2
+#define RESULT_EOF 3
 
 #define COLORSPACE_UNKNOWN 0
 #define COLORSPACE_BT601 1
@@ -242,23 +244,38 @@ JNIEXPORT jint JNICALL METHOD(nativeSendPacket)(JNIEnv *env, jclass clazz, jlong
         return RESULT_ERROR;
     }
     if (d->has_frame) {
-        ff.av_frame_unref(d->frame);
-        d->has_frame = 0;
+        LOGW("Refusing to send a packet while a decoded frame is still pending");
+        return RESULT_ERROR;
     }
     d->packet->data = bytes;
     d->packet->size = size;
     d->packet->pts = time_us;
     int result = ff.avcodec_send_packet(d->codec, d->packet);
-    if (result == AVERROR(EAGAIN)) {
-        if (ff.avcodec_receive_frame(d->codec, d->frame) == 0) d->has_frame = 1;
-        result = ff.avcodec_send_packet(d->codec, d->packet);
-    }
     d->packet->data = NULL;
     d->packet->size = 0;
     if (result == 0) return RESULT_OK;
-    if (result == AVERROR_INVALIDDATA || result == AVERROR(EAGAIN)) return RESULT_SKIP;
+    if (result == AVERROR(EAGAIN)) return RESULT_AGAIN;
+    if (result == AVERROR_INVALIDDATA) return RESULT_SKIP;
     LOGW("avcodec_send_packet failed: %d", result);
     return RESULT_ERROR;
+}
+
+JNIEXPORT jint JNICALL METHOD(nativeSendEndOfStream)(JNIEnv *env, jclass clazz, jlong handle) {
+    Decoder *d = (Decoder *) (intptr_t) handle;
+    if (!d || d->has_frame) return RESULT_ERROR;
+    int result = ff.avcodec_send_packet(d->codec, NULL);
+    if (result == 0) return RESULT_OK;
+    if (result == AVERROR(EAGAIN)) return RESULT_AGAIN;
+    if (result == AVERROR_EOF) return RESULT_EOF;
+    LOGW("avcodec_send_packet(NULL) failed: %d", result);
+    return RESULT_ERROR;
+}
+
+JNIEXPORT void JNICALL METHOD(nativeDiscardFrame)(JNIEnv *env, jclass clazz, jlong handle) {
+    Decoder *d = (Decoder *) (intptr_t) handle;
+    if (!d || !d->has_frame) return;
+    ff.av_frame_unref(d->frame);
+    d->has_frame = 0;
 }
 
 JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlong handle,
@@ -266,7 +283,8 @@ JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlo
     Decoder *d = (Decoder *) (intptr_t) handle;
     if (!d->has_frame) {
         int result = ff.avcodec_receive_frame(d->codec, d->frame);
-        if (result == AVERROR(EAGAIN) || result == AVERROR_EOF) return RESULT_SKIP;
+        if (result == AVERROR(EAGAIN)) return RESULT_AGAIN;
+        if (result == AVERROR_EOF) return RESULT_EOF;
         if (result < 0) {
             LOGW("avcodec_receive_frame failed: %d", result);
             return RESULT_ERROR;
