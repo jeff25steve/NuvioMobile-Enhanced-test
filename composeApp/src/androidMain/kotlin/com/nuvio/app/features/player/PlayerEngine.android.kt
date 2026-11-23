@@ -770,7 +770,7 @@ private fun ExoPlayerSurface(
                 )
             },
             videoBoundsFractionProvider = {
-                playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value)
+                playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value, resizeMode)
             },
         ).apply {
             // Media3 1.11.0 enables dynamic player scheduling by default. The renderer-side
@@ -1085,7 +1085,7 @@ private fun ExoPlayerSurface(
     // Player size outside PiP, so PiP subtitles keep the full-screen size relative to the video.
     var playerSizeOutsidePip by remember { mutableStateOf(IntSize.Zero) }
     val pipVideoHeightPx by rememberUpdatedState(
-        if (isInPip) displayedVideoHeightPx(playerSizeOutsidePip, exoPlayer.videoSize) ?: 0f else null,
+        if (isInPip) displayedVideoHeightPx(playerSizeOutsidePip, exoPlayer.videoSize, resizeMode) ?: 0f else null,
     )
 
     val sidecarController = remember(exoPlayer, coroutineScope) {
@@ -4590,13 +4590,6 @@ private fun PlayerView.releaseLibassOverlay() {
 
 private const val PIP_FALLBACK_SUBTITLE_SCALE = 0.4f
 
-/** Height of a fitted video inside [viewSize], or null if either size is unknown. */
-private fun displayedVideoHeightPx(viewSize: IntSize, videoSize: VideoSize): Float? {
-    if (viewSize.width <= 0 || viewSize.height <= 0 || videoSize.width <= 0 || videoSize.height <= 0) return null
-    val videoAspect = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
-    return minOf(viewSize.height.toFloat(), viewSize.width / videoAspect)
-}
-
 /**
  * Remembers the last subtitle style applied to a [PlayerView] so the style is not set again on
  * every snapshot.
@@ -5134,24 +5127,16 @@ private class PcmOnlyAudioSink(sink: AudioSink) : ForwardingAudioSink(sink) {
     }
 }
 
-private fun PlayerView.videoBoundsFraction(aspectRatio: Float): RectF? {
+private fun PlayerView.videoBoundsFraction(
+    aspectRatio: Float,
+    resizeMode: PlayerResizeMode,
+): RectF? {
     val subtitleView = this.subtitleView ?: return null
     val viewWidth = subtitleView.width.toFloat()
     val viewHeight = subtitleView.height.toFloat()
     if (viewWidth <= 0f || viewHeight <= 0f) return null
 
-    if (aspectRatio > 0f) {
-        val parentRatio = viewWidth / viewHeight
-        return if (parentRatio > aspectRatio) {
-            val fitW = viewHeight * aspectRatio
-            val leftPx = (viewWidth - fitW) / 2f
-            RectF(leftPx / viewWidth, 0f, (leftPx + fitW) / viewWidth, 1f)
-        } else {
-            val fitH = viewWidth / aspectRatio
-            val topPx = (viewHeight - fitH) / 2f
-            RectF(0f, topPx / viewHeight, 1f, (topPx + fitH) / viewHeight)
-        }
-    }
+    videoDisplayBoundsFraction(viewWidth, viewHeight, aspectRatio, resizeMode)?.let { return it }
 
     val contentFrame = getTag(androidx.media3.ui.R.id.exo_content_frame) as? AspectRatioFrameLayout
         ?: findViewById<AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
