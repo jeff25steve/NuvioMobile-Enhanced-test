@@ -67,18 +67,26 @@ class SubtitleAppearanceTest {
         val fit = subtitleVideoBoundsPx(1920f, 1080f, 4f / 3f, PlayerResizeMode.Fit)
         assertEquals(1440f, fit.width, 0.001f)
         assertEquals(1080f, fit.height, 0.001f)
+        assertEquals(240f, fit.left, 0.001f)
+        assertEquals(0f, fit.top, 0.001f)
 
         val fill = subtitleVideoBoundsPx(1920f, 1080f, 4f / 3f, PlayerResizeMode.Fill)
         assertEquals(1920f, fill.width, 0.001f)
         assertEquals(1080f, fill.height, 0.001f)
+        assertEquals(0f, fill.left, 0.001f)
+        assertEquals(0f, fill.top, 0.001f)
 
         val zoom = subtitleVideoBoundsPx(1920f, 1080f, 4f / 3f, PlayerResizeMode.Zoom)
         assertEquals(1920f, zoom.width, 0.001f)
         assertEquals(1440f, zoom.height, 0.001f)
+        assertEquals(0f, zoom.left, 0.001f)
+        assertEquals(-180f, zoom.top, 0.001f)
 
         val unknown = subtitleVideoBoundsPx(0f, 0f, 0f, PlayerResizeMode.Fit)
         assertEquals(0f, unknown.width)
         assertEquals(0f, unknown.height)
+        assertEquals(0f, unknown.left)
+        assertEquals(0f, unknown.top)
     }
 
     @Test
