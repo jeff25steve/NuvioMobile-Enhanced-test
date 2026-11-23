@@ -461,7 +461,7 @@ private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
         return createWithCleanupOnFailure(
             cleanup = {
                 closeMappedSharedMemory(
-                    unmap = { mapped?.let(SharedMemory::unmap) },
+                    unmap = { mapped?.let { SharedMemory.unmap(it) } },
                     close = memory::close,
                 )
             },
