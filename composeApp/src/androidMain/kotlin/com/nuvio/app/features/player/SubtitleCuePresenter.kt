@@ -5,6 +5,7 @@ package com.nuvio.app.features.player
 import android.graphics.Typeface
 import android.text.Layout
 import android.text.Spanned
+import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.text.style.UnderlineSpan
@@ -149,6 +150,7 @@ private fun CharSequence.toSubtitleAnnotatedString(): AnnotatedString {
             val spanStyle = when {
                 span is UnderlineSpan -> SpanStyle(textDecoration = TextDecoration.Underline)
                 span is ForegroundColorSpan -> SpanStyle(color = Color(span.foregroundColor))
+                span is BackgroundColorSpan -> SpanStyle(background = Color(span.backgroundColor))
                 span is StyleSpan && span.style == Typeface.BOLD -> SpanStyle(fontWeight = FontWeight.Bold)
                 span is StyleSpan && span.style == Typeface.ITALIC -> SpanStyle(fontStyle = FontStyle.Italic)
                 span is StyleSpan && span.style == Typeface.BOLD_ITALIC ->
