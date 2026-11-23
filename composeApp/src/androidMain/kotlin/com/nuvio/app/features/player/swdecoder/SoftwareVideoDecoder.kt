@@ -194,6 +194,7 @@ internal class SoftwareVideoDecoder(
     private var outputStartTimeUs: Long = C.TIME_UNSET
     private var flushRequested = false
     private var flushed = false
+    private var hasQueuedInputSinceFlush = false
     private var released = false
     private var skippedOutputBufferCount = 0
     private var firstSamplePending = false
@@ -226,10 +227,7 @@ internal class SoftwareVideoDecoder(
     override fun setOutputStartTimeUs(outputStartTimeUs: Long) {
         synchronized(lock) {
             check(
-                (availableInputBuffers.size == INPUT_BUFFERS &&
-                    dequeuedInputBuffer == null &&
-                    queuedInputBuffers.isEmpty() &&
-                    pendingInputBuffer == null) || flushed,
+                !hasQueuedInputSinceFlush || flushed,
             ) { "Output start time may only be set before input or after flush" }
             this.outputStartTimeUs = outputStartTimeUs
         }
@@ -255,6 +253,7 @@ internal class SoftwareVideoDecoder(
             dequeuedInputBuffer = null
             queuedInputBuffers.addLast(inputBuffer)
             flushed = false
+            hasQueuedInputSinceFlush = true
             lock.notifyAll()
         }
     }
@@ -358,26 +357,41 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun runWorker() {
-        while (true) {
-            val work = awaitWork()
-            if (work.action == SoftwareDecoderWorkAction.STOP) return
-            try {
-                when (work.action) {
-                    SoftwareDecoderWorkAction.STOP -> return
-                    SoftwareDecoderWorkAction.WAIT -> Unit
-                    SoftwareDecoderWorkAction.TAKE_INPUT -> error("Input selection was not completed")
-                    SoftwareDecoderWorkAction.SEND_PACKET -> sendPendingPacket()
-                    SoftwareDecoderWorkAction.SEND_EOS -> sendEndOfStream()
-                    SoftwareDecoderWorkAction.RECEIVE_FRAME -> receiveFrame(checkNotNull(work.outputBuffer))
-                    SoftwareDecoderWorkAction.FLUSH -> processFlush()
+        try {
+            while (true) {
+                val work = awaitWork()
+                if (work.action == SoftwareDecoderWorkAction.STOP) return
+                try {
+                    when (work.action) {
+                        SoftwareDecoderWorkAction.STOP -> return
+                        SoftwareDecoderWorkAction.WAIT -> Unit
+                        SoftwareDecoderWorkAction.TAKE_INPUT -> error("Input selection was not completed")
+                        SoftwareDecoderWorkAction.SEND_PACKET -> sendPendingPacket()
+                        SoftwareDecoderWorkAction.SEND_EOS -> sendEndOfStream()
+                        SoftwareDecoderWorkAction.RECEIVE_FRAME -> receiveFrame(checkNotNull(work.outputBuffer))
+                        SoftwareDecoderWorkAction.FLUSH -> processFlush()
+                    }
+                } catch (error: RuntimeException) {
+                    work.outputBuffer?.let(::recycleOutputBuffer)
+                    fail(SoftwareVideoDecoderException("Unexpected software decode error", error))
+                } catch (error: OutOfMemoryError) {
+                    work.outputBuffer?.let(::recycleOutputBuffer)
+                    fail(SoftwareVideoDecoderException("Software video decoder ran out of memory", error))
                 }
-            } catch (error: RuntimeException) {
-                work.outputBuffer?.let(::recycleOutputBuffer)
-                fail(SoftwareVideoDecoderException("Unexpected software decode error", error))
-            } catch (error: OutOfMemoryError) {
-                work.outputBuffer?.let(::recycleOutputBuffer)
-                fail(SoftwareVideoDecoderException("Software video decoder ran out of memory", error))
             }
+        } finally {
+            pendingInputBuffer?.clear()
+            pendingInputBuffer = null
+            synchronized(lock) {
+                while (queuedInputBuffers.isNotEmpty()) queuedInputBuffers.removeFirst().clear()
+                while (queuedOutputBuffers.isNotEmpty()) queuedOutputBuffers.removeFirst().clear()
+                availableInputBuffers.clear()
+                availableOutputBuffers.clear()
+                lock.notifyAll()
+            }
+            val currentHandle = handle
+            handle = 0L
+            if (currentHandle != 0L) nativeRelease(currentHandle)
         }
     }
 
@@ -581,6 +595,7 @@ internal class SoftwareVideoDecoder(
         synchronized(lock) {
             exception = null
             flushed = true
+            hasQueuedInputSinceFlush = false
             flushRequested = false
             lock.notifyAll()
         }
