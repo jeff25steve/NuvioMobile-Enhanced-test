@@ -1793,6 +1793,26 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Source files, test sources, the Media3 catalog and compatibility guard were re-fetched and reviewed. No Gradle test, compilation, build, CI, benchmark or device playback was run because authorization has not been given. No runtime playback improvement is claimed until those checks and representative device tests pass.
 
 
+### Follow-up — libmpv source/post-filter format fidelity and FPS diagnostics (23 November 2026)
+
+The earlier format-fidelity cycle exposed source bit depth and color range, but a further review of the libmpv JSON builder found that its `pixelFormat` came from `video-out-params` (after video filters) while `bitDepth` came from `video-params` (decoded/source). The shared modal labelled these simply Pixel Format and Source Bit Depth, which could make a deliberate 10-bit-to-`yuv420p` filter conversion look like 10-bit output. It also presented mpv's `container-fps` as an unqualified Frame Rate.
+
+Changed:
+- Expanded `mpvBitDepth` to recognize common 8-, 9-, 10-, 12-, 14- and 16-bit formats, including P010/P016 and packed RGB48/RGBA64. Unknown and hardware-only pixel formats remain unset rather than defaulting to a guessed depth.
+- Kept `bitDepth` and `colorRange` as decoded/source values, added the source pixel-format field, and added post-filter bit depth and color range from mpv's `video-out-params`.
+- Playback Info now distinguishes Source Pixel Format / Source Bit Depth / Source Color Range from Post-filter Pixel Format / Post-filter Bit Depth / Post-filter Color Range. “Post-filter” deliberately does not claim to describe the final physical display scan-out.
+- Kept mpv's existing `container-fps` value for compatibility but label it Container FPS. Added Estimated Output FPS from `estimated-vf-fps`, shown only when finite and positive. ExoPlayer's existing selected-format Frame Rate row is unchanged.
+- Added common regression cases for the pixel-format depth families, unknown/hardware-only formats and invalid estimated-FPS values.
+
+Evidence:
+- mpv's [property manual](https://mpv.io/manual/stable/#command-interface-properties) defines `video-params` as decoder output and `video-out-params` as the format after video filters; it explicitly warns that `container-fps` can contain bogus values and defines `estimated-vf-fps` as a recent-frame output estimate.
+- mpv's [video-filter manual](https://mpv.io/manual/stable/#video-filters) documents that the `format` filter converts to the requested pixel format, which is why source and post-filter bit depths must not be combined into one label.
+
+Verification boundary:
+- Updated common and Android host test sources and re-fetched the changed production/test files from `main-build-testing` for static review.
+- Gradle tests, compilation, builds, CI, benchmarks and physical-device playback were not run. The new regression sources remain unexecuted; no rendering or performance improvement is claimed.
+
+
 ## Playback subtitle fidelity and late add-on recovery — 23 November 2026
 
 ### Research basis
