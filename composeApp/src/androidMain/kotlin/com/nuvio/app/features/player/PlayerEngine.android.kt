@@ -143,6 +143,7 @@ internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
             ?.let { "uri:$it" }
 }
 
+@androidx.annotation.OptIn(UnstableApi::class)
 internal fun playbackDiagnosticEventMediaIdentity(eventTime: AnalyticsListener.EventTime): String? {
     val timeline = eventTime.timeline
     if (timeline.windowCount == 0 || eventTime.windowIndex !in 0 until timeline.windowCount) return null

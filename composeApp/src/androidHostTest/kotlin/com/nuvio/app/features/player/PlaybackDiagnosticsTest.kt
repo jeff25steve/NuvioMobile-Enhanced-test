@@ -1,12 +1,28 @@
 package com.nuvio.app.features.player
 
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackDiagnosticsTest {
+
+    @Test
+    fun mediaIdentityPrefersStableMediaIdAndFallsBackToUri() {
+        val identified = MediaItem.Builder()
+            .setMediaId("episode-42")
+            .setUri("https://example.test/video.mkv")
+            .build()
+        val uriOnly = MediaItem.fromUri("https://example.test/other.mkv")
+
+        assertEquals("id:episode-42", playbackDiagnosticMediaIdentity(identified))
+        assertEquals("uri:https://example.test/other.mkv", playbackDiagnosticMediaIdentity(uriOnly))
+        assertEquals(null, playbackDiagnosticMediaIdentity(null))
+    }
 
     @Test
     fun bufferedDurationIsMeasuredAheadOfTheCurrentPlayhead() {

@@ -2,6 +2,7 @@ package com.nuvio.app.features.player
 
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.StuckPlayerException
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import java.io.EOFException
 import kotlin.test.Test
@@ -18,6 +19,7 @@ import org.robolectric.annotation.Config
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackStallLogReplayTest {
 
     @Test

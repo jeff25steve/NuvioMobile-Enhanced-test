@@ -2,8 +2,10 @@ package com.nuvio.app.features.player
 
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.StuckPlayerException
+import androidx.media3.common.util.UnstableApi
 import java.io.EOFException
 
+@androidx.annotation.OptIn(UnstableApi::class)
 internal fun PlaybackException.toPlaybackSourceFailure(): PlaybackSourceFailure {
     val stuckPlayer = generateSequence<Throwable>(this) { it.cause }
         .filterIsInstance<StuckPlayerException>()
