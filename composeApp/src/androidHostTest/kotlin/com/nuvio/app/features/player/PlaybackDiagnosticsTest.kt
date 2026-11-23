@@ -183,4 +183,57 @@ class PlaybackDiagnosticsTest {
         assertEquals(4L, addDroppedVideoFrameCount(4L, -1))
         assertEquals(0L, addDroppedVideoFrameCount(0L, 0))
     }
+
+    @Test
+    fun decoderFailureCanFallBackInEitherConfiguredRendererPriorityDirection() {
+        assertEquals(
+            androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+            decoderPriorityFallbackAfterFailure(
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+                isDecoderFailure = true,
+            ),
+        )
+        assertEquals(
+            androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+            decoderPriorityFallbackAfterFailure(
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                isDecoderFailure = true,
+            ),
+        )
+        assertEquals(
+            null,
+            decoderPriorityFallbackAfterFailure(
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
+                isDecoderFailure = true,
+            ),
+        )
+        assertEquals(
+            null,
+            decoderPriorityFallbackAfterFailure(
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                isDecoderFailure = true,
+            ),
+        )
+        assertEquals(
+            null,
+            decoderPriorityFallbackAfterFailure(
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+                isDecoderFailure = false,
+            ),
+        )
+    }
+
+    @Test
+    fun subtitleRestoreWaitsForTextTracksButCanRestoreDisabledStateImmediately() {
+        assertFalse(shouldApplyPendingSubtitleTrackSelection(2, hasTrackGroups = true, hasTextTracks = false))
+        assertTrue(shouldApplyPendingSubtitleTrackSelection(2, hasTrackGroups = true, hasTextTracks = true))
+        assertTrue(shouldApplyPendingSubtitleTrackSelection(-1, hasTrackGroups = true, hasTextTracks = false))
+        assertFalse(shouldApplyPendingSubtitleTrackSelection(-1, hasTrackGroups = false, hasTextTracks = false))
+    }
+
 }
