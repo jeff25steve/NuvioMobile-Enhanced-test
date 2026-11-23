@@ -17,6 +17,8 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -59,6 +61,9 @@ private const val LogTag = "Player/SeekPreview"
 
 internal fun canUseSeekPreviewSource(generation: Int, currentGeneration: Int, disposed: Boolean): Boolean =
     generation == currentGeneration && !disposed
+
+internal fun isSeekPreviewSourceCancellationStale(generation: Int, currentGeneration: Int): Boolean =
+    generation != currentGeneration
 
 internal class SeekPreviewFrame(val positionMs: Long, val bitmap: ImageBitmap)
 
@@ -372,6 +377,8 @@ internal class SeekPreviewController(
             val bitmap = try {
                 withContext(decodeDispatcher) { decodeFrame(bucket, generation) }
             } catch (cancellation: CancellationException) {
+                currentCoroutineContext().ensureActive()
+                if (isSeekPreviewSourceCancellationStale(generation, connectionGeneration)) return@collect
                 throw cancellation
             } catch (error: Throwable) {
                 if (!canUseSeekPreviewSource(generation, connectionGeneration, disposed)) return@collect

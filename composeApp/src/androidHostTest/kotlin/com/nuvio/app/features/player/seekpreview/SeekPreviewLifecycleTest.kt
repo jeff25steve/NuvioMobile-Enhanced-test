@@ -36,6 +36,12 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
+    fun cancellationFromAnInvalidatedSourceDoesNotEndThePreviewWorker() {
+        assertTrue(isSeekPreviewSourceCancellationStale(generation = 2, currentGeneration = 3))
+        assertFalse(isSeekPreviewSourceCancellationStale(generation = 3, currentGeneration = 3))
+    }
+
+    @Test
     fun releasedOrDisposedSourceGenerationCannotPublishAFrame() {
         assertTrue(canUseSeekPreviewSource(generation = 4, currentGeneration = 4, disposed = false))
         assertFalse(canUseSeekPreviewSource(generation = 4, currentGeneration = 5, disposed = false))
