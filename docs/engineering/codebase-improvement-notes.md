@@ -1361,9 +1361,9 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added host coverage for Never, Seamless only, Always, and unknown preference mapping.
 
 **Cycle 207 — reduce idle ExoPlayer snapshot wakeups**
-- ExoPlayer's UI snapshot loop now keeps its 250ms cadence while actively playing, but backs off to 1 second while paused. This reduces paused-player polling wakeups by 75% without slowing active progress updates.
+- ExoPlayer's UI snapshot loop now keeps its 250ms cadence while actively playing, but stops polling entirely while paused. Player.Listener publishes snapshots immediately for state changes, position discontinuities and timeline changes; the 250ms ticker is active only while the player is actually playing.
 - Added immediate snapshot publication for position discontinuities and timeline changes, so paused seeks and duration/timeline updates do not wait for the slower fallback poll.
-- Added host tests for active and paused polling intervals.
+- Added host tests for the active polling interval and the absence of an idle polling interval.
 
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
