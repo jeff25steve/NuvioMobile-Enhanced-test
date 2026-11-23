@@ -2083,24 +2083,19 @@ Verification boundary:
 
 ## Selected subtitle format controls Android cue normalization — 23 November 2026
 
-A focused playback-path review found two related subtitle metadata defects in Android ExoPlayer's `presentCues` callback:
-
-- The callback found a selected text `Tracks.Group` but always read `getTrackFormat(0)`. A group can contain multiple tracks and the selected subtitle need not be index zero, so the presenter could classify a different format from the one selected by the user.
-- The SSA normalization guard used `mimeType != TEXT_SSA && codecs != TEXT_SSA`. That allows normalization whenever either field identifies SSA but the other field is absent or different. SSA positioning must be preserved when either metadata field identifies the format.
+A focused playback-path review found a concrete metadata lookup defect in Android ExoPlayer's `presentCues` callback: it found a selected text `Tracks.Group` but always read `getTrackFormat(0)`. A group can contain multiple tracks and the selected subtitle need not be index zero, so the presenter could classify a different format from the one selected by the user. For SSA subtitles, this can route cues through the wrong position-normalization policy and visibly shift authored subtitle placement.
 
 Correction:
-- Added `selectedSubtitleFormat(Tracks)` to walk text groups and read a track format only from a track marked selected by Media3.
-- Added `isSsaSubtitleFormat(Format?)`, recognizing SSA from either the sample MIME type or a comma-separated codec token.
-- Added `shouldNormalizeSubtitleCuePosition(Format?)`. Unknown format metadata retains the previous normalization fallback; an SSA format disables normalization.
-- Routed Android ExoPlayer cue presentation through these helpers. Sidecar suppression and sidecar subtitle handling remain unchanged.
-- Added `SelectedSubtitleFormatTest` cases for non-zero selected indices, no selected track, SSA MIME-only metadata, SSA codec-only metadata, and unknown-format fallback.
+- Added `selectedSubtitleFormat(Tracks)` to walk text groups and read the format at an index for which Media3 reports `isTrackSelected(index)`.
+- Routed Android ExoPlayer cue presentation through that selected format.
+- Preserved the existing SSA normalization expression, sidecar suppression, and sidecar subtitle handling unchanged; this pass does not alter subtitle policy.
+- Added `SelectedSubtitleFormatTest` cases for a selected non-zero track index, no selected subtitle track, and ignoring selected audio groups.
 
 Evidence:
-- The AndroidX Media3 [Tracks.Group source](https://github.com/androidx/media/blob/release/libraries/common/src/main/java/androidx/media3/common/Tracks.java) exposes `isTrackSelected(index)` and `getTrackFormat(index)`. Its documentation explicitly says multiple tracks may be selected in adaptive groups and that `Tracks.Group` does not expose which selected format is currently active. The helper therefore reads the first selected text format only for format classification; it does not claim to identify the active adaptive rendition.
+- The AndroidX Media3 [Tracks.Group source](https://github.com/androidx/media/blob/release/libraries/common/src/main/java/androidx/media3/common/Tracks.java) exposes `isTrackSelected(index)` and `getTrackFormat(index)`. Its documentation explicitly says multiple tracks may be selected in adaptive groups and that `Tracks.Group` does not expose which selected format is currently active. The helper reads the first selected text format only for format classification; it does not claim to identify the active adaptive rendition.
 - The implementation uses the existing Media3 track metadata API and adds no dependencies or renderer changes.
 
 Verification boundary:
 - Test source was added before the production edit. The tests were not executed because no Gradle test/build or CI run was authorised in this cycle. No build, CI, benchmark or device playback was run.
-- This is a source-level correction to subtitle format classification and SSA cue positioning; the visual result still requires later playback validation with SSA/ASS and non-SSA tracks, including a subtitle group where the selected track is not index zero.
+- This is a source-level correction to subtitle format classification; the visual result still requires later playback validation with SSA/ASS and non-SSA tracks, including a subtitle group where the selected track is not index zero.
 - The separate NuvioTV HLG alternative-transfer-SEI implementation was reviewed. It modifies a Matroska extractor at sample-read time; this app currently wires `DefaultExtractorsFactory`, so transplanting that implementation without an extractor integration plan would be a broad, risky fork. No speculative HDR parser fork or mpv tone-map default was introduced.
-
