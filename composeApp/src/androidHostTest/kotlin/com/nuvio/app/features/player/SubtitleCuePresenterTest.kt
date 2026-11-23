@@ -96,6 +96,21 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun letterboxOnlyPreferenceDoesNotForceOverlayForUnsupportedSubtitleMimeTypes() {
+        val presenter = SubtitleCuePresenter {
+            SubtitleStyleState(
+                appearance = SubtitleAppearance(placeUnpositionedTextInLetterbox = true),
+            )
+        }
+        val cue = Cue.Builder().setText("Plain text from another format").build()
+
+        val nativeCues = presenter.present(listOf(cue), allowLetterboxPlacement = false)
+
+        assertEquals(listOf(cue), nativeCues)
+        assertTrue(presenter.cues.isEmpty)
+    }
+
+    @Test
     fun letterboxPlacementPreferenceIsReevaluatedWhenStyleChanges() {
         var style = SubtitleStyleState.DEFAULT
         val presenter = SubtitleCuePresenter { style }
