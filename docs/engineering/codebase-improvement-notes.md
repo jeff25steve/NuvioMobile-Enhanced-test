@@ -1493,11 +1493,6 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Extracted the short-side sizing and display-aspect-ratio calculations into pure helpers and added host test source for landscape scaling, portrait bounds, ultrawide bounds and invalid dimensions.
 - Context7 confirmed `Presentation.createForShortSide` is present in Media3 1.11.1 (introduced in 1.8.0). This does not change the player renderer or the main playback output path.
 
-**Verification boundary — cycles 222–223**
-- Source changes and regression-test source were committed on `feature/seek-preview-quality-responsiveness`; the feature branch is intended for fast-forward integration into `main-build-testing` only after remote source review.
-- No Gradle test task, Kotlin compilation, Android build, CI, APK generation or device playback was run, in accordance with the no-build/no-CI instruction. Tests are added but unexecuted; this is source-level review, not a passing test or visual-device validation.
-- The queue design was reviewed for offer/take/close races, including the handoff between clearing the scheduled flag and rescheduling a newly arrived request. Device-level scrubbing responsiveness still needs measurement under slow native thumbnail extraction.
-- The portrait/ultrawide framing change is grounded in the Media3 1.11.1 Presentation API, but preview appearance still needs visual verification on real portrait, 16:9 and ultrawide samples. The preview should not be described as device-verified.
 
 
 **Cycle 224 — skip GPU readback when no seek-preview request is waiting**
@@ -1505,3 +1500,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added a request/release guard before the GPU readback. When no active waiter exists, the shader now immediately calls `onInputFrameProcessed` to return the input texture to the effect pipeline without transferring pixels to CPU memory or allocating a bitmap. Active requests retain the existing readback and delivery path.
 - Added host test source for active, cancelled/no-waiter and released states.
 - Expected effect: avoid unnecessary GPU-to-CPU readback and bitmap allocation for stale/cancelled preview frames. No measured GPU time, memory allocation or scrub latency improvement is claimed.
+
+**Verification boundary — cycles 222–224**
+- Source changes and regression-test source were committed on `feature/seek-preview-quality-responsiveness`; the feature branch is intended for fast-forward integration into `main-build-testing` only after remote source review.
+- No Gradle test task, Kotlin compilation, Android build, CI, APK generation or device playback was run, in accordance with the no-build/no-CI instruction. Tests are added but unexecuted; this is source-level review, not a passing test or visual-device validation.
+- The queue design was reviewed for offer/take/close races, including the handoff between clearing the scheduled flag and rescheduling a newly arrived request. Device-level scrubbing responsiveness still needs measurement under slow native thumbnail extraction.
+- The portrait/ultrawide framing change is grounded in the Media3 1.11.1 Presentation API, but preview appearance still needs visual verification on real portrait, 16:9 and ultrawide samples. The preview should not be described as device-verified.
+- The cancelled-frame readback guard preserves the GL effect's input-release callback even when pixel extraction is skipped. Its test source was added but not executed; actual allocation and latency savings have not been profiled.
