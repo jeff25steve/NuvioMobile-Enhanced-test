@@ -1980,3 +1980,36 @@ Safety/compatibility decisions:
 Verification boundary:
 - Source files and existing property semantics were reviewed against Media3 Context7 documentation, Android HDR guidance, the mpv property manual and upstream mpv stats.lua.
 - Regression tests were authored but not executed at the user's request. No test task, compilation, build, CI, benchmark or physical-device playback was run. The UI labels and actual output values still require manual playback review later, especially HDR10/PQ input converted to SDR output and a resolution-changing mpv filter chain.
+
+
+## Display-aware HDR track selection for ExoPlayer — 23 November 2026
+
+A display-quality review found a concrete Android fallback gap in the pinned Media3 1.12.0-beta01 selector. HLS PQ/HLG signalling is parsed in this release, but Media3's separate display-capability-aware selection change remains an open upstream pull request. The current selector can prefer a decoder-supported HDR track even when the default display does not report support for that HDR type; mixed HDR/SDR variants can also remain candidates for adaptive selection.
+
+Implemented on Android ExoPlayer:
+- Added `DisplayAwareDefaultTrackSelector`, a small app-side subclass that evaluates the current default display's `Display.getHdrCapabilities().supportedHdrTypes` during video selection.
+- When a renderer has a supported SDR alternative, the selector masks only signalled PQ/HLG/Dolby Vision formats that the display cannot present. It delegates the actual quality, viewport, language, decoder and adaptive selection algorithm to Media3, so SDR adaptive selection remains available across the remaining supported formats.
+- If the display or its HDR capabilities are unavailable, the selector leaves Media3's original format support untouched. If no supported SDR alternative exists, HDR-only playback remains available rather than being disabled.
+- Dolby Vision decoded with a fallback MIME type is evaluated using its PQ/HLG base-layer transfer. Dolby Vision decoded by a primary Dolby Vision decoder requires display Dolby Vision support. PQ requires HDR10 specifically; an HDR10+ capability alone is not treated as sufficient because Media3 Format does not expose the dynamic metadata needed to distinguish that case.
+- A default-display listener refreshes the capability snapshot and calls Media3's supported track-selection invalidation path when HDR types change. It is unregistered when the selector is released.
+- The implementation copies Media3's renderer-support matrix before masking formats; it never mutates the framework-owned capability arrays.
+- Added regression cases for PQ/HDR10, HLG, Dolby Vision primary/fallback decoder paths, HDR10+ without HDR10, unknown display capabilities, unsupported decoder formats, and preserving HDR-only streams.
+
+Research and source evidence:
+- AndroidX Media3 [PR #3461](https://github.com/androidx/media/pull/3461) remains open and contains the upstream display-aware ranking, HDR/SDR adaptive separation, and display-change invalidation design. Its behavior is the reference for the conservative app-side fallback here; no unmerged Media3 internals were copied.
+- AndroidX Media3 [PR #3446](https://github.com/androidx/media/pull/3446) is merged and its HLS PQ/HLG `VIDEO-RANGE` parsing is included in the 1.12.0 alpha/beta line used by this repository. This gives the selector real transfer metadata for those HLS variants.
+- Media3's exact pinned `DefaultTrackSelector` source exposes the protected `selectAllTracks` extension point. `TrackSelector.invalidate(null)` is documented as callable from application or playback threads and re-evaluates selections without replacing user parameters.
+- The upstream PR specifically maps PQ to HDR10, HLG to HLG, and primary Dolby Vision decoding to Dolby Vision. It also documents that HDR10+ without HDR10 must not be treated as sufficient for PQ when dynamic metadata is not represented in `Format`.
+- mpv-android [issue #874](https://github.com/mpv-android/mpv-android/issues/874), updated 19 November 2026, remains an open native-HDR request. Community reports continue to show device- and renderer-specific behavior; they do not justify changing Nuvio's global mpv output or tone-mapping configuration in this pass.
+- mpv's current manual recommends `gpu-next` and provides separate fast/high-quality profiles. Nuvio already exposes Balanced/Performance/High Quality render profiles, scaling filters and debanding settings. Those controls were not duplicated or globally changed. The manual and mpv maintainer discussion also caution that scaling preference is content-dependent and GPU-heavy processing can fail on mobile GPUs.
+
+Compatibility and non-goals:
+- Only the Android ExoPlayer track selector changes. libmpv, iOS, SurfaceView, renderer choice, video effects, frame-rate matching, decoder priority and user quality settings are unchanged.
+- Explicit user track overrides are still applied by Media3 after automatic selection, preserving the user's deliberate manual choice.
+- This is not an HDR tone-mapping implementation and does not claim to fix every washed-out image. It prevents automatic selection of a signalled HDR format that the current default display does not advertise support for when a supported SDR fallback exists.
+- If the display reports no capability information, or a format has no reliable PQ/HLG/Dolby Vision signal, the selector deliberately leaves the format eligible.
+
+Verification boundary:
+- Added Android host regression sources; they were not executed, as requested.
+- Source-level review checked the override signature, support-flag APIs, Dolby Vision fallback decoder flag, display listener lifecycle, and invalidation contract against the exact Media3 1.12.0-beta01 source.
+- No Gradle tests, compilation, build, CI, benchmark or physical-device playback was run. The visual result still requires later device validation with HDR10, HLG, Dolby Vision, SDR fallback, HDR-only content, and display HDR toggling.

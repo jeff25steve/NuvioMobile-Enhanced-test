@@ -77,7 +77,6 @@ import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.text.TextOutput
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -767,7 +766,7 @@ private fun ExoPlayerSurface(
             .setEnableDecoderFallback(true)
             .setMapDV7ToHevc(playerSettings.mapDV7ToHevc)
 
-        val trackSelector = DefaultTrackSelector(context).apply {
+        val trackSelector = DisplayAwareDefaultTrackSelector(context).apply {
             var parameters = buildUponParameters()
                 .setAllowInvalidateSelectionsOnRendererCapabilitiesChange(true)
             if (playerSettings.tunnelingEnabled) {
