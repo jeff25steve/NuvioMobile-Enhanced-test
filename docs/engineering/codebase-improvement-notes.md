@@ -2297,7 +2297,7 @@ The previous `isSdrFallbackFormat` treated any format that was not signalled as 
 
 Changed:
 - Use Media3's `ColorInfo.isEquivalentToAssumedSdrDefault` as the standard SDR/default-metadata check.
-- Continue recognising explicit SDR gamma 2.2 and sRGB transfer characteristics as SDR when HDR static metadata is absent.
+- Continue recognising explicit SDR, gamma 2.2, and sRGB transfer characteristics as SDR when HDR static metadata is absent, including explicitly SDR BT.2020/10-bit variants.
 - Keep Dolby Vision codec signalling out of the SDR classification, including fallback-MIME representations.
 - Leave genuinely ambiguous wide-gamut/high-bit-depth metadata unclassified as an SDR fallback rather than guessing.
 
