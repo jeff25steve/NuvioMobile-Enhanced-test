@@ -242,7 +242,6 @@ internal class SoftwareVideoDecoder(
     private var exception: SoftwareVideoDecoderException? = null
     private var outputStartTimeUs: Long = C.TIME_UNSET
     private var flushRequested = false
-    private var flushed = false
     private var hasQueuedInputSinceFlush = false
     private var released = false
     private var skippedOutputBufferCount = 0
@@ -276,7 +275,7 @@ internal class SoftwareVideoDecoder(
     override fun setOutputStartTimeUs(outputStartTimeUs: Long) {
         synchronized(lock) {
             check(
-                !hasQueuedInputSinceFlush || flushed,
+                !hasQueuedInputSinceFlush,
             ) { "Output start time may only be set before input or after flush" }
             this.outputStartTimeUs = outputStartTimeUs
         }
@@ -301,7 +300,6 @@ internal class SoftwareVideoDecoder(
             check(dequeuedInputBuffer === inputBuffer) { "Input buffer was not dequeued from this decoder" }
             dequeuedInputBuffer = null
             queuedInputBuffers.addLast(inputBuffer)
-            flushed = false
             hasQueuedInputSinceFlush = true
             lock.notifyAll()
         }
@@ -332,7 +330,6 @@ internal class SoftwareVideoDecoder(
             if (released) return
             flushRequested = true
             exception = null
-            flushed = true
             hasQueuedInputSinceFlush = false
             dequeuedInputBuffer?.let {
                 recycleInputBufferLocked(it)
