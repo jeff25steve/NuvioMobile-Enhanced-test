@@ -64,6 +64,19 @@ class SoftwareVideoFrameDataSpaceTest {
     }
 
     @Test
+    fun mapsDisplayP3ToItsNamedAndroidDataspace() {
+        val displayP3 = softwareFrameDataSpace(
+            colorPrimaries = 12, // AVCOL_PRI_SMPTE432
+            colorTransfer = 13, // AVCOL_TRC_IEC61966_2_1
+            colorRange = 2, // AVCOL_RANGE_JPEG
+            matrixColorSpace = 2,
+            frameHeight = 1080,
+        )
+
+        assertEquals(143261696, displayP3) // ADATASPACE_DISPLAY_P3
+    }
+
+    @Test
     fun mapsTransferCharacteristicsWithoutCollapsingThemToSdr() {
         val linear = softwareFrameDataSpace(9, 8, 1, 3, 1080)
         val srgb = softwareFrameDataSpace(9, 13, 1, 3, 1080)

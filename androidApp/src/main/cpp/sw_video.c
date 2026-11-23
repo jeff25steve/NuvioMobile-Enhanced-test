@@ -163,22 +163,6 @@ static int configure_sws_colorspace(SwsConversionState *conversion, const AVFram
     return 1;
 }
 
-static int32_t data_space_of(const AVFrame *frame) {
-    int32_t standard;
-    switch (colorspace_of(frame)) {
-        case COLORSPACE_BT2020: standard = 6 << 16; break;
-        case COLORSPACE_BT601: standard = (frame->height == 480 ? 4 : 2) << 16; break;
-        default: standard = 1 << 16; break;
-    }
-    int32_t transfer;
-    switch (frame->color_trc) {
-        case AVCOL_TRC_SMPTE2084: transfer = 7 << 22; break;
-        case AVCOL_TRC_ARIB_STD_B67: transfer = 8 << 22; break;
-        default: transfer = 3 << 22; break;
-    }
-    int32_t range = frame->color_range == AVCOL_RANGE_JPEG ? 1 << 27 : 2 << 27;
-    return standard | transfer | range;
-}
 
 /* Validate the Java-owned I420 buffer layout before any native pointer arithmetic. */
 static int yuv420_buffer_size(int width, int height, int y_stride, int uv_stride, size_t *size) {
@@ -400,15 +384,17 @@ JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlo
         d->has_frame = 1;
     }
     AVFrame *frame = d->frame;
-    jlong values[6] = {
+    jlong values[8] = {
         frame->pts,
         frame->best_effort_timestamp,
         frame->width,
         frame->height,
         colorspace_of(frame),
-        data_space_of(frame),
+        frame->color_primaries,
+        frame->color_trc,
+        frame->color_range,
     };
-    (*env)->SetLongArrayRegion(env, info, 0, 6, values);
+    (*env)->SetLongArrayRegion(env, info, 0, 8, values);
     return RESULT_OK;
 }
 
@@ -457,7 +443,7 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
 
 JNIEXPORT jint JNICALL METHOD(nativeRenderPrivateFrame)(JNIEnv *env, jclass clazz,
                                                        jlong handle, jlong frame_handle,
-                                                       jobject surface) {
+                                                       jobject surface, jint data_space) {
     Decoder *d = (Decoder *) (intptr_t) handle;
     AVFrame *frame = (AVFrame *) (intptr_t) frame_handle;
     if (!d || !frame || !surface) return RESULT_ERROR;
@@ -486,7 +472,6 @@ JNIEXPORT jint JNICALL METHOD(nativeRenderPrivateFrame)(JNIEnv *env, jclass claz
         d->window_height = height;
     }
 
-    const int32_t data_space = data_space_of(frame);
     if (ff.set_data_space && data_space && d->window_data_space != data_space &&
         d->window_data_space_attempted != data_space) {
         int status = ff.set_data_space(d->window, data_space);

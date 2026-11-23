@@ -154,6 +154,63 @@ internal class SoftwareVideoDecoderFlowState {
 
 internal fun softwareFrameColorSpace(frameInfo: LongArray): Int = frameInfo[4].toInt()
 
+/**
+ * Builds Android's display dataspace from FFmpeg's independent primaries, transfer, and range
+ * metadata. Matrix coefficients remain separate: they describe YUV conversion, not display gamut.
+ */
+internal fun softwareFrameDataSpace(
+    colorPrimaries: Int,
+    colorTransfer: Int,
+    colorRange: Int,
+    matrixColorSpace: Int,
+    frameHeight: Int,
+): Int {
+    if (
+        colorPrimaries == AVCOL_PRI_SMPTE432 &&
+        colorTransfer == AVCOL_TRC_IEC61966_2_1 &&
+        colorRange == AVCOL_RANGE_JPEG
+    ) {
+        // Android's named DISPLAY_P3 dataspace is DCI-P3 primaries + sRGB transfer + full range.
+        return DATASPACE_DISPLAY_P3
+    }
+    val standard = when (colorPrimaries) {
+        AVCOL_PRI_BT709 -> DATASPACE_STANDARD_BT709
+        AVCOL_PRI_BT470M -> DATASPACE_STANDARD_BT470M
+        AVCOL_PRI_BT470BG -> DATASPACE_STANDARD_BT601_625
+        AVCOL_PRI_SMPTE170M, AVCOL_PRI_SMPTE240M -> DATASPACE_STANDARD_BT601_525
+        AVCOL_PRI_FILM -> DATASPACE_STANDARD_FILM
+        AVCOL_PRI_BT2020 -> DATASPACE_STANDARD_BT2020
+        AVCOL_PRI_SMPTE431 -> DATASPACE_STANDARD_DCI_P3
+        else -> when (matrixColorSpace) {
+            SOFTWARE_COLORSPACE_BT2020 -> DATASPACE_STANDARD_BT2020
+            SOFTWARE_COLORSPACE_BT601 -> if (frameHeight == 480) {
+                DATASPACE_STANDARD_BT601_525
+            } else {
+                DATASPACE_STANDARD_BT601_625
+            }
+            else -> DATASPACE_STANDARD_BT709
+        }
+    }
+    val transfer = when (colorTransfer) {
+        AVCOL_TRC_BT709, AVCOL_TRC_SMPTE240M, AVCOL_TRC_BT2020_10, AVCOL_TRC_BT2020_12,
+        AVCOL_TRC_IEC61966_2_4, AVCOL_TRC_BT1361_ECG -> DATASPACE_TRANSFER_SMPTE_170M
+        AVCOL_TRC_LINEAR -> DATASPACE_TRANSFER_LINEAR
+        AVCOL_TRC_IEC61966_2_1 -> DATASPACE_TRANSFER_SRGB
+        AVCOL_TRC_GAMMA22 -> DATASPACE_TRANSFER_GAMMA_2_2
+        AVCOL_TRC_SMPTE428 -> DATASPACE_TRANSFER_GAMMA_2_6
+        AVCOL_TRC_GAMMA28 -> DATASPACE_TRANSFER_GAMMA_2_8
+        AVCOL_TRC_SMPTE2084 -> DATASPACE_TRANSFER_ST2084
+        AVCOL_TRC_ARIB_STD_B67 -> DATASPACE_TRANSFER_HLG
+        else -> DATASPACE_TRANSFER_SMPTE_170M
+    }
+    val range = if (colorRange == AVCOL_RANGE_JPEG) {
+        DATASPACE_RANGE_FULL
+    } else {
+        DATASPACE_RANGE_LIMITED
+    }
+    return standard or transfer or range
+}
+
 internal fun resolveSoftwareFrameTimestampUs(ptsUs: Long, bestEffortTimestampUs: Long, packetTimestampUs: Long): Long =
     when {
         ptsUs != Long.MIN_VALUE -> ptsUs
@@ -164,6 +221,64 @@ internal fun resolveSoftwareFrameTimestampUs(ptsUs: Long, bestEffortTimestampUs:
 internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dataSpace: Int) {
     outputBuffer.decoderPrivate = dataSpace.toLong()
 }
+
+internal fun setPrivateSurfaceFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dataSpace: Int) {
+    // In surface-YUV mode Media3 does not consume colorspace; decoderPrivate owns the AVFrame handle.
+    outputBuffer.colorspace = dataSpace
+}
+
+internal fun privateSurfaceFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
+    outputBuffer.colorspace
+
+private const val AVCOL_PRI_BT709 = 1
+private const val AVCOL_PRI_BT470M = 4
+private const val AVCOL_PRI_BT470BG = 5
+private const val AVCOL_PRI_SMPTE170M = 6
+private const val AVCOL_PRI_SMPTE240M = 7
+private const val AVCOL_PRI_FILM = 8
+private const val AVCOL_PRI_BT2020 = 9
+private const val AVCOL_PRI_SMPTE431 = 11
+private const val AVCOL_PRI_SMPTE432 = 12
+
+private const val AVCOL_TRC_BT709 = 1
+private const val AVCOL_TRC_GAMMA22 = 4
+private const val AVCOL_TRC_GAMMA28 = 5
+private const val AVCOL_TRC_SMPTE240M = 7
+private const val AVCOL_TRC_LINEAR = 8
+private const val AVCOL_TRC_IEC61966_2_4 = 11
+private const val AVCOL_TRC_BT1361_ECG = 12
+private const val AVCOL_TRC_IEC61966_2_1 = 13
+private const val AVCOL_TRC_BT2020_10 = 14
+private const val AVCOL_TRC_BT2020_12 = 15
+private const val AVCOL_TRC_SMPTE2084 = 16
+private const val AVCOL_TRC_SMPTE428 = 17
+private const val AVCOL_TRC_ARIB_STD_B67 = 18
+
+private const val AVCOL_RANGE_JPEG = 2
+private const val SOFTWARE_COLORSPACE_BT601 = 1
+private const val SOFTWARE_COLORSPACE_BT2020 = 3
+
+private const val DATASPACE_STANDARD_BT709 = 1 shl 16
+private const val DATASPACE_STANDARD_BT601_625 = 2 shl 16
+private const val DATASPACE_STANDARD_BT601_525 = 4 shl 16
+private const val DATASPACE_STANDARD_BT2020 = 6 shl 16
+private const val DATASPACE_STANDARD_BT470M = 8 shl 16
+private const val DATASPACE_STANDARD_FILM = 9 shl 16
+private const val DATASPACE_STANDARD_DCI_P3 = 10 shl 16
+private const val DATASPACE_DISPLAY_P3 =
+    DATASPACE_STANDARD_DCI_P3 or (2 shl 22) or (1 shl 27)
+
+private const val DATASPACE_TRANSFER_LINEAR = 1 shl 22
+private const val DATASPACE_TRANSFER_SRGB = 2 shl 22
+private const val DATASPACE_TRANSFER_SMPTE_170M = 3 shl 22
+private const val DATASPACE_TRANSFER_GAMMA_2_2 = 4 shl 22
+private const val DATASPACE_TRANSFER_GAMMA_2_6 = 5 shl 22
+private const val DATASPACE_TRANSFER_GAMMA_2_8 = 6 shl 22
+private const val DATASPACE_TRANSFER_ST2084 = 7 shl 22
+private const val DATASPACE_TRANSFER_HLG = 8 shl 22
+
+private const val DATASPACE_RANGE_FULL = 1 shl 27
+private const val DATASPACE_RANGE_LIMITED = 2 shl 27
 
 /** Transfers a native-owned decoded frame out of the Media3 output buffer exactly once. */
 internal fun takeSoftwarePrivateFrameHandle(outputBuffer: VideoDecoderOutputBuffer): Long {
@@ -271,7 +386,7 @@ internal class SoftwareVideoDecoder(
     // AVFrame owner structs return here when Media3 releases their output buffers.
     private val reusableFrameHandles = SoftwareVideoFrameHandlePool(OUTPUT_BUFFERS)
     private val flow = SoftwareVideoDecoderFlowState()
-    private val frameInfo = LongArray(6)
+    private val frameInfo = LongArray(8)
 
     private var dequeuedInputBuffer: DecoderInputBuffer? = null
     @Volatile private var pendingInputBuffer: DecoderInputBuffer? = null
@@ -419,7 +534,7 @@ internal class SoftwareVideoDecoder(
         if (frameHandle == 0L) {
             throw SoftwareVideoDecoderException("Software video output frame has no native owner")
         }
-        val result = nativeRenderPrivateFrame(decoderHandle, frameHandle, surface)
+        val result = nativeRenderPrivateFrame(decoderHandle, frameHandle, surface, privateSurfaceFrameDataSpace(outputBuffer))
         if (result == SOFTWARE_DECODER_RESULT_ERROR) {
             throw SoftwareVideoDecoderException("Failed to render " + codecName + " frame")
         }
@@ -604,6 +719,13 @@ internal class SoftwareVideoDecoder(
             nativeDiscardFrame(handle)
             throw SoftwareVideoDecoderException("YV12 surface output requires even frame dimensions")
         }
+        val frameDataSpace = softwareFrameDataSpace(
+            colorPrimaries = frameInfo[5].toInt(),
+            colorTransfer = frameInfo[6].toInt(),
+            colorRange = frameInfo[7].toInt(),
+            matrixColorSpace = frameInfo[4].toInt(),
+            frameHeight = height,
+        )
         val yStride = align(width)
         val uvStride = align((width / 2) + (width % 2))
         outputBuffer.decoderPrivate = 0L
@@ -616,6 +738,7 @@ internal class SoftwareVideoDecoder(
             // Drop all views before switching to the native-owned surface frame.
             clearSoftwareYuvOutputStorage(outputBuffer)
             outputBuffer.initForPrivateFrame(width, height)
+            setPrivateSurfaceFrameDataSpace(outputBuffer, frameDataSpace)
             val reusableFrameHandle = synchronized(lock) { reusableFrameHandles.acquire() }
             // nativeTakeFrame consumes the reusable handle on both success and failure.
             val frameHandle = nativeTakeFrame(handle, reusableFrameHandle)
@@ -640,7 +763,7 @@ internal class SoftwareVideoDecoder(
             if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
                 throw SoftwareVideoDecoderException("Failed to convert " + codecName + " frame")
             }
-            setOutputFrameDataSpace(outputBuffer, frameInfo[5].toInt())
+            setOutputFrameDataSpace(outputBuffer, frameDataSpace)
         }
         outputBuffer.format = format
         if (firstSamplePending) {
@@ -840,6 +963,6 @@ internal class SoftwareVideoDecoder(
         @JvmStatic private external fun nativeReleaseFrame(frameHandle: Long)
         @JvmStatic private external fun nativeDiscardFrame(handle: Long)
         @JvmStatic private external fun nativeConvertFrame(handle: Long, output: ByteBuffer, yStride: Int, uvStride: Int): Boolean
-        @JvmStatic private external fun nativeRenderPrivateFrame(handle: Long, frameHandle: Long, surface: Surface): Int
+        @JvmStatic private external fun nativeRenderPrivateFrame(handle: Long, frameHandle: Long, surface: Surface, dataSpace: Int): Int
     }
 }
