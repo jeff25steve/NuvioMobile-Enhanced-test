@@ -14,6 +14,7 @@ data class SubtitleAppearance(
     val shadowSize: Int = 2,
     val outlineBlur: Int = 0,
     val customizeAss: Boolean = false,
+    val placeUnpositionedTextInLetterbox: Boolean = false,
 ) {
     // Preserve the five-argument constructor used by Swift callers.
     constructor(
@@ -140,7 +141,8 @@ internal val SubtitleStyleState.requiresComposeStyledOverlay: Boolean
     get() = appearance.fontId != "default" ||
         backgroundColor.alpha > 0f ||
         appearance.shadowEnabled ||
-        (outlineEnabled && outlineWidth != SUBTITLE_OUTLINE_WIDTH_DEFAULT)
+        (outlineEnabled && outlineWidth != SUBTITLE_OUTLINE_WIDTH_DEFAULT) ||
+        appearance.placeUnpositionedTextInLetterbox
 
 internal val SubtitleStyleState.assScale: Double
     get() = fontSizeSp.toDouble() / SubtitleStyleState.DEFAULT.fontSizeSp
