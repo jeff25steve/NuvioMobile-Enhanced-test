@@ -113,7 +113,7 @@ class SeekPreviewLifecycleTest {
 
     @Test
     fun previewFrameReadbackRunsOnlyForAnActiveRequest() {
-        assertTrue(shouldReadSeekPreviewFrame(hasPendingRequest = true, isReleased = false))
+        assertTrue(shouldReadSeekPreviewFrame(hasActiveRequest = true, isReleased = false))
         assertFalse(shouldReadSeekPreviewFrame(hasPendingRequest = false, isReleased = false))
         assertFalse(shouldReadSeekPreviewFrame(hasPendingRequest = true, isReleased = true))
     }
