@@ -236,4 +236,15 @@ class PlaybackDiagnosticsTest {
         assertFalse(shouldApplyPendingSubtitleTrackSelection(-1, hasTrackGroups = false, hasTextTracks = false))
     }
 
+
+    @Test
+    fun nonDefaultPlaybackSpeedIsRestoredAfterPlayerRebuild() {
+        assertEquals(1.5f, playbackSpeedToRestoreAfterRebuild(1.5f))
+        assertEquals(0.75f, playbackSpeedToRestoreAfterRebuild(0.75f))
+        assertEquals(null, playbackSpeedToRestoreAfterRebuild(1.0f))
+        assertEquals(null, playbackSpeedToRestoreAfterRebuild(0.0f))
+        assertEquals(null, playbackSpeedToRestoreAfterRebuild(Float.NaN))
+        assertEquals(null, playbackSpeedToRestoreAfterRebuild(Float.POSITIVE_INFINITY))
+    }
+
 }
