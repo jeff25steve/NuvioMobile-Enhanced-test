@@ -14,3 +14,7 @@ internal fun assVideoDimensionsFromSize(videoSize: VideoSize): AssVideoDimension
     } else {
         null
     }
+
+/** ASS cues need a valid source-video coordinate space before a track can be shown. */
+internal fun hasUsableAssVideoGeometry(videoWidth: Int, videoHeight: Int): Boolean =
+    videoWidth > 0 && videoHeight > 0
