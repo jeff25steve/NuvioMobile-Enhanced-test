@@ -14,6 +14,7 @@ import kotlin.test.assertTrue
 
 class DisplayAwareTrackSelectorTest {
     private val primaryDecoderSupport = RendererCapabilities.create(C.FORMAT_HANDLED)
+    private val exceedsCapabilitiesSupport = RendererCapabilities.create(C.FORMAT_EXCEEDS_CAPABILITIES)
     private val fallbackMimeDecoderSupport = RendererCapabilities.create(
         C.FORMAT_HANDLED,
         RendererCapabilities.ADAPTIVE_NOT_SUPPORTED,
@@ -164,6 +165,59 @@ class DisplayAwareTrackSelectorTest {
                 videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_ST2084),
                 primaryDecoderSupport,
                 setOf(Display.HdrCapabilities.HDR_TYPE_HDR10_PLUS),
+                hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun formatExceedingRendererCapabilitiesIsNotConsideredSupported() {
+        assertFalse(isRendererFormatSupported(exceedsCapabilitiesSupport))
+        assertTrue(isRendererFormatSupported(primaryDecoderSupport))
+    }
+
+    @Test
+    fun sdrFormatExceedingRendererCapabilitiesIsNotAcceptedAsAnHdrFallback() {
+        val sdr = Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()
+        assertFalse(isSupportedSdrFallback(sdr, exceedsCapabilitiesSupport))
+        assertTrue(isSupportedSdrFallback(sdr, primaryDecoderSupport))
+    }
+
+    @Test
+    fun hdrFormatExceedingRendererCapabilitiesIsNotMaskedAsAPlayableTrack() {
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_ST2084),
+                exceedsCapabilitiesSupport,
+                emptySet(),
+                hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun preservesHlgWhenDisplayReportsHlgSupport() {
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_HLG),
+                primaryDecoderSupport,
+                setOf(Display.HdrCapabilities.HDR_TYPE_HLG),
+                hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun dolbyVisionFallbackMimeCodecUsesItsPqBaseLayer() {
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                videoFormat(
+                    mimeType = MimeTypes.VIDEO_H265,
+                    transfer = C.COLOR_TRANSFER_ST2084,
+                    codecs = "dvhe.08.06",
+                ),
+                fallbackMimeDecoderSupport,
+                setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
                 hasSdrFallback = true,
             ),
         )
