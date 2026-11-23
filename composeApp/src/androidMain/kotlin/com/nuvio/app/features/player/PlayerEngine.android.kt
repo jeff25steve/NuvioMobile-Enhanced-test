@@ -151,6 +151,8 @@ internal class PlaybackDiagnostics {
     private var playbackHasStarted = false
     private var rebufferingAfterPlayback = false
     private val rebufferLoadTaskIds = mutableMapOf<Int, Long>()
+    var droppedVideoFrameCount: Long = 0L
+        private set
 
     fun beginAttempt(startedAtMs: Long) {
         attempt += 1
@@ -162,6 +164,18 @@ internal class PlaybackDiagnostics {
         playbackHasStarted = false
         rebufferingAfterPlayback = false
         rebufferLoadTaskIds.clear()
+        droppedVideoFrameCount = 0L
+    }
+
+    fun recordDroppedVideoFrames(droppedFrames: Int): Long {
+        if (droppedFrames <= 0) return droppedVideoFrameCount
+        val increment = droppedFrames.toLong()
+        droppedVideoFrameCount = if (Long.MAX_VALUE - droppedVideoFrameCount < increment) {
+            Long.MAX_VALUE
+        } else {
+            droppedVideoFrameCount + increment
+        }
+        return droppedVideoFrameCount
     }
 
     /**
@@ -720,7 +734,13 @@ private fun ExoPlayerSurface(
             videoBoundsFractionProvider = {
                 playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value)
             },
-        )
+        ).apply {
+            // Media3 1.11.0 enables dynamic player scheduling by default. The renderer-side
+            // duration hint is useful when MediaCodec runs asynchronously (default on API 31+).
+            setEnableMediaCodecVideoRendererDurationToProgressUs(
+                shouldEnableMediaCodecVideoRendererDurationToProgressUs(Build.VERSION.SDK_INT),
+            )
+        }
             .setExtensionRendererMode(effectiveDecoderPriority)
             .setEnableDecoderFallback(true)
             .setMapDV7ToHevc(playerSettings.mapDV7ToHevc)
@@ -1573,6 +1593,37 @@ private fun ExoPlayerSurface(
                         "durationMs=${loadEventInfo.loadDurationMs} " +
                         "bytes=${loadEventInfo.bytesLoaded} " +
                         "track=${trackKind(mediaLoadData.trackType)}",
+                )
+            }
+
+            override fun onDroppedVideoFrames(
+                eventTime: AnalyticsListener.EventTime,
+                droppedFrames: Int,
+                elapsedMs: Long,
+            ) {
+                if (droppedFrames <= 0) return
+                val totalDropped = playbackDiagnostics.recordDroppedVideoFrames(droppedFrames)
+                val elapsedSincePrepareMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
+                Log.w(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "videoFramesDropped count=$droppedFrames total=$totalDropped " +
+                        "attempt=${playbackDiagnostics.attempt} elapsedSincePrepareMs=$elapsedSincePrepareMs " +
+                        "intervalMs=$elapsedMs positionMs=${eventTime.eventPlaybackPositionMs} " +
+                        "decoder=${initializedVideoDecoderName ?: "unknown"}",
+                )
+            }
+
+            override fun onVideoFrameProcessingOffset(
+                eventTime: AnalyticsListener.EventTime,
+                totalProcessingOffsetUs: Long,
+                frameCount: Int,
+            ) {
+                val averageOffsetUs = averageVideoFrameProcessingOffsetUs(totalProcessingOffsetUs, frameCount)
+                    ?: return
+                Log.d(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "videoFrameProcessing frames=$frameCount totalOffsetUs=$totalProcessingOffsetUs " +
+                        "averageOffsetUs=$averageOffsetUs positionMs=${eventTime.eventPlaybackPositionMs}",
                 )
             }
 
