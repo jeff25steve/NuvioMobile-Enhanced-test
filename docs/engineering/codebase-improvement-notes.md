@@ -1666,3 +1666,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Static review checked the deband option is initialized before playback, applied through the runtime option property on changes, and guarded against redundant writes. Renderer descriptions and HDR claims were rechecked against the cited sources.
 - No Gradle task, test execution, compilation, build, CI, benchmark, Perfetto trace or physical-device playback was run. No measured improvement in banding, sharpness, frame pacing or GPU cost is claimed.
+
+
+### Cycle 238 — keep the independent deband preference stable across profile changes
+
+- Render profiles and the Debanding toggle are independent controls. The renderer now reapplies the user's current deband value after every profile transition, so a future upstream profile that starts modifying `deband` cannot silently override the explicit user choice.
+- This preserves the deband toggle whether the user changes quality first, debanding first, or switches repeatedly between profiles. The command remains on the existing serialized MPV dispatcher.
+- Static review verified the reapplication occurs after restore/apply commands and uses the latest requested value; no build or test task was run.

@@ -2815,6 +2815,10 @@ private class NuvioLibmpvView(
                     mpv.command("apply-profile", action.profileName)
                 }
             }
+            // Keep the independent user deband choice stable if a future built-in profile changes it.
+            val debandAfterProfile = requestedDebandEnabled
+            mpv.setPropertyBoolean("options/deband", debandAfterProfile)
+            activeDebandEnabled = debandAfterProfile
             activeRenderQuality = quality
             InAppLogger.info("MPV/Android", "render quality changed to=${quality.name}")
         }
