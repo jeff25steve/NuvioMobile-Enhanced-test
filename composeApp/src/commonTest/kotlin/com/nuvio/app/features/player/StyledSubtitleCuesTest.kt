@@ -95,6 +95,29 @@ class StyledSubtitleCuesTest {
     }
 
     @Test
+    fun bottomLetterboxPlacementUsesTheDisplayOnlyWhenTheWholeCueFits() {
+        assertEquals(900, subtitleBottomLetterboxTopPx(1_080, 850, 80, 100))
+        assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 950, 80, 60))
+        assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 1_080, 80, 40))
+        assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 850, 0, 100))
+        assertEquals(null, subtitleBottomLetterboxTopPx(1_080, -1, 80, 100))
+        assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 850, 80, -1))
+    }
+
+    @Test
+    fun letterboxEligibleAndVideoAnchoredCuesAreNotMerged() {
+        val cues = styledSubtitleCues(
+            listOf(
+                StyledSubtitleBlock(AnnotatedString("Video anchored")),
+                StyledSubtitleBlock(AnnotatedString("Display anchored"), placeInLetterbox = true),
+            ),
+        )
+
+        assertEquals(2, cues.blocks.size)
+        assertEquals(listOf(false, true), cues.blocks.map { it.placeInLetterbox })
+    }
+
+    @Test
     fun cueWidthShrinksToFitThePositionedAnchor() {
         assertEquals(0.2f, subtitleCueWidthFraction(0.2f, 1f, 0.8f))
         assertEquals(0.4f, subtitleCueWidthFraction(0.2f, 0.5f, 0.8f))
