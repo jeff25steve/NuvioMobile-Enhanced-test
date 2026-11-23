@@ -15,6 +15,13 @@ import java.nio.ByteBuffer
 
 internal const val FFMPEG_INPUT_PADDING_SIZE = 64
 
+internal fun resolveSoftwareFrameTimestampUs(ptsUs: Long, bestEffortTimestampUs: Long, packetTimestampUs: Long): Long =
+    when {
+        ptsUs != Long.MIN_VALUE -> ptsUs
+        bestEffortTimestampUs != Long.MIN_VALUE -> bestEffortTimestampUs
+        else -> packetTimestampUs
+    }
+
 internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dataSpace: Int) {
     outputBuffer.decoderPrivate = dataSpace.toLong()
 }
@@ -54,7 +61,7 @@ internal class SoftwareVideoDecoder(
 ) {
     private val codecName: String
     private var handle = 0L
-    private val frameInfo = LongArray(5)
+    private val frameInfo = LongArray(6)
 
     @Volatile
     var outputMode: Int = C.VIDEO_OUTPUT_MODE_NONE
@@ -101,15 +108,15 @@ internal class SoftwareVideoDecoder(
                 return null
             }
         }
-        val timeUs = frameInfo[0]
+        val timeUs = resolveSoftwareFrameTimestampUs(frameInfo[0], frameInfo[1], inputBuffer.timeUs)
         if (!isAtLeastOutputStartTimeUs(timeUs)) {
             outputBuffer.shouldBeSkipped = true
             return null
         }
         outputBuffer.shouldBeSkipped = false
         outputBuffer.init(timeUs, outputMode, null)
-        val width = frameInfo[1].toInt()
-        val height = frameInfo[2].toInt()
+        val width = frameInfo[2].toInt()
+        val height = frameInfo[3].toInt()
         val yStride = align(width)
         val uvStride = align((width + 1) / 2)
         if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, frameInfo[3].toInt())) {
@@ -120,7 +127,7 @@ internal class SoftwareVideoDecoder(
         if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
             return SoftwareVideoDecoderException("Failed to convert $codecName frame")
         }
-        setOutputFrameDataSpace(outputBuffer, frameInfo[4].toInt())
+        setOutputFrameDataSpace(outputBuffer, frameInfo[5].toInt())
         outputBuffer.format = inputBuffer.format
         return null
     }
