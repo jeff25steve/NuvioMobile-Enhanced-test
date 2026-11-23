@@ -164,7 +164,6 @@ internal class PlaybackDiagnostics {
         playbackHasStarted = false
         rebufferingAfterPlayback = false
         rebufferLoadTaskIds.clear()
-        droppedVideoFrameCount = 0L
     }
 
     fun recordDroppedVideoFrames(droppedFrames: Int): Long {
@@ -1602,12 +1601,10 @@ private fun ExoPlayerSurface(
                 elapsedMs: Long,
             ) {
                 if (droppedFrames <= 0) return
-                val totalDropped = playbackDiagnostics.recordDroppedVideoFrames(droppedFrames)
-                val elapsedSincePrepareMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
+                val sourceSessionTotal = playbackDiagnostics.recordDroppedVideoFrames(droppedFrames)
                 Log.w(
                     PLAYER_DIAGNOSTIC_TAG,
-                    "videoFramesDropped count=$droppedFrames total=$totalDropped " +
-                        "attempt=${playbackDiagnostics.attempt} elapsedSincePrepareMs=$elapsedSincePrepareMs " +
+                    "videoFramesDropped count=$droppedFrames sourceSessionTotal=$sourceSessionTotal " +
                         "intervalMs=$elapsedMs positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "decoder=${initializedVideoDecoderName ?: "unknown"}",
                 )
