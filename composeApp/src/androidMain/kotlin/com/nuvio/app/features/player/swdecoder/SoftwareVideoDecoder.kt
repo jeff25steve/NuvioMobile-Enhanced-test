@@ -910,8 +910,9 @@ internal class SoftwareVideoDecoder(
         fun needsSoftwareDecoding(format: Format): Boolean =
             when (format.sampleMimeType) {
                 MimeTypes.VIDEO_H264 ->
-                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES || format.hasExplicitHighBitDepth()
-                MimeTypes.VIDEO_H265 -> hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS
+                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES || format.hasBitDepthAbove(8)
+                MimeTypes.VIDEO_H265 ->
+                    hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS || format.hasBitDepthAbove(10)
                 MimeTypes.VIDEO_VC1 -> true
                 else -> false
             }
@@ -955,8 +956,8 @@ internal class SoftwareVideoDecoder(
                 }
                 ?.firstOrNull()
 
-        private fun Format.hasExplicitHighBitDepth(): Boolean =
-            colorInfo?.let { it.lumaBitdepth > 8 || it.chromaBitdepth > 8 } == true
+        private fun Format.hasBitDepthAbove(bitDepth: Int): Boolean =
+            colorInfo?.let { it.lumaBitdepth > bitDepth || it.chromaBitdepth > bitDepth } == true
 
         private fun extraData(format: Format): ByteArray? {
             if (format.initializationData.isEmpty()) return null
