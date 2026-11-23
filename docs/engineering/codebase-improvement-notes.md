@@ -2152,3 +2152,29 @@ This is still not a drop-in utility: it requires access to sample-level Matroska
 ### Verification boundary
 
 This section is research and implementation guidance only. No player code, dependencies, playback settings, tests, or build configuration were changed by this research pass. No Gradle tests, compilation, build, CI, benchmark, or device playback was run. The next implementation should be limited to a path with a testable source-level contract and should be playback-validated before any claim of improved visual output.
+## Android subtitle geometry follows the selected resize mode — 23 November 2026
+
+A source-level display audit found that ExoPlayer subtitle bitmap geometry was calculated as FIT regardless of the selected player resize mode. In FILL mode Media3 deliberately ignores the source aspect ratio, but Nuvio was still applying a letterbox rectangle to bitmap subtitle cues. That can shrink or offset PGS/VobSub subtitles relative to the stretched video. The geometry calculation also did not mirror Media3's 1% aspect-ratio tolerance, which could create tiny but unnecessary cue offsets for near-matching aspect ratios.
+
+The same audit found that PiP subtitle scaling remembered the measured SubtitleView child size rather than the PlayerView viewport. Media3's AspectRatioFrameLayout can measure larger than its parent in ZOOM mode. For a tall/narrow source zoomed into a landscape viewport, using the expanded child height scales PiP text against content outside the visible viewport.
+
+Corrections:
+- Added PlayerVideoGeometry.android.kt with a shared normalized video-bounds calculation for FIT (contain), FILL (full viewport), and ZOOM (cover/crop).
+- Matched Media3's MAX_ASPECT_RATIO_DEFORMATION_FRACTION = 0.01f tolerance so near-matching aspect ratios remain full-frame instead of applying a spurious inset.
+- Reject invalid/non-finite dimensions and aspect ratios before calculating normalized bounds.
+- Routed ExoPlayer bitmap subtitle remapping through the selected PlayerResizeMode, so FILL no longer applies FIT letterboxing and ZOOM can represent crop bounds outside the viewport.
+- Changed PiP's saved reference dimensions to the actual PlayerView viewport, not its potentially expanded subtitle child.
+- Made PiP subtitle reference height mode-aware: FIT uses the contained video height; FILL and ZOOM use the viewport height actually visible to the viewer.
+
+Regression coverage:
+- Added PlayerVideoGeometryTest cases for ultrawide FIT letterboxing, FILL full-frame bounds, ZOOM crop bounds, Media3's 1% tolerance, invalid geometry, and PiP text sizing for FIT/FILL/ZOOM including a narrow source zoomed into a landscape display.
+
+Evidence:
+- AndroidX AspectRatioFrameLayout source: https://github.com/androidx/media/blob/8c6678b657ede1e7883fc164ef73ed483c7796c3/libraries/ui/src/main/java/androidx/media3/ui/AspectRatioFrameLayout.java defines FIT as decreasing one dimension, ZOOM as increasing one dimension, FILL as ignoring the target aspect ratio, and applies a 1% deformation tolerance before resizing.
+- AndroidX PlayerView source: https://github.com/androidx/media/blob/8c6678b657ede1e7883fc164ef73ed483c7796c3/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java places SubtitleView inside the AspectRatioFrameLayout, so the subtitle child can inherit the resized/expanded frame rather than the visible outer viewport.
+- Community reports Jellyfin Android TV #4234 and AndroidX Media3 #2977 document real subtitle size/position problems with ultrawide video and letterboxing. AndroidX maintainers note that bitmap/explicitly positioned subtitle formats must remain relative to video, which is why this change fixes resize-mode geometry rather than moving every subtitle format into display-wide coordinates.
+- Context7 documentation for AndroidX Media3 was consulted. Its indexed version list did not include the project's exact 1.12.0-beta01 pin, so the resize-mode behavior was cross-checked against AndroidX source rather than assuming a different published API version.
+
+Verification boundary:
+- Tests were added before the implementation changes but were not run: the user explicitly prohibited builds and CI, and this environment's Android host-test task would require a build/test invocation. No compilation, Gradle test, build, CI, benchmark or physical-device playback was run.
+- Review was source-level against the final remote files. The new tests still need execution, and visual validation should cover PGS/VobSub in FIT/FILL/ZOOM plus PiP transitions on a device. No claim of measured playback improvement is made until that validation occurs.
