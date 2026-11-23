@@ -200,6 +200,10 @@ private class ExoSeekPreviewFrameSource(
         return created
     }
 
+    override fun cancel() {
+        grabber?.cancelPendingFrame()
+    }
+
     override fun close() {
         val activeGrabber = grabber ?: return
         grabber = null
@@ -282,8 +286,12 @@ private class ExoFrameGrabber(
         }
     }
 
+    fun cancelPendingFrame() {
+        cancelPendingSeekPreviewFrame(pending)
+    }
+
     fun release() {
-        pending.getAndSet(null)?.cancel(true)
+        cancelPendingFrame()
         player.release()
     }
 
