@@ -62,6 +62,8 @@ internal fun subtitleOutlineBlurSigmaYPx(level: Int, videoHeightPx: Float): Floa
 internal data class SubtitleVideoBoundsPx(
     val width: Float,
     val height: Float,
+    val left: Float = 0f,
+    val top: Float = 0f,
 )
 
 internal fun subtitleVideoBoundsPx(
@@ -79,17 +81,37 @@ internal fun subtitleVideoBoundsPx(
     val containerAspectRatio = width / height
     return when (resizeMode) {
         PlayerResizeMode.Fit -> if (containerAspectRatio > videoAspectRatio) {
-            SubtitleVideoBoundsPx(height * videoAspectRatio, height)
+            val videoWidth = height * videoAspectRatio
+            SubtitleVideoBoundsPx(
+                width = videoWidth,
+                height = height,
+                left = (width - videoWidth) / 2f,
+            )
         } else {
-            SubtitleVideoBoundsPx(width, width / videoAspectRatio)
+            val videoHeight = width / videoAspectRatio
+            SubtitleVideoBoundsPx(
+                width = width,
+                height = videoHeight,
+                top = (height - videoHeight) / 2f,
+            )
         }
 
         PlayerResizeMode.Fill -> SubtitleVideoBoundsPx(width, height)
 
         PlayerResizeMode.Zoom -> if (containerAspectRatio > videoAspectRatio) {
-            SubtitleVideoBoundsPx(width, width / videoAspectRatio)
+            val videoHeight = width / videoAspectRatio
+            SubtitleVideoBoundsPx(
+                width = width,
+                height = videoHeight,
+                top = (height - videoHeight) / 2f,
+            )
         } else {
-            SubtitleVideoBoundsPx(height * videoAspectRatio, height)
+            val videoWidth = height * videoAspectRatio
+            SubtitleVideoBoundsPx(
+                width = videoWidth,
+                height = height,
+                left = (width - videoWidth) / 2f,
+            )
         }
     }
 }
