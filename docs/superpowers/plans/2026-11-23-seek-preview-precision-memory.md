@@ -74,7 +74,7 @@
 
 ## Execution record
 
-- Implementation committed to `main-build-testing` in five fast-forward commits after base `180acafd15435c3033f06342f3faa582c0b1a17e`; final HEAD at this record: `da8d17f4987ff3bfbdc06040cfc60e037662ea88`.
+- Implementation committed to `main-build-testing` as sequential fast-forward commits after base `180acafd15435c3033f06342f3faa582c0b1a17e`. The final live branch HEAD is verified from GitHub after the documentation update; use the branch ref as the source of truth.
 - Regression-test source is present. The RED run, GREEN run, host-test suite, and Kotlin compilation remain pending because no Gradle test/build execution was authorized.
 - No CI, build, APK/AAB, benchmark, or device playback was started.
 - Final review was a read-only author self-review of the complete GitHub compare range; no independent reviewer/subagent facility was available.
