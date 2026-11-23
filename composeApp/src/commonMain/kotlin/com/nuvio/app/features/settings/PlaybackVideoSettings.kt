@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.features.player.AndroidLibmpvVideoOutput
 import com.nuvio.app.features.player.AndroidLibmpvRenderQuality
+import com.nuvio.app.features.player.AndroidLibmpvScalingFilter
 import com.nuvio.app.features.player.AndroidPlaybackEngine
 import com.nuvio.app.features.player.IosHardwareDecoderMode
 import com.nuvio.app.features.player.localizedLabel
@@ -37,6 +38,9 @@ internal fun PlaybackVideoSettings(
 ) {
     var showLibmpvVideoOutputDialog by remember { mutableStateOf(false) }
     var showLibmpvRenderQualityDialog by remember { mutableStateOf(false) }
+    var showLibmpvUpscalerDialog by remember { mutableStateOf(false) }
+    var showLibmpvDownscalerDialog by remember { mutableStateOf(false) }
+    var showLibmpvChromaScalerDialog by remember { mutableStateOf(false) }
     var showDecoderPriorityDialog by remember { mutableStateOf(false) }
     var showIosHardwareDecoderDialog by remember { mutableStateOf(false) }
     var showIosTargetPrimariesDialog by remember { mutableStateOf(false) }
@@ -71,6 +75,36 @@ internal fun PlaybackVideoSettings(
                             enabled = libmpvOptionsEnabled,
                             isTablet = isTablet,
                             onClick = { showLibmpvRenderQualityDialog = true },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_playback_libmpv_upscaler),
+                            searchAnchorKey = "playback-libmpv-upscaler",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            description = settings.androidLibmpvUpscaler.label,
+                            enabled = libmpvOptionsEnabled,
+                            isTablet = isTablet,
+                            onClick = { showLibmpvUpscalerDialog = true },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_playback_libmpv_downscaler),
+                            searchAnchorKey = "playback-libmpv-downscaler",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            description = settings.androidLibmpvDownscaler.label,
+                            enabled = libmpvOptionsEnabled,
+                            isTablet = isTablet,
+                            onClick = { showLibmpvDownscalerDialog = true },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_playback_libmpv_chroma_scaler),
+                            searchAnchorKey = "playback-libmpv-chroma-scaler",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            description = settings.androidLibmpvChromaScaler.label,
+                            enabled = libmpvOptionsEnabled,
+                            isTablet = isTablet,
+                            onClick = { showLibmpvChromaScalerDialog = true },
                         )
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
@@ -249,6 +283,51 @@ internal fun PlaybackVideoSettings(
                 showLibmpvRenderQualityDialog = false
             },
             onDismiss = { showLibmpvRenderQualityDialog = false },
+        )
+    }
+
+    if (showLibmpvUpscalerDialog) {
+        SettingsChoiceDialog(
+            title = stringResource(Res.string.settings_playback_libmpv_upscaler_dialog),
+            options = AndroidLibmpvScalingFilter.entries,
+            selected = settings.androidLibmpvUpscaler,
+            label = { it.label },
+            description = { it.description },
+            onSelect = {
+                PlayerSettingsRepository.setAndroidLibmpvUpscaler(it)
+                showLibmpvUpscalerDialog = false
+            },
+            onDismiss = { showLibmpvUpscalerDialog = false },
+        )
+    }
+
+    if (showLibmpvDownscalerDialog) {
+        SettingsChoiceDialog(
+            title = stringResource(Res.string.settings_playback_libmpv_downscaler_dialog),
+            options = AndroidLibmpvScalingFilter.entries,
+            selected = settings.androidLibmpvDownscaler,
+            label = { it.label },
+            description = { it.description },
+            onSelect = {
+                PlayerSettingsRepository.setAndroidLibmpvDownscaler(it)
+                showLibmpvDownscalerDialog = false
+            },
+            onDismiss = { showLibmpvDownscalerDialog = false },
+        )
+    }
+
+    if (showLibmpvChromaScalerDialog) {
+        SettingsChoiceDialog(
+            title = stringResource(Res.string.settings_playback_libmpv_chroma_scaler_dialog),
+            options = AndroidLibmpvScalingFilter.entries,
+            selected = settings.androidLibmpvChromaScaler,
+            label = { it.label },
+            description = { it.description },
+            onSelect = {
+                PlayerSettingsRepository.setAndroidLibmpvChromaScaler(it)
+                showLibmpvChromaScalerDialog = false
+            },
+            onDismiss = { showLibmpvChromaScalerDialog = false },
         )
     }
 
