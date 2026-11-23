@@ -37,6 +37,29 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
     }
 
     @Test
+    fun sdrFallbackIsNotMaskedWhenHdrDecoderIsUnsupported() {
+        assertFalse(
+            shouldMaskSdrFormatForDisplay(
+                format = sdrFormat(),
+                rendererSupportFlags = C.FORMAT_UNSUPPORTED_TYPE,
+                hasSupportedHdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun unsupportedHdrIsMaskedWhenSdrFallbackExists() {
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                format = hlgFormat(),
+                rendererSupportFlags = C.FORMAT_HANDLED,
+                supportedHdrTypes = setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+                hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
     fun sdrFallbackRemainsWhenDisplayDoesNotSupportHdrType() {
         val group = TrackGroup(hlgFormat(), sdrFormat())
         val supports = intArrayOf(C.FORMAT_HANDLED, C.FORMAT_HANDLED)
