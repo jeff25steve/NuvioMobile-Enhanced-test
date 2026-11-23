@@ -43,6 +43,19 @@ internal fun readAheadBlockSizeBytes(capacityBytes: Long, queuedBytes: Long): In
     return minOf(READ_AHEAD_BLOCK_BYTES.toLong(), capacityBytes - queuedBytes).toInt()
 }
 
+internal fun shouldReleaseReadAheadBlock(
+    consumedBytes: Int,
+    writtenBytes: Int,
+    capacityBytes: Int,
+    readerFinished: Boolean,
+): Boolean {
+    require(capacityBytes > 0)
+    require(writtenBytes in 0..capacityBytes)
+    require(consumedBytes in 0..writtenBytes)
+    return consumedBytes == writtenBytes &&
+        (writtenBytes == capacityBytes || readerFinished)
+}
+
 internal fun isProgressivePlaybackSource(
     url: String,
     responseHeaders: Map<String, String>,
@@ -554,9 +567,21 @@ private class NativeReadAheadDataSource(
                     head.block.buffer.duplicate().apply { position(head.consumed) }.get(buffer, offset, count)
                     head.consumed += count
                     current.queuedBytes -= count
-                    if (head.consumed == head.block.buffer.capacity()) {
+                    if (shouldReleaseReadAheadBlock(
+                            consumedBytes = head.consumed,
+                            writtenBytes = head.written,
+                            capacityBytes = head.block.buffer.capacity(),
+                            readerFinished = current.ended || current.readerDone,
+                        )
+                    ) {
                         current.chunks.removeFirst()
-                        current.freeBlocks.addLast(head.block)
+                        if (head.consumed == head.block.buffer.capacity()) {
+                            current.freeBlocks.addLast(head.block)
+                        } else {
+                            // A short final block can never be filled again once the reader has
+                            // reached EOF (or exited after a terminal read failure).
+                            head.block.free()
+                        }
                     }
                     current.lock.notifyAll()
                     result = count
