@@ -533,7 +533,8 @@ internal class SoftwareVideoDecoder(
 
         val timeUs = resolveSoftwareFrameTimestampUs(frameInfo[0], frameInfo[1], lastPacketTimestampUs)
         val startTimeUs = synchronized(lock) { outputStartTimeUs }
-        if (isSoftwareFrameBeforeOutputStart(timeUs, startTimeUs) || !shouldConvertSoftwareFrame(outputMode)) {
+        val currentOutputMode = outputMode
+        if (isSoftwareFrameBeforeOutputStart(timeUs, startTimeUs) || !shouldConvertSoftwareFrame(currentOutputMode)) {
             // Keep FFmpeg's reference-picture state, but avoid allocating/converting frames that
             // cannot be presented before the seek target or while no output is attached.
             nativeDiscardFrame(handle)
@@ -547,7 +548,6 @@ internal class SoftwareVideoDecoder(
         val height = frameInfo[3].toInt()
         val yStride = align(width)
         val uvStride = align((width / 2) + (width % 2))
-        val currentOutputMode = outputMode
         outputBuffer.init(timeUs, currentOutputMode, null)
         if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, softwareFrameColorSpace(frameInfo))) {
             nativeDiscardFrame(handle)
