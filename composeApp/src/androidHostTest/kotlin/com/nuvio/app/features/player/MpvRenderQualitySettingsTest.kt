@@ -86,4 +86,53 @@ class MpvRenderQualitySettingsTest {
         assertEquals(true, PlayerSettingsStorage.loadAndroidLibmpvDebandEnabled())
     }
 
+    @Test
+    fun scalingFiltersPersistAcrossReload() {
+        PlayerSettingsRepository.setAndroidLibmpvUpscaler(AndroidLibmpvScalingFilter.EwaLanczos)
+        PlayerSettingsRepository.setAndroidLibmpvDownscaler(AndroidLibmpvScalingFilter.Mitchell)
+        PlayerSettingsRepository.setAndroidLibmpvChromaScaler(AndroidLibmpvScalingFilter.Spline36)
+
+        assertEquals("EwaLanczos", PlayerSettingsStorage.loadAndroidLibmpvUpscaler())
+        assertEquals("Mitchell", PlayerSettingsStorage.loadAndroidLibmpvDownscaler())
+        assertEquals("Spline36", PlayerSettingsStorage.loadAndroidLibmpvChromaScaler())
+
+        PlayerSettingsRepository.clearLocalState()
+        PlayerSettingsRepository.ensureLoaded()
+
+        assertEquals(AndroidLibmpvScalingFilter.EwaLanczos, PlayerSettingsRepository.uiState.value.androidLibmpvUpscaler)
+        assertEquals(AndroidLibmpvScalingFilter.Mitchell, PlayerSettingsRepository.uiState.value.androidLibmpvDownscaler)
+        assertEquals(AndroidLibmpvScalingFilter.Spline36, PlayerSettingsRepository.uiState.value.androidLibmpvChromaScaler)
+    }
+
+    @Test
+    fun scalingFiltersAreIncludedInSettingsSyncPayload() {
+        PlayerSettingsRepository.setAndroidLibmpvUpscaler(AndroidLibmpvScalingFilter.Lanczos)
+        PlayerSettingsRepository.setAndroidLibmpvDownscaler(AndroidLibmpvScalingFilter.CatmullRom)
+        PlayerSettingsRepository.setAndroidLibmpvChromaScaler(AndroidLibmpvScalingFilter.Bilinear)
+        val payload = PlayerSettingsStorage.exportToSyncPayload()
+
+        PlayerSettingsStorage.saveAndroidLibmpvUpscaler(AndroidLibmpvScalingFilter.Default.name)
+        PlayerSettingsStorage.saveAndroidLibmpvDownscaler(AndroidLibmpvScalingFilter.Default.name)
+        PlayerSettingsStorage.saveAndroidLibmpvChromaScaler(AndroidLibmpvScalingFilter.Default.name)
+        PlayerSettingsStorage.replaceFromSyncPayload(payload)
+
+        assertEquals("Lanczos", PlayerSettingsStorage.loadAndroidLibmpvUpscaler())
+        assertEquals("CatmullRom", PlayerSettingsStorage.loadAndroidLibmpvDownscaler())
+        assertEquals("Bilinear", PlayerSettingsStorage.loadAndroidLibmpvChromaScaler())
+    }
+
+    @Test
+    fun unknownStoredScalingFiltersFallBackToDefault() {
+        PlayerSettingsStorage.saveAndroidLibmpvUpscaler("UnsupportedFilter")
+        PlayerSettingsStorage.saveAndroidLibmpvDownscaler("UnsupportedFilter")
+        PlayerSettingsStorage.saveAndroidLibmpvChromaScaler("UnsupportedFilter")
+
+        PlayerSettingsRepository.clearLocalState()
+        PlayerSettingsRepository.ensureLoaded()
+
+        assertEquals(AndroidLibmpvScalingFilter.Default, PlayerSettingsRepository.uiState.value.androidLibmpvUpscaler)
+        assertEquals(AndroidLibmpvScalingFilter.Default, PlayerSettingsRepository.uiState.value.androidLibmpvDownscaler)
+        assertEquals(AndroidLibmpvScalingFilter.Default, PlayerSettingsRepository.uiState.value.androidLibmpvChromaScaler)
+    }
+
 }
