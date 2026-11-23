@@ -187,6 +187,7 @@ internal fun PlayerControlsShell(
     modifier: Modifier = Modifier,
     seekPreview: SeekPreviewController? = null,
     onTimelineTouchChange: (Boolean) -> Unit = {},
+    onTimelineScrubbingChange: (Boolean) -> Unit = {},
     foldLayout: Boolean = false,
     gestureController: PlayerGestureController? = null,
     onWake: () -> Unit = {},
@@ -486,6 +487,7 @@ internal fun PlayerControlsShell(
                         },
                         seekPreview = seekPreview,
                         onTouchChange = onTimelineTouchChange,
+                        onScrubbingChange = onTimelineScrubbingChange,
                         chapters = chapters,
                     )
                     PlayerControlActions(
@@ -1033,6 +1035,7 @@ private fun ProgressControls(
             onScrubFinished = onScrubFinished,
             seekPreview = seekPreview,
             onTouchChange = onTimelineTouchChange,
+            onScrubbingChange = onTimelineScrubbingChange,
             showTimeRow = false,
             modifier = Modifier.offset(y = (-13).dp).padding(bottom = 8.dp),
         )
@@ -1257,6 +1260,7 @@ internal fun PlayerSeekBar(
     seekPreview: SeekPreviewController? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onTouchChange: (Boolean) -> Unit = {},
+    onScrubbingChange: (Boolean) -> Unit = {},
     /** The legacy layout draws the time pills beside its action pill instead. */
     showTimeRow: Boolean = true,
 ) {
@@ -1270,6 +1274,10 @@ internal fun PlayerSeekBar(
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
     ReportTimelineTouch(durationMs > 0L && (isPressed || isDragged), onTouchChange)
+    ReportTimelineScrubbing(
+        scrubbing = shouldEnablePlayerScrubbing(isDragged, durationMs > 0L, durationMs),
+        onScrubbingChange = onScrubbingChange,
+    )
     Column(modifier = modifier) {
         Box {
             Box(
