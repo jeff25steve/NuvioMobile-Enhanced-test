@@ -6,10 +6,15 @@ import androidx.media3.common.ColorInfo
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
     @Test
     fun supportedPqAlternativeIsRecognizedOnHdr10Display() {
