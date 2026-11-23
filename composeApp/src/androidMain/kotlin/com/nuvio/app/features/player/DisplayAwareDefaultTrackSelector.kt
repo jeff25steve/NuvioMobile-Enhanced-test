@@ -63,7 +63,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
         params: DefaultTrackSelector.Parameters,
     ) {
         val displayHdrTypes = supportedHdrTypes
-        if (displayHdrTypes == null) {
+        if (!shouldApplyDisplayHdrFiltering(displayHdrTypes, params.forceLowestBitrate)) {
             super.selectAllTracks(
                 definitions,
                 mappedTrackInfo,
@@ -210,3 +210,9 @@ private fun isDolbyVisionFormat(format: Format): Boolean {
                 codec.startsWith("dav1.")
         }
 }
+
+
+internal fun shouldApplyDisplayHdrFiltering(
+    supportedHdrTypes: Set<Int>?,
+    forceLowestBitrate: Boolean,
+): Boolean = supportedHdrTypes != null && !forceLowestBitrate

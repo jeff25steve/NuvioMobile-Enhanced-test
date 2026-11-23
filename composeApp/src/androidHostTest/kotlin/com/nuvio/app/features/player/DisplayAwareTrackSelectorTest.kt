@@ -23,6 +23,17 @@ class DisplayAwareTrackSelectorTest {
     )
 
     @Test
+    fun forceLowestBitrateBypassesDisplayHdrFiltering() {
+        assertFalse(shouldApplyDisplayHdrFiltering(emptySet(), forceLowestBitrate = true))
+    }
+
+    @Test
+    fun displayHdrFilteringRequiresKnownCapabilities() {
+        assertFalse(shouldApplyDisplayHdrFiltering(null, forceLowestBitrate = false))
+        assertTrue(shouldApplyDisplayHdrFiltering(emptySet(), forceLowestBitrate = false))
+    }
+
+    @Test
     fun masksPqWhenDisplayCannotPresentHdr10AndSdrFallbackExists() {
         assertTrue(
             shouldMaskHdrFormatForDisplay(
