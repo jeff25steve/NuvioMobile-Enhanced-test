@@ -2,8 +2,8 @@ package com.nuvio.app.features.player
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
-import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.math.abs
 import kotlin.test.assertTrue
 
 class PlayerTimelineScrubbingTest {
@@ -18,8 +18,8 @@ class PlayerTimelineScrubbingTest {
 
     @Test
     fun fractionalSeekToleranceTracksTouchWidthAndDensity() {
-        assertEquals(0.005, fractionalSeekToleranceForTrack(widthPx = 400, density = 1f)!!)
-        assertEquals(0.005, fractionalSeekToleranceForTrack(widthPx = 1_200, density = 3f)!!)
+        assertTrue(abs(fractionalSeekToleranceForTrack(widthPx = 400, density = 1f)!! - 0.005) < 0.000001)
+        assertTrue(abs(fractionalSeekToleranceForTrack(widthPx = 1_200, density = 3f)!! - 0.005) < 0.000001)
         assertNull(fractionalSeekToleranceForTrack(widthPx = 0, density = 1f))
         assertNull(fractionalSeekToleranceForTrack(widthPx = 400, density = 0f))
     }
