@@ -1578,6 +1578,7 @@ private fun ExoPlayerSurface(
                 "release positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} durationMs=${exoPlayer.duration.coerceAtLeast(0L)}",
             )
             playerViewRef?.releaseLibassOverlay()
+            exoPlayer.setScrubbingModeEnabled(false)
             exoPlayer.release()
         }
     }
@@ -1634,6 +1635,10 @@ private fun ExoPlayerSurface(
                         "control seekTo fromMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} targetMs=$targetMs",
                     )
                     exoPlayer.seekTo(targetMs)
+                }
+
+                override fun setScrubbingMode(enabled: Boolean) {
+                    exoPlayer.setScrubbingModeEnabled(enabled)
                 }
 
                 override fun seekBy(offsetMs: Long) {
