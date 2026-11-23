@@ -329,6 +329,23 @@ class DisplayAwareTrackSelectorTest {
     }
 
     @Test
+    fun explicitSdrTransferIsRecognizedForWideGamutTenBitContent() {
+        val colorInfo = ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setColorTransfer(C.COLOR_TRANSFER_SDR)
+            .setLumaBitdepth(10)
+            .setChromaBitdepth(10)
+            .build()
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(colorInfo)
+            .build()
+
+        assertTrue(isSupportedSdrFallback(format, primaryDecoderSupport))
+    }
+
+    @Test
     fun explicitGamma22TransferIsRecognizedAsSdrFallback() {
         val format = videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_GAMMA_2_2)
         assertTrue(isSupportedSdrFallback(format, primaryDecoderSupport))
