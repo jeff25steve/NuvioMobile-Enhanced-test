@@ -28,7 +28,14 @@ internal fun <T> trimSeekPreviewCache(
     while ((cache.size > entryLimit || retainedBytes > byteLimit) && iterator.hasNext()) {
         val removedBytes = sizeInBytes(iterator.next().value).coerceAtLeast(0L)
         iterator.remove()
-        retainedBytes = (retainedBytes - removedBytes).coerceAtLeast(0L)
+        retainedBytes = if (retainedBytes == Long.MAX_VALUE) {
+            cache.values.fold(0L) { total, value ->
+                val size = sizeInBytes(value).coerceAtLeast(0L)
+                if (Long.MAX_VALUE - total < size) Long.MAX_VALUE else total + size
+            }
+        } else {
+            (retainedBytes - removedBytes).coerceAtLeast(0L)
+        }
     }
     return retainedBytes
 }

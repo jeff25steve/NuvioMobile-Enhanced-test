@@ -37,12 +37,12 @@
 - Consumes: `bucketFor(positionMs, durationMs)` and `nearestCached(bucket)`.
 - Produces: 1,000–2,000 ms bucket selection and distance-bounded cached fallback.
 
-- [ ] Add regression tests for long-title bucket duration, rounding, and maximum cached-frame distance.
-- [ ] Verify the tests fail before implementation when test execution is authorized.
-- [ ] Clamp `MaxBucketMs` to 2,000 ms and expose `seekPreviewBucketDurationMs` for deterministic tests.
-- [ ] Make `nearestCached` return only frames within 2,000 ms.
-- [ ] Clear an unrelated old preview while a distant requested frame is decoding; do not publish a completed stale frame as the current preview.
-- [ ] Run the targeted and full relevant host-test suite when authorized.
+- [x] Add regression tests for long-title bucket duration, rounding, and maximum cached-frame distance.
+- [ ] Verify the tests fail before implementation when test execution is authorized (not run; Gradle test execution remains unauthorized).
+- [x] Clamp `MaxBucketMs` to 2,000 ms and expose `seekPreviewBucketDurationMs` for deterministic tests.
+- [x] Make `nearestCached` return only frames within 2,000 ms.
+- [x] Clear an unrelated old preview while a distant requested frame is decoding; do not publish a completed stale frame as the current preview.
+- [ ] Run the targeted and full relevant host-test suite when authorized (not run; no build/test authorization).
 
 ### Task 2: Bound bitmap cache retention
 
@@ -55,11 +55,11 @@
 - Produces: `trimSeekPreviewCache(cache, maxEntries, maxBytes, sizeInBytes)` and `isSeekPreviewFrameWithinDistance(candidatePositionMs, requestedPositionMs, maxDistanceMs)`.
 - Both existing caches use a 100-entry ceiling and 24 MiB estimated RGBA budget.
 
-- [ ] Add tests for byte-budget eviction, entry-count eviction, oversized frames, invalid sizes, and Long-range timestamp distance.
-- [ ] Verify the tests fail before implementation when test execution is authorized.
-- [ ] Implement a pure Kotlin insertion-order trimming helper with saturating byte accumulation.
-- [ ] Apply it to both native-feed and decoded-frame caches using width × height × 4.
-- [ ] Run the targeted and full relevant host-test suite when authorized.
+- [x] Add tests for byte-budget eviction, entry-count eviction, oversized frames, invalid sizes, saturated byte totals, and Long-range timestamp distance.
+- [ ] Verify the tests fail before implementation when test execution is authorized (not run; Gradle test execution remains unauthorized).
+- [x] Implement a pure Kotlin insertion-order trimming helper with saturating byte accumulation.
+- [x] Apply it to both native-feed and decoded-frame caches using width × height × 4.
+- [ ] Run the targeted and full relevant host-test suite when authorized (not run; no build/test authorization).
 
 ### Task 3: Update the existing engineering record
 
@@ -67,6 +67,6 @@
 - Modify: `docs/engineering/codebase-improvement-notes.md`
 - Create: this plan and the linked design spec.
 
-- [ ] Record the concrete changes, source evidence, trade-offs, and exact verification boundary.
-- [ ] Review the complete remote diff and verify the updated branch ref.
+- [x] Record the concrete changes, source evidence, trade-offs, and exact verification boundary.
+- [x] Review the complete remote diff and verify the updated branch ref.
 - [ ] Do not start builds, tests, CI, benchmarks, or device playback without authorization.

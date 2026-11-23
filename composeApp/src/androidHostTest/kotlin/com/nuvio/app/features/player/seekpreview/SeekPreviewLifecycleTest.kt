@@ -125,6 +125,12 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
+    fun bucketRoundingClampsNegativeAndLongMaximumPositionsSafely() {
+        assertEquals(0L, bucketFor(-1L, 60_000L))
+        assertEquals(Long.MAX_VALUE, bucketFor(Long.MAX_VALUE, Long.MAX_VALUE))
+    }
+
+    @Test
     fun cachedFallbackFramesAreRejectedWhenTooFarFromTheRequestedPosition() {
         assertTrue(isSeekPreviewFrameWithinDistance(8_000L, 10_000L, 2_000L))
         assertFalse(isSeekPreviewFrameWithinDistance(7_999L, 10_000L, 2_000L))

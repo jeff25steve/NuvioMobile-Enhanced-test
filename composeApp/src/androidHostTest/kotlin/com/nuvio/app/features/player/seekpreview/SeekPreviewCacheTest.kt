@@ -67,6 +67,21 @@ class SeekPreviewCacheTest {
     }
 
     @Test
+    fun cacheRecomputesRemainingBytesAfterSaturatedInitialTotal() {
+        val cache = linkedMapOf(1L to Long.MAX_VALUE, 2L to 1L)
+
+        val retained = trimSeekPreviewCache(
+            cache = cache,
+            maxEntries = 100,
+            maxBytes = 100L,
+            sizeInBytes = { it },
+        )
+
+        assertEquals(listOf(2L), cache.keys.toList())
+        assertEquals(1L, retained)
+    }
+
+    @Test
     fun previewDistanceRejectsDistantAndInvalidFrames() {
         assertTrue(isSeekPreviewFrameWithinDistance(2_000L, 3_000L, 1_000L))
         assertFalse(isSeekPreviewFrameWithinDistance(1_000L, 3_001L, 2_000L))
