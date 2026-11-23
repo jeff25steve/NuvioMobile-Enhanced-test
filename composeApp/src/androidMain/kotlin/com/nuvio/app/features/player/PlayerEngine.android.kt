@@ -2337,11 +2337,11 @@ private fun ExoPlayerSurface(
                     playerViewRef = this
                     updateAlwaysFrameRateController(this)
                     sidecarController.bindSubtitleView(this.subtitleView)
-                    addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+                    subtitleView?.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
                         val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
                             context.findActivity()?.isInPictureInPictureMode == true
-                        // Capture the actual player viewport, not the resized subtitle child.
-                        // In ZOOM mode the subtitle child can be larger than the visible viewport.
+                        // SubtitleView shares the AspectRatioFrameLayout coordinate space with the video surface.
+                        // Keep the PiP reference in that same space, including intentional ZOOM expansion.
                         val size = IntSize(
                             view.width - view.paddingLeft - view.paddingRight,
                             view.height - view.paddingTop - view.paddingBottom,
