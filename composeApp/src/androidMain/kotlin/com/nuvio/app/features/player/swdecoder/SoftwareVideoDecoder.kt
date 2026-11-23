@@ -32,6 +32,9 @@ internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
     outputBuffer.decoderPrivate.toInt()
 
 /** Returns the byte capacity required by a tightly described I420 frame, or null for invalid layouts. */
+internal fun supportsYv12SurfaceSize(width: Int, height: Int): Boolean =
+    width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0
+
 internal fun requiredSoftwareYuv420BufferSize(width: Int, height: Int, yStride: Int, uvStride: Int): Long? {
     if (width <= 0 || height <= 0 || yStride < width || uvStride < (width / 2) + (width % 2)) return null
     val yBytes = yStride.toLong() * height.toLong()
@@ -155,6 +158,9 @@ internal class SoftwareVideoDecoder(
         val data = outputBuffer.data
         if (outputBuffer.mode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV || data == null) {
             throw SoftwareVideoDecoderException("Invalid output buffer")
+        }
+        if (!supportsYv12SurfaceSize(outputBuffer.width, outputBuffer.height)) {
+            throw SoftwareVideoDecoderException("YV12 surface output requires positive even frame dimensions")
         }
         val requiredBytes = requiredSoftwareYuv420BufferSize(
             outputBuffer.width,
