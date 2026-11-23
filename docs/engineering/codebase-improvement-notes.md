@@ -1289,3 +1289,43 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - This is defensive correctness and native-memory safety work at the software-decoder output boundary. It is not a measured frame-rate, startup or playback-smoothness improvement.
 - No Kotlin tests, Gradle tasks, CMake/NDK build, compilation, CI, APK, device playback, HDR validation, Macrobenchmark or Perfetto capture was run. Static source review and GitHub re-fetch only.
 - The separate FFmpeg send/receive queue issue remains open: FFmpeg 8.0 requires receiving available frames until EAGAIN before retrying a packet and supports zero or multiple output frames per input packet. The current SimpleDecoder wrapper still cannot intercept its EOS input to drain delayed B-frames. A correct fix requires a deliberate decoder/renderer queue redesign; these buffer guards do not claim to solve it.
+
+### Software decoder queue, multi-frame delivery and EOS drain (Cycles 192–198, 23 November 2026)
+
+**Cycle 192 — replace the one-input/one-output SimpleDecoder wrapper with a bounded asynchronous Decoder**
+- Replaced SimpleDecoder inheritance with the Media3 Decoder interface and a dedicated worker thread. This is necessary because SimpleDecoder consumes EOS before invoking the subclass decode method, preventing FFmpeg drain signaling.
+- Preserved the renderer's callback/executor contract and input/output buffer ownership. Six direct input buffers and six reusable output buffers bound queue memory and apply backpressure when the renderer is holding frames.
+- Input buffers now grow on demand instead of preallocating the previous default 768 KiB for every slot. Media3's DecoderInputBuffer still reserves FFmpeg's 64-byte packet padding.
+
+**Cycle 193 — retain packets across EAGAIN and drain every available frame**
+- Native packet submission now returns a distinct EAGAIN status instead of internally receiving one frame and retrying once. The Kotlin worker retains the exact input buffer until FFmpeg accepts that packet.
+- After an accepted packet, the worker repeatedly receives and publishes frames until FFmpeg returns EAGAIN. It does not submit the next packet while output remains available in FFmpeg, and it pauses receiving when the bounded output pool is exhausted.
+- A decoded AVFrame remains owned by the native decoder until conversion or explicit discard completes. New JNI discard support consumes seek-preroll frames without converting them.
+
+**Cycle 194 — send an explicit FFmpeg end-of-stream packet and drain delayed frames**
+- EOS input is now handled by the custom Decoder rather than SimpleDecoder. The worker sends a null AVPacket, retries it only after receiving pending output when send returns EAGAIN, then receives until AVERROR_EOF.
+- The Media3 EOS output buffer is queued only after FFmpeg reports EOF, so delayed B-frames and other buffered frames are delivered before the renderer sees end-of-stream. The same path is used when DecoderVideoRenderer signals EOS before a format-driven decoder replacement.
+
+**Cycle 195 — serialize flush, seek and release against native decode work**
+- Decoder flush is a synchronous worker barrier. It returns queued/dequeued input ownership, releases queued outputs, waits for any in-flight native operation, releases a pending packet, calls avcodec_flush_buffers(), resets queue/drain state and only then returns to the renderer.
+- The decoder preserves the Media3 setOutputStartTimeUs contract: the start timestamp can be changed before the first queued input or after a completed flush, not merely when the input pool happens to become empty.
+- Native release is serialized on the worker after it exits. Callback dispatch is suppressed while flushing or after release, and the renderer clears its reference after releasing the decoder.
+
+**Cycle 196 — avoid YUV conversion when a frame cannot be presented**
+- Frames earlier than Media3's output start timestamp are discarded before swscale conversion, while FFmpeg still processes reference pictures to preserve subsequent decode correctness.
+- DecoderVideoRenderer intentionally leaves its underlying decoder output mode unchanged when output is removed. SoftwareVideoRenderer now observes MSG_SET_VIDEO_OUTPUT and sets the software decoder mode to NONE when the payload is cleared or unsupported. Frames decoded during that interval are discarded without allocating/converting I420 output; conversion resumes when a valid Surface or VideoDecoderOutputBufferRenderer is attached.
+- Output mode is snapshotted once per frame to avoid inconsistent mode checks during a surface transition.
+
+**Cycle 197 — reconcile input samples with decoded frames at drain completion**
+- The custom decoder tracks total queued input samples and produced frames. At FFmpeg EOF, any remaining input samples that produced no frame are reported through skippedOutputBufferCount on the EOS output, keeping DecoderVideoRenderer's in-flight buffer accounting aligned for format transitions and stream end.
+- Skipped-output counts now saturate at Int.MAX_VALUE instead of overflowing. Regression tests cover packets retained over EAGAIN, multiple frames per packet, output-pool backpressure, EOS retry/drain, flush reset, no-output/seek skipping, sample reconciliation and counter saturation.
+
+**Cycle 198 — release the renderer's last decoder reference**
+- SoftwareVideoRenderer now clears its decoder field in a finally block after the base renderer releases the decoder. This prevents the renderer from retaining the released decoder's buffer pools and stale output-mode state across format changes or disable/re-enable cycles.
+
+### Evidence and validation boundary
+- Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
+- Exa independently retrieved FFmpeg 8.0's official send/receive API documentation. It confirms that a send-side EAGAIN requires receiving output before retrying the same packet; receive must be repeated until EAGAIN; a packet may produce zero or multiple frames; and EOS requires a null packet followed by receive calls through AVERROR_EOF. The AndroidX renderer source confirms that its callback executor wakes the playback thread and that it queues EOS during decoder replacement.
+- The changes address correctness and avoid unnecessary software YUV conversion when seeking or when no output is attached. No frame-rate, startup-time or smoothness improvement is claimed without device measurements.
+- Added host regression tests but did not execute them. No Gradle task, Kotlin compilation, CMake/NDK build, CI, APK, device playback, HDR validation or benchmark was run, as requested.
+- The output-count reconciliation is aggregate: it accounts for input samples that produce no frame once draining completes. Media3's renderer itself tracks buffers per input sample, so codec-specific cases where a single compressed sample expands into multiple independent video frames remain a renderer-contract edge case to validate with real media before claiming universal coverage.
