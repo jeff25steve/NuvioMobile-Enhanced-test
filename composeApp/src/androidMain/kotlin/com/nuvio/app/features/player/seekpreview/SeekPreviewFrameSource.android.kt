@@ -159,7 +159,9 @@ private class NativeSeekPreviewFeed(
                 }
             }
         }.onFailure { error ->
-            main.post { onThumbnail(-1L, null, error.toString()) }
+            main.post {
+                if (!closed.get()) onThumbnail(-1L, null, error.toString())
+            }
         }.getOrNull()?.also { handle = it }
     }
 }
