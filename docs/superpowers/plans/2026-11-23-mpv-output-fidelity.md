@@ -1,6 +1,6 @@
 # libmpv source and post-filter video fidelity Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Correct mpv bit-depth metadata and distinguish source, post-filter and estimated-output video details in Playback Info.
 
@@ -38,10 +38,10 @@
 - Keep `mpvBitDepth(pixelFormat: String): Int?`.
 - Add `mpvPlaybackEstimatedFps(value: Double?): Double?`, returning only finite positive values.
 
-- [ ] Add common tests for 8/9/10/12/14/16-bit formats, P010/P016, RGB48/RGBA64, and unknown hardware formats.
-- [ ] Add estimated-FPS tests for positive finite, null, zero, negative, NaN and infinity.
-- [ ] Implement explicit suffix/alias recognition; return null for unsupported formats.
-- [ ] Do not run Gradle tests without authorization.
+- [x] Add common tests for 8/9/10/12/14/16-bit formats, P010/P016, RGB48/RGBA64, and unknown hardware formats.
+- [x] Add estimated-FPS tests for positive finite, null, zero, negative, NaN and infinity.
+- [x] Implement explicit suffix/alias recognition; return null for unsupported formats.
+- [x] Do not run Gradle tests without authorization.
 
 ### Task 2: Separate source and post-filter metadata
 
@@ -55,9 +55,9 @@
 - Keep `pixelFormat` as the existing post-filter pixel format for compatibility.
 - Use `video-params/pixelformat` for source and `video-out-params/pixelformat` / `video-out-params/colorlevels` for post-filter metadata.
 
-- [ ] Emit the source pixel format and post-filter bit depth/color range.
-- [ ] Label the UI rows as Source Pixel Format, Source Bit Depth, Source Color Range, Post-filter Pixel Format, Post-filter Bit Depth and Post-filter Color Range.
-- [ ] Keep unknown values omitted and leave ExoPlayer's existing fields/labels unchanged.
+- [x] Emit the source pixel format and post-filter bit depth/color range.
+- [x] Label the UI rows as Source Pixel Format, Source Bit Depth, Source Color Range, Post-filter Pixel Format, Post-filter Bit Depth and Post-filter Color Range.
+- [x] Keep unknown values omitted and leave ExoPlayer's existing fields/labels unchanged.
 
 ### Task 3: Clarify frame-rate diagnostics and update notes
 
@@ -70,12 +70,19 @@
 - Add JSON field `estimatedOutputFps` from mpv `estimated-vf-fps`, normalized by `mpvPlaybackEstimatedFps`.
 - Preserve `fps` as the existing container FPS for libmpv and selected-format FPS for ExoPlayer.
 
-- [ ] Emit estimated output FPS only when finite and positive.
-- [ ] Label libmpv's existing value Container FPS and add Estimated Output FPS when available; keep ExoPlayer's Frame Rate label.
-- [ ] Append one new section to the active engineering notes with source evidence and the verification boundary; do not duplicate the previous HDR/format-fidelity record.
-- [ ] Re-fetch every changed file and the branch head for static review.
-- [ ] Do not run Gradle tests, compilation, builds, CI, benchmarks or device playback without authorization.
+- [x] Emit estimated output FPS only when finite and positive.
+- [x] Label libmpv's existing value Container FPS and add Estimated Output FPS when available; keep ExoPlayer's Frame Rate label.
+- [x] Append one new section to the active engineering notes with source evidence and the verification boundary; do not duplicate the previous HDR/format-fidelity record.
+- [x] Re-fetch every changed file and the branch head for static review.
+- [x] Do not run Gradle tests, compilation, builds, CI, benchmarks or device playback without authorization.
 
 ## Verification boundary
 
 Regression test sources are required, but remain unexecuted until Gradle execution is authorized. Report source review separately from runtime verification.
+
+
+## Execution record
+
+- Production and regression-test sources were updated and re-fetched from the target branch for static review.
+- The common and Android host regression tests were authored but not executed. No Gradle task, compilation, build, CI, benchmark or device playback was started, in accordance with the authorization boundary.
+- Runtime correctness and visual behavior remain unverified pending explicit test/build/device authorization.
