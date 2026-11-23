@@ -169,6 +169,7 @@ private class ExoSeekPreviewFrameSource(
     private val url: String,
     private val headers: Map<String, String>,
 ) : SeekPreviewFrameSource {
+    @Volatile
     private var grabber: ExoFrameGrabber? = null
 
     override fun frameAt(positionMs: Long, maxWidthPx: Int): ImageBitmap? {
@@ -195,11 +196,14 @@ private class ExoSeekPreviewFrameSource(
 
     private fun openAndAwait(targetHeight: Int, mimeType: String?, startPositionMs: Long): ExoFrameGrabber {
         val created = onMainThread {
-            ExoFrameGrabber(context, url, headers, targetHeight, mimeType, startPositionMs)
+            ExoFrameGrabber(context, url, headers, targetHeight, mimeType, startPositionMs).also {
+                grabber = it
+            }
         }
         try {
             created.awaitFirstFrame()
         } catch (error: Throwable) {
+            if (grabber === created) grabber = null
             runCatching { onMainThread { created.release() } }
             throw error
         }
@@ -233,6 +237,7 @@ private class ExoFrameGrabber(
     @Volatile
     private var lastFrame: Bitmap? = null
     private val firstFrame = CompletableFuture<Bitmap>()
+    private val released = AtomicBoolean(false)
     private val player: ExoPlayer
 
     init {
@@ -297,6 +302,7 @@ private class ExoFrameGrabber(
     }
 
     fun release() {
+        if (!released.compareAndSet(false, true)) return
         cancelPendingFrame()
         player.release()
     }
