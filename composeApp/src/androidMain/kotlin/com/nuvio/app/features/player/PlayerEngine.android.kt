@@ -1083,10 +1083,10 @@ private fun ExoPlayerSurface(
     val pendingAudioTrackSelection = remember(playerSourceKey) { mutableListOf<TrackSelectionSnapshot>() }
     var subtitleSelectionJob by remember { mutableStateOf<Job?>(null) }
     val isInPip = rememberIsInPictureInPicture()
-    // Player size outside PiP, so PiP subtitles keep the full-screen size relative to the video.
-    var playerSizeOutsidePip by remember { mutableStateOf(IntSize.Zero) }
+    // SubtitleView content-frame size outside PiP, sharing coordinates with the video surface.
+    var subtitleViewSizeOutsidePip by remember { mutableStateOf(IntSize.Zero) }
     val pipVideoHeightPx by rememberUpdatedState(
-        if (isInPip) displayedVideoHeightPx(playerSizeOutsidePip, exoPlayer.videoSize, resizeMode) ?: 0f else null,
+        if (isInPip) displayedVideoHeightPx(subtitleViewSizeOutsidePip, exoPlayer.videoSize, resizeMode) ?: 0f else null,
     )
 
     val sidecarController = remember(exoPlayer, coroutineScope) {
@@ -2346,7 +2346,7 @@ private fun ExoPlayerSurface(
                             view.width - view.paddingLeft - view.paddingRight,
                             view.height - view.paddingTop - view.paddingBottom,
                         )
-                        if (!inPip && size.width > 0 && size.height > 0) playerSizeOutsidePip = size
+                        if (!inPip && size.width > 0 && size.height > 0) subtitleViewSizeOutsidePip = size
                     }
                     syncLibassOverlay(
                         player = exoPlayer,
