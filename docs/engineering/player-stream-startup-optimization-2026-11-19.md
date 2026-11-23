@@ -327,3 +327,10 @@ Four additional source-level corrections were integrated:
 - Failed native block creation now cleans up acquired SharedMemory mappings/descriptors and file-backed fallback resources, preserving the allocation error and retaining cleanup failures as suppressed exceptions.
 
 Host regression tests were added for these cases but were not run. Context7 checked the exact Media3 1.11.1 dependency and DataSource lifecycle; Exa checked the Android SharedMemory API and RFC 9110 §5.1. No Gradle tasks, compilation, builds, CI, device playback, fault injection or performance benchmarks were run. These are resource-lifecycle and source-classification correctness improvements; no measurable playback-speed improvement is claimed.
+
+
+## Complete shared-memory allocation and release cleanup (Cycle 174, 23 November 2026)
+
+The SharedMemory-backed read-ahead allocator now attempts descriptor close even if unmapping fails, during both allocation rollback and normal block release. If both cleanup operations fail, the descriptor-close exception is propagated with the unmap exception preserved as suppressed. The file-backed fallback also attempts temporary-file deletion when closing its file handle fails.
+
+Host regression coverage was added for the two-failure path and descriptor closure after unmap failure; it was not run. Android's SharedMemory API documentation confirms that `close()` and `unmap()` are distinct operations: closing the descriptor alone does not release existing mappings. No Gradle task, Kotlin compilation, build, CI, device playback or memory benchmark was run.
