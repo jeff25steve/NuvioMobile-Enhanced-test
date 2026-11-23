@@ -66,14 +66,28 @@ internal fun ExoPlayer.Builder.buildWithAssSupportCompat(
 
 internal fun ExoPlayer.getAssHandlerCompat(): AssHandler? = assHandlersByPlayer[this]
 
-internal fun AssHandler.applyAssFontScaleCompat(scale: Float) {
-    val clamped = scale.coerceIn(0.25f, 3.0f)
-    assFontScaleByHandler[this] = clamped
-    renderCallback = { assRender ->
-        val desired = assFontScaleByHandler[this] ?: 1.0f
-        assRender?.setFontScale(desired)
+internal fun AssHandler.applyAssFontScaleCompat(scale: Float): Boolean {
+    val clamped = if (scale.isFinite()) scale.coerceIn(0.25f, 3.0f) else 1.0f
+    val changed = synchronized(assFontScaleByHandler) {
+        val previous = assFontScaleByHandler[this]
+        if (previous == clamped) {
+            false
+        } else {
+            assFontScaleByHandler[this] = clamped
+            if (previous == null) {
+                // Preserve the selected scale when libass creates its renderer lazily.
+                renderCallback = { assRender ->
+                    val desired = synchronized(assFontScaleByHandler) {
+                        assFontScaleByHandler[this] ?: 1.0f
+                    }
+                    assRender?.setFontScale(desired)
+                }
+            }
+            true
+        }
     }
-    render?.setFontScale(clamped)
+    if (changed) render?.setFontScale(clamped)
+    return changed
 }
 
 /**

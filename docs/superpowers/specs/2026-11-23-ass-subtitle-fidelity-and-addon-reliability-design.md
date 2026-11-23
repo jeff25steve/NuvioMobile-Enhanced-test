@@ -17,9 +17,14 @@ Make authored ASS/SSA subtitles resize correctly without losing their original s
 6. Addon subtitle state changes invalidate Compose independently of playback polling.
 7. Only `NetworkCondition.NoInternet` blocks addon fetching; Nuvio backend unavailability does not.
 8. Preferred-language subtitle selection remains pending until addon loading completes.
+9. Android subtitle font size is 12–60sp; iOS remains 6–40sp. Android libmpv maps 60sp to 183 native units so the engine does not clamp the UI maximum.
+10. ExoPlayer libass scale updates are idempotent: unchanged scales do not increment renderer generation or invalidate the overlay again; non-finite scale inputs fall back to 1.0.
+11. iOS device-loss recovery stores and reapplies both `customizeAss` and `assScale`.
+12. In mpv `sub-ass-override=force`, use the generic `sub-bold` option; do not rely on `sub-ass-style-overrides`, which mpv does not apply in force mode.
 
 ## Compatibility and constraints
 - No dependency upgrades or new dependencies.
 - Existing saved subtitle appearance JSON remains compatible because the new boolean defaults to false.
 - Keep iOS five-argument `SubtitleAppearance` construction source-compatible with an explicit secondary constructor.
 - No builds, Gradle tests, CI, benchmarks or device playback without authorization.
+- Preserve the existing ExoPlayer PiP fractional subtitle sizing already integrated; do not duplicate it.

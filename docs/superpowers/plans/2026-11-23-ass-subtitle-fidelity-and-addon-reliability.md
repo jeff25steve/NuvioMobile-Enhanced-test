@@ -49,5 +49,21 @@
 - [x] Update the single canonical engineering notes page and this spec/plan.
 - [ ] Perform Android/iOS playback visual checks after authorization.
 
+### Task 4: Android tablet subtitle readability
+**Files:** SubtitleAudioModels.kt, PlayerEngine.android.kt, SubtitleAppearanceTest.kt, PlayerLibassCompatTest.kt.
+- [x] Extend Android font-size range to 12–60sp while preserving iOS 6–40sp.
+- [x] Raise Android libmpv font-size ceiling to 183 so 60sp is not clamped.
+- [x] Add common range and Android mapping regression test sources.
+- [ ] Execute common and Android host tests after authorization.
+
+### Task 5: Renderer efficiency and cross-platform recovery
+**Files:** PlayerLibassCompat.kt, PlayerEngine.android.kt, MPVPlayerBridge.swift, PlayerLibassCompatTest.kt.
+- [x] Make libass font-scale updates idempotent and skip redundant overlay invalidation.
+- [x] Persist and restore ASS customization/scale through iOS mpv device-loss recovery.
+- [x] Remove `sub-ass-style-overrides` commands that mpv ignores in `force` mode; retain the already-applied generic `sub-bold` override.
+- [x] Add idempotence and non-finite-scale regression test sources.
+- [ ] Compile Android/iOS and execute host tests after authorization.
+
 ## Verification record
 Test files were added but not executed. No Gradle command, build, CI, benchmark or device playback was run.
+`PlayerLibassCompatTest`, `SubtitleAppearanceTest` and the iOS Swift source were updated and reviewed remotely. Tests, compilation, builds, CI, benchmarks and device playback were not run. The code is not build-verified.

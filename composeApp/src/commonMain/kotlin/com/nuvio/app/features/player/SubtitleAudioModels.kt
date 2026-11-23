@@ -86,8 +86,11 @@ internal fun audioAmplificationGain(db: Int): Double =
 internal const val SUBTITLE_OUTLINE_WIDTH_DEFAULT = 2
 internal val subtitleOutlineWidthRange: IntRange = 1..5
 
+internal fun subtitleFontSizeRangeSpForPlatform(isIos: Boolean): IntRange =
+    if (isIos) 6..40 else 12..60
+
 internal val subtitleFontSizeRangeSp: IntRange
-    get() = if (isIos) 6..40 else 12..40
+    get() = subtitleFontSizeRangeSpForPlatform(isIos)
 
 data class SubtitleStyleState(
     val textColor: Color = Color.White,

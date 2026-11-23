@@ -2186,7 +2186,6 @@ private fun ExoPlayerSurface(
                         "apply subtitle style font=${style.fontSizeSp} bold=${style.bold} outline=${style.outlineEnabled}:${style.outlineWidth} bottom=${style.bottomOffset}",
                     )
                     currentSubtitleStyle = style
-                    exoPlayer.getAssHandlerCompat()?.applyAssFontScaleCompat(style.assScale.toFloat())
                     playerViewRef?.subtitleView?.setCues(subtitlePresenter.refresh())
                     playerViewRef?.applySubtitleStyle(style, pipVideoHeightPx)
                 }
@@ -2873,7 +2872,6 @@ private class NuvioLibmpvView(
     private var styledSubtitleVisible = false
     private var appliedAssOverride: String? = null
     private var appliedAssScale = 1.0
-    private var appliedAssBold: Boolean? = null
     private var appliedSubPos: Int? = null
 
     fun updateStyledSubtitle() {
@@ -2894,15 +2892,6 @@ private class NuvioLibmpvView(
             if (appliedSubPos != subPos) {
                 mpv.setPropertyInt("sub-pos", subPos)
                 appliedSubPos = subPos
-            }
-            val assBold = style.bold.takeIf { assOverride == "force" }
-            if (appliedAssBold != assBold) {
-                if (assBold == null) {
-                    mpv.command("change-list", "sub-ass-style-overrides", "clr", "")
-                } else {
-                    mpv.command("change-list", "sub-ass-style-overrides", "set", if (assBold) "Bold=1" else "Bold=0")
-                }
-                appliedAssBold = assBold
             }
             val styled = style.usesStyledOverlay && SubtitleRendering.supportsTextOverlay(codec)
             if (styled != styledSubtitleVisible) {
@@ -3880,7 +3869,7 @@ private fun androidx.compose.ui.graphics.Color.toMpvColor(): String {
 private fun androidx.compose.ui.graphics.Color.alphaByte(): Int =
     (toArgb() ushr 24) and 0xff
 
-private fun SubtitleStyleState.toMpvSubtitleFontSize(): Int =
+internal fun SubtitleStyleState.toMpvSubtitleFontSize(): Int =
     (fontSizeSp * MPV_SUBTITLE_FONT_SIZE_SCALE).toInt().coerceIn(
         MPV_SUBTITLE_FONT_SIZE_MIN,
         MPV_SUBTITLE_FONT_SIZE_MAX,
@@ -3900,7 +3889,7 @@ private fun SubtitleStyleState.toMpvSubtitleBorderStyle(): String =
 
 private const val MPV_SUBTITLE_FONT_SIZE_SCALE = 55.0 / 18.0
 private const val MPV_SUBTITLE_FONT_SIZE_MIN = 36
-private const val MPV_SUBTITLE_FONT_SIZE_MAX = 122
+private const val MPV_SUBTITLE_FONT_SIZE_MAX = 183
 private const val MPV_SUBTITLE_OUTLINE_SIZE_SCALE = 1.5
 
 private class ExoMediaInfoCache {
@@ -4574,10 +4563,14 @@ private fun android.widget.FrameLayout.findAssOverlayChild(): AssSubtitleSurface
  * so subtitles shrink and grow with the video exactly as it is shown full screen.
  */
 private fun PlayerView.applySubtitleStyle(style: SubtitleStyleState, pipVideoHeightPx: Float? = null) {
-    (player as? ExoPlayer)?.getAssHandlerCompat()?.applyAssFontScaleCompat(style.assScale.toFloat())
-    findViewById<android.widget.FrameLayout>(R.id.libass_overlay_container_gl)
-        ?.findAssOverlayChild()
-        ?.invalidateSubtitles()
+    val assFontScaleChanged = (player as? ExoPlayer)
+        ?.getAssHandlerCompat()
+        ?.applyAssFontScaleCompat(style.assScale.toFloat()) == true
+    if (assFontScaleChanged) {
+        findViewById<android.widget.FrameLayout>(R.id.libass_overlay_container_gl)
+            ?.findAssOverlayChild()
+            ?.invalidateSubtitles()
+    }
     subtitleView?.apply {
         val baseBottomPaddingFraction = SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION * 2f / 3f
         val offsetFraction = (style.bottomOffset / 1000f).coerceIn(0f, 0.2f)

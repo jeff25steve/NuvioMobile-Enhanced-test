@@ -506,11 +506,9 @@ final class MPVPlayerViewController: UIViewController {
     private var lastSubtitleText = ""
     private var currentCustomizeAss = false
     private var currentAssScale = 1.0
-    private var currentSubtitleBold = false
     private var currentSubtitlePos = 100
     private var appliedAssOverride: String?
     private var appliedAssScale = 1.0
-    private var appliedAssBold: Bool?
     private var appliedSubPos: Int?
     private var pictureInPictureController: PlayerPictureInPictureController?
     var systemControlHandler: PlayerSystemControlHandler?
@@ -638,6 +636,8 @@ final class MPVPlayerViewController: UIViewController {
         let stripSdh: Bool
         let styledOverlay: Bool
         let outlineBlur: Int
+        let customizeAss: Bool
+        let assScale: Double
     }
 
     private var lastLoadRequest: PendingLoadRequest?
@@ -1714,7 +1714,9 @@ final class MPVPlayerViewController: UIViewController {
                 subPos: style.subPos,
                 stripSdh: style.stripSdh,
                 styledOverlay: style.styledOverlay,
-                outlineBlur: style.outlineBlur
+                outlineBlur: style.outlineBlur,
+                customizeAss: style.customizeAss,
+                assScale: style.assScale
             )
         }
         setSpeed(currentSpeed)
@@ -2177,7 +2179,9 @@ final class MPVPlayerViewController: UIViewController {
             subPos: subPos,
             stripSdh: stripSdh,
             styledOverlay: styledOverlay,
-            outlineBlur: outlineBlur
+            outlineBlur: outlineBlur,
+            customizeAss: customizeAss,
+            assScale: assScale
         )
         guard mpv != nil else { return }
 
@@ -2201,7 +2205,6 @@ final class MPVPlayerViewController: UIViewController {
         usesStyledSubtitles = styledOverlay
         currentCustomizeAss = customizeAss
         currentAssScale = assScale
-        currentSubtitleBold = bold
         currentSubtitlePos = subPos
         updateStyledSubtitle()
     }
@@ -2227,15 +2230,6 @@ final class MPVPlayerViewController: UIViewController {
         if appliedSubPos != targetSubPos {
             setIntProperty("sub-pos", Int64(targetSubPos))
             appliedSubPos = targetSubPos
-        }
-        let assBold: Bool? = assOverride == "force" ? currentSubtitleBold : nil
-        if appliedAssBold != assBold {
-            if let assBold {
-                command("change-list", args: ["sub-ass-style-overrides", "set", assBold ? "Bold=1" : "Bold=0"])
-            } else {
-                command("change-list", args: ["sub-ass-style-overrides", "clr", ""])
-            }
-            appliedAssBold = assBold
         }
         let styled = usesStyledSubtitles && SubtitleRendering.shared.supportsTextOverlay(codec: codec)
         if styled != styledSubtitleVisible {

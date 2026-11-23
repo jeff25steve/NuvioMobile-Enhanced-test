@@ -8,6 +8,12 @@ import kotlin.test.assertTrue
 
 class SubtitleAppearanceTest {
     @Test
+    fun androidSubtitleSizeRangeSupportsLargeDisplaysAndLeavesIosUnchanged() {
+        assertEquals(6..40, subtitleFontSizeRangeSpForPlatform(isIos = true))
+        assertEquals(12..60, subtitleFontSizeRangeSpForPlatform(isIos = false))
+    }
+
+    @Test
     fun oldAndInvalidSettingsKeepExistingAppearance() {
         listOf(null, "", "{", "null").forEach { assertEquals(SubtitleAppearance(), decodeSubtitleAppearance(it)) }
         assertFalse(SubtitleStyleState.DEFAULT.usesStyledOverlay)

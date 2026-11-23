@@ -6,8 +6,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -24,6 +27,28 @@ class PlayerLibassCompatTest {
             player.releaseWithAssSupportCompat()
         }
         assertNull(player.getAssHandlerCompat())
+    }
+
+    @Test
+    fun libassFontScaleOnlyInvalidatesWhenTheScaleActuallyChanges() {
+        val context = RuntimeEnvironment.getApplication()
+        val player = ExoPlayer.Builder(context).buildWithAssSupportCompat(context = context)
+        try {
+            val handler = player.getAssHandlerCompat() ?: error("ASS handler was not created")
+            assertTrue(handler.applyAssFontScaleCompat(1.25f))
+            assertFalse(handler.applyAssFontScaleCompat(1.25f))
+            assertTrue(handler.applyAssFontScaleCompat(1.5f))
+            assertTrue(handler.applyAssFontScaleCompat(Float.NaN))
+            assertFalse(handler.applyAssFontScaleCompat(1f))
+        } finally {
+            player.releaseWithAssSupportCompat()
+        }
+    }
+
+    @Test
+    fun androidMpvSubtitleSizeMapsSixtySpWithoutClampingToTheOldFortySpMaximum() {
+        assertEquals(36, SubtitleStyleState(fontSizeSp = 12).toMpvSubtitleFontSize())
+        assertEquals(183, SubtitleStyleState(fontSizeSp = 60).toMpvSubtitleFontSize())
     }
 
     @Test
