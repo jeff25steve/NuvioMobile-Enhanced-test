@@ -1506,9 +1506,14 @@ private fun ExoPlayerSurface(
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 InAppLogger.info("ExoPlayer/Android", "videoSize=${videoSize.toLogSummary()}")
-                // Clear stale geometry when a source reports UNKNOWN/invalid dimensions.
+                // Clear stale geometry and frame-rate requests when a source reports
+                // UNKNOWN/invalid dimensions (for example, switching to audio-only media).
                 // Keep the same pixel-aspect calculation used by PiP and subtitle geometry.
                 videoAspectRatio = videoAspectRatioFromSize(videoSize) ?: 0f
+                if (videoAspectRatio == 0f) {
+                    currentVideoFrameRate = Float.NaN
+                    updateAlwaysFrameRateState()
+                }
                 if (exoVideoEffects.pipelineConfigured) {
                     val sourceFormat = exoPlayer.videoFormat
                     if (sourceFormat != null && sourceFormat.width > 0 && sourceFormat.height > 0) {
@@ -1722,7 +1727,9 @@ private fun ExoPlayerSurface(
                 format: androidx.media3.common.Format,
                 decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
             ) {
-                currentVideoFrameRate = format.frameRate
+                // Media3 uses NO_VALUE for unknown rates. Never carry a previous
+                // video's frame-rate request across a stream/format transition.
+                currentVideoFrameRate = normalizedVideoFrameRate(format.frameRate) ?: Float.NaN
                 updateAlwaysFrameRateState()
             }
 
