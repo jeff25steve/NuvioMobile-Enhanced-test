@@ -182,7 +182,6 @@ private class ExoSeekPreviewFrameSource(
                 targetHeight = (maxWidthPx * 9 / 16).coerceAtLeast(16),
                 startPositionMs = targetMs,
             )
-            grabber = opened
             return opened.awaitFirstFrame().asImageBitmap()
         }
         return activeGrabber.frameAt(targetMs).asImageBitmap()
