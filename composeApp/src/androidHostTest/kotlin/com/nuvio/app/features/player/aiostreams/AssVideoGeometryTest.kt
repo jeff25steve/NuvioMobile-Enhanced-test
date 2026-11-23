@@ -1,10 +1,15 @@
 package com.nuvio.app.features.player.aiostreams
 
 import androidx.media3.common.VideoSize
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class AssVideoGeometryTest {
     @Test
     fun keepsValidSourceDimensions() {
