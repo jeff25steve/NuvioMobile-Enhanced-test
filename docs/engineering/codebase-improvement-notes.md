@@ -1989,7 +1989,7 @@ A display-quality review found a concrete Android fallback gap in the pinned Med
 Implemented on Android ExoPlayer:
 - Added `DisplayAwareDefaultTrackSelector`, a small app-side subclass that evaluates the current default display's `Display.getHdrCapabilities().supportedHdrTypes` during video selection.
 - When a renderer has a supported SDR alternative, the selector masks only signalled PQ/HLG/Dolby Vision formats that the display cannot present. It delegates the actual quality, viewport, language, decoder and adaptive selection algorithm to Media3, so SDR adaptive selection remains available across the remaining supported formats.
-- If the display or its HDR capabilities are unavailable, the selector leaves Media3's original format support untouched. If no supported SDR alternative exists, HDR-only playback remains available rather than being disabled.
+- If the default display itself is unavailable or capability lookup throws, the selector leaves Media3's original format support untouched. Android's documented `null` HDR-capabilities result for an available display is normalized to an empty HDR-type set (SDR-only), rather than being mistaken for unknown. If no supported SDR alternative exists, HDR-only playback remains available rather than being disabled.
 - Dolby Vision decoded with a fallback MIME type is evaluated using its PQ/HLG base-layer transfer. Dolby Vision decoded by a primary Dolby Vision decoder requires display Dolby Vision support. PQ requires HDR10 specifically; an HDR10+ capability alone is not treated as sufficient because Media3 Format does not expose the dynamic metadata needed to distinguish that case.
 - A default-display listener refreshes the capability snapshot and calls Media3's supported track-selection invalidation path when HDR types change. It is unregistered when the selector is released.
 - The implementation copies Media3's renderer-support matrix before masking formats; it never mutates the framework-owned capability arrays.
@@ -2018,3 +2018,8 @@ Verification boundary:
 ### Follow-up: preserve explicit lowest-bitrate selection
 
 The app-side display filter now bypasses itself when Media3's `forceLowestBitrate` parameter is enabled. This keeps the user's explicit lowest-bitrate policy ahead of display HDR preference, matching the exception in upstream PR #3461. Added focused regression coverage for the bypass and for unknown display capabilities.
+
+
+### Follow-up: handle Android's forced-SDR capability response
+
+The source review identified that `Display.getHdrCapabilities()` may return `null` when the default display is forced to SDR. The selector now normalizes a present display with null HDR capabilities to an empty supported-type set, while still treating a missing display service/display or a capability-query exception as unknown. This distinction is necessary for the SDR fallback to activate when HDR has been disabled in Android display settings. Added regression coverage for null capabilities mapping to SDR-only and for retaining reported HDR types.

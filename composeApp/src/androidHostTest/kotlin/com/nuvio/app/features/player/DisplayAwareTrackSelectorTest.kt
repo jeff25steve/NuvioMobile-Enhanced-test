@@ -34,6 +34,29 @@ class DisplayAwareTrackSelectorTest {
     }
 
     @Test
+    fun missingHdrCapabilitiesOnAnAvailableDisplayMeansSdrOnly() {
+        val hdrTypes = displayHdrTypesFromCapabilities(null)
+        assertTrue(hdrTypes.isEmpty())
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_ST2084),
+                primaryDecoderSupport,
+                hdrTypes,
+                hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun reportedHdrTypesArePreserved() {
+        assertTrue(
+            displayHdrTypesFromCapabilities(
+                intArrayOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+            ).contains(Display.HdrCapabilities.HDR_TYPE_HDR10),
+        )
+    }
+
+    @Test
     fun masksPqWhenDisplayCannotPresentHdr10AndSdrFallbackExists() {
         assertTrue(
             shouldMaskHdrFormatForDisplay(

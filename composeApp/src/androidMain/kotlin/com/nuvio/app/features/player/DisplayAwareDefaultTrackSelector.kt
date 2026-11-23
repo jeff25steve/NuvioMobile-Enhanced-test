@@ -157,7 +157,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
     private fun readDisplayHdrTypes(): Set<Int>? {
         return try {
             val display = displayManager?.getDisplay(Display.DEFAULT_DISPLAY) ?: return null
-            display.hdrCapabilities?.supportedHdrTypes?.toSet()
+            displayHdrTypesFromCapabilities(display.hdrCapabilities?.supportedHdrTypes)
         } catch (_: RuntimeException) {
             // Unknown display state must not be treated as proof that HDR is unsupported.
             null
@@ -216,3 +216,7 @@ internal fun shouldApplyDisplayHdrFiltering(
     supportedHdrTypes: Set<Int>?,
     forceLowestBitrate: Boolean,
 ): Boolean = supportedHdrTypes != null && !forceLowestBitrate
+
+
+internal fun displayHdrTypesFromCapabilities(supportedHdrTypes: IntArray?): Set<Int> =
+    supportedHdrTypes?.toSet() ?: emptySet()
