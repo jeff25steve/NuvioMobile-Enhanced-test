@@ -33,7 +33,7 @@ internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
 
 /** Returns the byte capacity required by a tightly described I420 frame, or null for invalid layouts. */
 internal fun requiredSoftwareYuv420BufferSize(width: Int, height: Int, yStride: Int, uvStride: Int): Long? {
-    if (width <= 0 || height <= 0 || yStride < width || uvStride < (width + 1) / 2) return null
+    if (width <= 0 || height <= 0 || yStride < width || uvStride < (width / 2) + (width % 2)) return null
     val yBytes = yStride.toLong() * height.toLong()
     val chromaBytes = uvStride.toLong() * ((height.toLong() + 1L) / 2L)
     if (chromaBytes > Long.MAX_VALUE / 2L) return null
