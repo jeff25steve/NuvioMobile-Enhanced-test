@@ -175,6 +175,13 @@ internal fun takeSoftwarePrivateFrameHandle(outputBuffer: VideoDecoderOutputBuff
 internal fun usesSoftwarePrivateSurfaceFrame(outputMode: Int): Boolean =
     outputMode == C.VIDEO_OUTPUT_MODE_SURFACE_YUV
 
+/** Releases any previous GL/YUV output storage before a buffer becomes a native surface frame. */
+internal fun clearSoftwareYuvOutputStorage(outputBuffer: VideoDecoderOutputBuffer) {
+    outputBuffer.data = null
+    outputBuffer.yuvPlanes = null
+    outputBuffer.yuvStrides = null
+}
+
 internal fun supportsYv12SurfaceSize(width: Int, height: Int): Boolean =
     width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0
 
@@ -582,9 +589,7 @@ internal class SoftwareVideoDecoder(
             // direct ByteBuffer allocation and a second full-frame copy.
             // A reused decoder output may still retain the previous GL/YUV direct buffer.
             // Drop all views before switching to the native-owned surface frame.
-            outputBuffer.data = null
-            outputBuffer.yuvPlanes = null
-            outputBuffer.yuvStrides = null
+            clearSoftwareYuvOutputStorage(outputBuffer)
             outputBuffer.initForPrivateFrame(width, height)
             val frameHandle = nativeTakeFrame(handle)
             if (frameHandle == 0L) {

@@ -2,6 +2,7 @@ package com.nuvio.app.features.player.swdecoder
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class SoftwareVideoFrameTimestampTest {
     @Test
@@ -42,6 +43,26 @@ class SoftwareVideoFrameTimestampTest {
 
         assertEquals(0x1234L, takeSoftwarePrivateFrameHandle(output))
         assertEquals(0L, takeSoftwarePrivateFrameHandle(output))
+    }
+
+    @Test
+    fun switchingToPrivateSurfaceFramesReleasesPreviousYuvStorage() {
+        val output = VideoDecoderOutputBuffer(object : VideoDecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
+            override fun releaseOutputBuffer(buffer: VideoDecoderOutputBuffer) = Unit
+        })
+        output.data = java.nio.ByteBuffer.allocateDirect(128)
+        output.yuvPlanes = arrayOf(
+            java.nio.ByteBuffer.allocateDirect(32),
+            java.nio.ByteBuffer.allocateDirect(16),
+            java.nio.ByteBuffer.allocateDirect(16),
+        )
+        output.yuvStrides = intArrayOf(16, 8, 8)
+
+        clearSoftwareYuvOutputStorage(output)
+
+        assertNull(output.data)
+        assertNull(output.yuvPlanes)
+        assertNull(output.yuvStrides)
     }
 
     @Test
