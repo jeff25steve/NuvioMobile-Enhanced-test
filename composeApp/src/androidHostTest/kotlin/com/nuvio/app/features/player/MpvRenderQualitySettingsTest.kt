@@ -62,4 +62,28 @@ class MpvRenderQualitySettingsTest {
             PlayerSettingsStorage.loadAndroidLibmpvRenderQuality(),
         )
     }
+
+    @Test
+    fun debandDefaultsOffAndPersistsAcrossReload() {
+        assertEquals(false, PlayerSettingsRepository.uiState.value.androidLibmpvDebandEnabled)
+
+        PlayerSettingsRepository.setAndroidLibmpvDebandEnabled(true)
+        assertEquals(true, PlayerSettingsStorage.loadAndroidLibmpvDebandEnabled())
+
+        PlayerSettingsRepository.clearLocalState()
+        PlayerSettingsRepository.ensureLoaded()
+        assertEquals(true, PlayerSettingsRepository.uiState.value.androidLibmpvDebandEnabled)
+    }
+
+    @Test
+    fun debandIsIncludedInSettingsSyncPayload() {
+        PlayerSettingsRepository.setAndroidLibmpvDebandEnabled(true)
+        val payload = PlayerSettingsStorage.exportToSyncPayload()
+
+        PlayerSettingsStorage.saveAndroidLibmpvDebandEnabled(false)
+        PlayerSettingsStorage.replaceFromSyncPayload(payload)
+
+        assertEquals(true, PlayerSettingsStorage.loadAndroidLibmpvDebandEnabled())
+    }
+
 }

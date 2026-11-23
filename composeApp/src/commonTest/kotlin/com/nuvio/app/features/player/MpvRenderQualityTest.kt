@@ -73,4 +73,9 @@ class MpvRenderQualityTest {
         )
     }
 
+    @Test
+    fun debandingIsOffByDefault() {
+        assertEquals(false, PlayerSettingsUiState().androidLibmpvDebandEnabled)
+    }
+
 }
