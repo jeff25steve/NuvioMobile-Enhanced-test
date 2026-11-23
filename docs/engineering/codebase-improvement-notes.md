@@ -2225,7 +2225,7 @@ Changed:
 - When such an HDR alternative exists, supported SDR alternatives in that same group are marked FORMAT_UNSUPPORTED_TYPE before delegating to DefaultTrackSelector. This prevents the equal-bandwidth SDR fallback from winning the adaptive selection on an HDR-capable display.
 - Preserved the existing opposite path: unsupported HDR is masked only when a supported SDR fallback exists. HDR-only content remains selectable.
 - Kept the existing forceLowestBitrate bypass. Corrected the null-capabilities edge case: a null HDR capability array now remains unknown, while a non-null empty array means the display is known to report no HDR types.
-- Added host tests for PQ/HDR10 recognition, SDR fallback masking, unsupported HLG on an HDR10-only display, unsupported HDR decoder capability, preservation of SDR when the display cannot present the available HDR type, and the distinction between unknown and explicitly empty HDR capabilities.
+- Added host tests for PQ/HDR10 recognition, SDR fallback masking, unsupported HLG on an HDR10-only display, unsupported HDR decoder capability, preservation of SDR when the display cannot present the available HDR type, the distinction between unknown and explicitly empty HDR capabilities, HDR-only content, and the force-lowest-bitrate bypass.
 
 Scope and trade-offs:
 - This is deliberately a same-TrackGroup fix. It addresses the reported HLS equal-bandwidth adaptive-group case without treating unrelated TrackGroups (which can represent different feeds or camera angles) as interchangeable.
