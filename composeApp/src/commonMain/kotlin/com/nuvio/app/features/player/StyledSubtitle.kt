@@ -279,9 +279,20 @@ internal fun StyledSubtitleText(
         }
         val lineLeft = (0 until layout.lineCount).minOfOrNull { layout.getLineLeft(it) } ?: 0f
         val lineRight = (0 until layout.lineCount).maxOfOrNull { layout.getLineRight(it) } ?: 0f
-        val (contentWidth, textInset) = when (horizontal) {
-            SubtitleHorizontalPosition.CENTER -> (layout.size.width + paddingX * 2) to paddingX
-            else -> (lineRight - lineLeft + paddingX * 2) to (paddingX - lineLeft)
+        val (contentWidth, textInset) = if (cueWindowColor != null && fillCueWidth) {
+            val cueTextInset = when (textAlignment) {
+                SubtitleHorizontalPosition.START -> paddingX - lineLeft
+                SubtitleHorizontalPosition.CENTER ->
+                    (availableTextWidth - layout.size.width) / 2f + paddingX
+                SubtitleHorizontalPosition.END ->
+                    availableTextWidth - layout.size.width + paddingX - lineRight
+            }
+            (availableWidth - edgePaddingPx * 2).coerceAtLeast(0f) to cueTextInset
+        } else {
+            when (horizontal) {
+                SubtitleHorizontalPosition.CENTER -> (layout.size.width + paddingX * 2) to paddingX
+                else -> (lineRight - lineLeft + paddingX * 2) to (paddingX - lineLeft)
+            }
         }
         val contentHeight = with(density) { (layout.size.height + paddingY * 2).toDp() }
         val boxWidthPx = contentWidth + edgePaddingPx * 2
