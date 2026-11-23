@@ -2286,3 +2286,43 @@ Additional upstream research:
 Verification boundary:
 - Added tests were not run. No Gradle build, tests, CI, benchmark, AAR rebuild, or physical-device playback was started.
 - Final remote source review and branch comparison were performed after the changes. The API-34 surface correction still needs visual validation on a real Android 14 device after a resize/orientation transition; the ASS reset needs validation during a source switch where the next player initially reports `VideoSize.UNKNOWN`.
+
+## HDR fallback selection respects ambiguous color metadata and supported HDR alternatives — 23 November 2026
+
+A follow-up review of the existing `DisplayAwareDefaultTrackSelector` found two edge cases in its same-TrackGroup HDR filtering.
+
+### Do not classify every non-PQ/HLG format as SDR
+
+The previous `isSdrFallbackFormat` treated any format that was not signalled as PQ, HLG, or Dolby Vision as SDR. That is too broad: Media3's `ColorInfo.isTransferHdr` only recognises ST2084 and HLG, so an unset transfer characteristic is not proof of SDR. A format can carry BT.2020 and 10-bit metadata while its transfer characteristic is unknown; treating it as SDR could cause a supported HDR alternative to mask that ambiguous format.
+
+Changed:
+- Use Media3's `ColorInfo.isEquivalentToAssumedSdrDefault` as the standard SDR/default-metadata check.
+- Continue recognising explicit SDR gamma 2.2 and sRGB transfer characteristics as SDR when HDR static metadata is absent.
+- Keep Dolby Vision codec signalling out of the SDR classification, including fallback-MIME representations.
+- Leave genuinely ambiguous wide-gamut/high-bit-depth metadata unclassified as an SDR fallback rather than guessing.
+
+### Mask unsupported HDR when another supported HDR alternative exists
+
+The previous HDR mask required an SDR fallback. In an HDR-only TrackGroup containing HDR10 and HLG, an HDR10-capable display could therefore leave unsupported HLG eligible even though the same group contained a renderer-supported HDR10 alternative.
+
+Changed:
+- Mask an unsupported HDR format when either a supported SDR fallback or another renderer-supported HDR format that the display can present exists in the same TrackGroup.
+- Keep HDR-only content selectable when there is no supported SDR or HDR alternative.
+- Preserve the same-TrackGroup boundary; unrelated groups may represent different feeds or camera angles and are not treated as interchangeable.
+
+Regression coverage authored:
+- Ambiguous BT.2020/10-bit color metadata with an unset transfer is not treated as SDR.
+- Unset ColorInfo remains eligible for Media3's assumed-SDR default, and explicit gamma 2.2 is recognised as SDR.
+- Unsupported HLG is masked when supported HDR10 is available without an SDR variant.
+- Unsupported HDR remains selectable when no supported alternative exists.
+
+Evidence:
+- Context7 documentation for AndroidX Media3 was consulted, and the exact `ColorInfo.java` source from the pinned `1.12.0-beta01` tag was inspected. Media3 documents `isTransferHdr` as checking only HLG/ST2084 and exposes `isEquivalentToAssumedSdrDefault` to distinguish standard SDR/default metadata from ambiguous color information.
+- AndroidX Media3 [PR #3461](https://github.com/androidx/media/pull/3461) remains an open upstream proposal for broader HDR ranking, adaptive-group separation, and display-change reselection. This change does not claim to implement that full proposal.
+- The official NuvioTV 1.2.0-beta.3 release notes mention ExoPlayer back-buffer clamping and low-RAM Dolby Vision Profile 7 runtime overrides. The linked upstream low-RAM investigation concerns specific 1 GB MediaTek Android TVs and a largeHeap misclassification. Those TV-specific memory changes were not copied into this mobile-focused branch without equivalent phone/tablet evidence.
+- Community reports in [NewPipe #5329](https://github.com/TeamNewPipe/NewPipe/issues/5329) and [Stremio #1112](https://github.com/Stremio/stremio-features/issues/1112) independently confirm that refresh-rate matching and display cadence are visible playback concerns; Nuvio already has its own Media3/system-preference frame-rate path, so no duplicate refresh-rate controller was added.
+
+Verification boundary:
+- Regression tests were authored first and the implementation was reviewed against the exact pinned Media3 source, but tests were not run. No Gradle compilation, tests, build, CI, benchmark, or device playback was started, per the user's instruction.
+- Remote source review and branch comparison are required after this documentation update. HDR selection still needs authorised HLS playback validation on HDR10-only, HLG-capable, and SDR-only displays, including an HDR-only group with mixed transfer types.
+
