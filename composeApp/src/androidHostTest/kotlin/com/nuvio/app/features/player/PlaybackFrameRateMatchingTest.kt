@@ -21,9 +21,9 @@ class PlaybackFrameRateMatchingTest {
     }
 
     @Test
-    fun alwaysPreferenceUsesTheAppManagedSurfacePathInsteadOfMedia3SeamlessOnly() {
+    fun alwaysPreferenceKeepsSeamlessMatchingUntilManualSurfaceModeIsEligible() {
         assertEquals(
-            C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF,
+            C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS,
             videoFrameRateStrategyForSystemPreference(DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS),
         )
         assertTrue(shouldUseAlwaysSurfaceFrameRateMatching(DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS))
