@@ -4,6 +4,7 @@ internal enum class PlaybackSourceFailure {
     None,
     ClosedStream,
     ReadPositionOutOfRange,
+    StuckPlayback,
 }
 
 /**
@@ -58,7 +59,8 @@ internal fun stalledReopenPositionMs(
     resumeAlreadyAttempted: Boolean,
 ): Long? {
     val stalled = failure == PlaybackSourceFailure.ClosedStream ||
-        failure == PlaybackSourceFailure.ReadPositionOutOfRange
+        failure == PlaybackSourceFailure.ReadPositionOutOfRange ||
+        failure == PlaybackSourceFailure.StuckPlayback
     if (!stalled || resumeAlreadyAttempted || durationMs <= 0L || positionMs < 0L) return null
     return positionMs
 }

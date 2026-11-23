@@ -352,3 +352,29 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 **Evidence:** the repository's bundled `libavcodec/codec.h` defines `AV_CODEC_CAP_SLICE_THREADS` and `AV_CODEC_CAP_FRAME_THREADS`; bundled `libavcodec/avcodec.h` explicitly documents the per-thread frame delay. FFmpeg's official `doc/multithreading.txt` describes slice threading as decoding parts of one frame in parallel and documents the frame-thread delay. FFmpeg 8.0's `libavcodec/pthread.c` (the same major release as the repository's bundled libavcodec 62 headers) confirms the runtime selection order: frame threading is selected before slice threading when both flags are requested, provided frame threading is supported and low-delay/chunk restrictions do not disable it. The change therefore removes an unintended preference for the higher-latency mode instead of assuming that setting both flags enables the best mode.
 
 **Verification boundary:** native source and the exact bundled FFmpeg 62 capability definitions were inspected. No native compilation, Gradle task, Android build, tests, CI, decoder playback, device profiling or frame-latency benchmark was run. The effective mode is now logged so the next authorized device test can confirm the selected codec path and compare first-frame latency, sustained frame pacing and dropped frames across representative 10-bit H.264/HEVC sources. No measured performance gain is claimed.
+
+
+## Playback continuity and diagnostic ownership (23 November 2026)
+
+### Cycle 228 — recover Media3 stuck-player failures at the last valid position
+
+- The Android branch now recognises Media3 1.11.1 StuckPlayerException causes for the explicit no-progress states: buffering-not-loading, buffering-no-progress and playing-no-progress.
+- Those failures enter the existing bounded PlaybackReopenSession path and reopen the same source at the current playback position, provided the item has a known positive duration. The existing one-reopen-per-ready-session guard remains in force.
+- Suppressed playback is deliberately excluded: transient/permanent suppression can reflect focus, lifecycle or policy state and must not trigger a network reopen. The playing-not-ending state is also excluded because the playhead may already be beyond the declared duration.
+- Media3 documented default thresholds are retained; no custom timeout was introduced. This avoids guessing a shorter threshold that could mistake slow but valid sources for a dead player.
+- Regression test source covers recoverable no-progress classification, suppression exclusion, one-shot recovery and unknown-duration rejection.
+
+### Cycle 229 — correlate startup load events to the prepared media item
+
+- The diagnostic attempt now records a non-sensitive internal identity for its target media item: stable mediaId when present, otherwise the media URI. The identity is used only for in-memory comparison and is never logged.
+- Manifest/media load callbacks now resolve the event-specific EventTime.timeline/windowIndex to the event media item and require it to match the prepare target, in addition to the existing monotonic load-start timestamp check.
+- This prevents a prebuffered next episode, a previous media item or an unrelated merged-source event from consuming the current attempt first-load/first-completion slots merely because its callback arrived during the new attempt.
+- When Media3 cannot provide a valid event window identity, the callback is rejected for attempts with a known target identity. Attempts with no available target identity retain the existing timestamp-only fallback.
+- Regression test source covers matching, mismatched and missing event identities.
+
+### Evidence and verification boundary
+
+- Media3 1.11.1 release notes document native stuck-player detection and default thresholds; see the Android Developers StuckPlayerException API.
+- The exact 1.11.1 AnalyticsListener.EventTime source exposes event-specific timeline/windowIndex separately from currentTimeline/currentWindowIndex; this change uses the event-specific pair to identify the media whose load actually emitted the callback.
+- The changes preserve the existing Media3 1.11.1 dependency, player buffer policy, retry count, decoder selection, HLS/DASH routing, subtitles and libmpv path.
+- Regression tests were added before the implementation commit, but were not executed because no build/test task or CI was authorised. No Gradle compilation, test execution, APK/AAB build, CI or device playback was run. This is remote source review only; runtime recovery and event-correlation behaviour remain unverified until authorised tests and device validation.

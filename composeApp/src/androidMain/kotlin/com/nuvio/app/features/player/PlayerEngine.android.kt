@@ -135,6 +135,24 @@ import java.util.concurrent.atomic.AtomicReference
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 
+internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
+    if (mediaItem == null) return null
+    return mediaItem.mediaId.takeIf { it.isNotBlank() }?.let { "id:$it" }
+        ?: mediaItem.localConfiguration?.uri?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "uri:$it" }
+}
+
+internal fun playbackDiagnosticEventMediaIdentity(eventTime: AnalyticsListener.EventTime): String? {
+    val timeline = eventTime.timeline
+    if (timeline.windowCount == 0 || eventTime.windowIndex !in 0 until timeline.windowCount) return null
+    val mediaItem = timeline.getWindow(
+        eventTime.windowIndex,
+        androidx.media3.common.Timeline.Window(),
+    ).mediaItem
+    return playbackDiagnosticMediaIdentity(mediaItem)
+}
+
 internal fun bufferedAheadDurationMs(currentPositionMs: Long, bufferedPositionMs: Long): Long =
     (bufferedPositionMs.coerceAtLeast(0L) - currentPositionMs.coerceAtLeast(0L)).coerceAtLeast(0L)
 
@@ -975,8 +993,15 @@ private fun ExoPlayerSurface(
         onDispose { audioFocus.abandon() }
     }
 
-    fun beginExoPlayerPrepareAttempt(reason: String, details: String = "") {
-        playbackDiagnostics.beginAttempt(SystemClock.elapsedRealtime())
+    fun beginExoPlayerPrepareAttempt(
+        reason: String,
+        details: String = "",
+        mediaItem: MediaItem? = exoPlayer.currentMediaItem,
+    ) {
+        playbackDiagnostics.beginAttempt(
+            SystemClock.elapsedRealtime(),
+            expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem),
+        )
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
@@ -1008,6 +1033,7 @@ private fun ExoPlayerSurface(
                 "audioSource=${!sourceAudioUrl.isNullOrBlank()} " +
                 "mime=${mediaItem.localConfiguration?.mimeType ?: "auto"} " +
                 "startPositionMs=${requestedStartPositionMs ?: 0L}",
+            mediaItem = mediaItem,
         )
         exoPlayer.setPlaybackMediaItem(mediaItem, requestedStartPositionMs)
         exoPlayer.prepare()
@@ -1078,7 +1104,7 @@ private fun ExoPlayerSurface(
             "ExoPlayer/Android",
             "Blu-ray $reason title=${bluraySession?.activeIndex} startPositionMs=$startPositionMs",
         )
-        beginExoPlayerPrepareAttempt(reason = "bluray:$reason", details = "startPositionMs=$startPositionMs")
+        beginExoPlayerPrepareAttempt(reason = "bluray:$reason", details = "startPositionMs=$startPositionMs", mediaItem = mediaItem)
         exoPlayer.setPlaybackMediaItem(mediaItem, startPositionMs)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
@@ -1529,6 +1555,7 @@ private fun ExoPlayerSurface(
                     !playbackDiagnostics.isLoadForCurrentAttempt(
                         loadEventInfo.elapsedRealtimeMs,
                         loadEventInfo.loadDurationMs,
+                        playbackDiagnosticEventMediaIdentity(eventTime),
                     )
                 ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
@@ -2025,7 +2052,7 @@ private fun ExoPlayerSurface(
                             .setPreferredTextRoleFlags(C.ROLE_FLAG_SUBTITLE)
                             .build()
                         Log.d(TAG, "setSubtitleUri: track params set before prepare, textDisabled=${exoPlayer.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)}")
-                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_set", details = "positionMs=$currentPosition")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_set", details = "positionMs=$currentPosition", mediaItem = newMediaItem)
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
@@ -2052,7 +2079,7 @@ private fun ExoPlayerSurface(
                         val newMediaItem = currentMediaItem.buildUpon()
                             .setSubtitleConfigurations(emptyList())
                             .build()
-                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear", details = "positionMs=$currentPosition")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear", details = "positionMs=$currentPosition", mediaItem = newMediaItem)
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying
@@ -2083,7 +2110,7 @@ private fun ExoPlayerSurface(
                         val newMediaItem = currentMediaItem.buildUpon()
                             .setSubtitleConfigurations(emptyList())
                             .build()
-                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear_select", details = "positionMs=$currentPosition")
+                        beginExoPlayerPrepareAttempt(reason = "external_subtitle_clear_select", details = "positionMs=$currentPosition", mediaItem = newMediaItem)
                         exoPlayer.setPlaybackMediaItem(newMediaItem, currentPosition)
                         exoPlayer.prepare()
                         exoPlayer.playWhenReady = wasPlaying

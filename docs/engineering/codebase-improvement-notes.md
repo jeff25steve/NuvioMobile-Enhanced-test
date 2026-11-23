@@ -1531,3 +1531,18 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The new regression-test source is present but was not executed. No Gradle tasks, Kotlin compilation, native compilation, Android builds, CI, APK generation or device playback were started, as instructed.
 - The 10-bit AVC and 12-bit HEVC paths still need device verification with real streams. The software output path remains 8-bit YV12 and can lose precision relative to a capable high-bit-depth hardware decoder; the default renderer ordering keeps hardware first.
 - Investigated the current Dolby Vision Profile 7 fallback issue and the open HEVC compatibility-flags report in Media3 1.11.1. No beta upgrade or custom manifest rewrite was introduced: the former requires careful device capability handling through the project's patched ExoPlayer AAR, and the latter remains an open upstream report without a confirmed app-level parser hook in the current pipeline.
+
+
+**Cycle 228 — recover Media3 stuck-player no-progress failures**
+- Android ExoPlayer now classifies Media3 1.11.1 stuck-player exceptions for buffering-not-loading, buffering-no-progress and playing-no-progress as a bounded same-source reopen at the current playhead, using the existing one-reopen-per-ready-session recovery mechanism.
+- Playback suppression and playing-not-ending are excluded to avoid network reloads for focus/lifecycle/policy states or a playhead already beyond declared duration. Existing Media3 default detection timeouts are retained.
+- Added common and Android host test source for safe stuck recovery, suppression exclusion, one-shot recovery and unknown-duration rejection.
+
+**Cycle 229 — bind first-load diagnostics to the actual media item**
+- Each ExoPlayer prepare attempt now records its target media identity using mediaId, falling back to URI. Media3 load callbacks resolve the event-specific timeline/window identity and are counted only when they match the prepared item.
+- This closes the stale/prebuffered-next-item ambiguity in the previous elapsed-time-only correlation. Missing event identity is rejected when the attempt has a known target; identity is not logged.
+- Added host test source for matching, mismatched and absent identities.
+
+**Verification boundary — cycles 228–229**
+- Confirmed the branch dependency is Media3 1.11.1 and checked the versioned StuckPlayerException and AnalyticsListener.EventTime APIs through Context7 and AndroidX source.
+- Regression-test source was committed before production changes. Tests were not executed; no Gradle task, compilation, build, CI, APK/AAB or device playback was run because no build/CI authorisation was given. Static source inspection does not establish compilation or runtime correctness.
