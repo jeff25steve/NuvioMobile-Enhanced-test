@@ -30,6 +30,28 @@ class SoftwareVideoDecoderProfileDetectionTest {
     }
 
     @Test
+    fun twelveBitHevcColorInfoSelectsSoftwareFallback() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.2.4.L120.B0")
+            .setColorInfo(ColorInfo.Builder().setLumaBitdepth(12).setChromaBitdepth(12).build())
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
+    fun tenBitHevcMain10KeepsTheHardwareDecoderPath() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.2.4.L120.B0")
+            .setColorInfo(ColorInfo.Builder().setLumaBitdepth(10).setChromaBitdepth(10).build())
+            .build()
+
+        assertFalse(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
     fun malformedAvcCodecStringFallsBackToTheSpsProfile() {
         val format = Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
