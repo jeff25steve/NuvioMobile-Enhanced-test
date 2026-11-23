@@ -85,16 +85,15 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             if (mappedTrackInfo.getRendererType(rendererIndex) != C.TRACK_TYPE_VIDEO) continue
 
             val groups = mappedTrackInfo.getTrackGroups(rendererIndex)
-            val hasSdrFallback = hasSupportedSdrTrack(
-                groups = groups,
-                groupSupports = rendererFormatSupports[rendererIndex],
-            )
-            if (!hasSdrFallback) continue
-
             for (groupIndex in 0 until groups.length) {
                 val group = groups[groupIndex]
+                val groupSupports = rendererFormatSupports[rendererIndex][groupIndex]
+                // TrackGroup contains alternative formats for the same content. An SDR track in
+                // a different group may be a different camera angle/feed, not a valid fallback.
+                if (!hasSupportedSdrTrack(group, groupSupports)) continue
+
                 for (trackIndex in 0 until group.length) {
-                    val supportFlags = rendererFormatSupports[rendererIndex][groupIndex][trackIndex]
+                    val supportFlags = groupSupports[trackIndex]
                     if (
                         shouldMaskHdrFormatForDisplay(
                             format = group.getFormat(trackIndex),
@@ -124,22 +123,6 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             displayListenerRegistered = false
         }
         super.release()
-    }
-
-    private fun hasSupportedSdrTrack(
-        groups: TrackGroupArray,
-        groupSupports: Array<IntArray>,
-    ): Boolean {
-        for (groupIndex in 0 until groups.length) {
-            val group: TrackGroup = groups[groupIndex]
-            for (trackIndex in 0 until group.length) {
-                val supportFlags = groupSupports[groupIndex][trackIndex]
-                if (isSupportedSdrFallback(group.getFormat(trackIndex), supportFlags)) {
-                    return true
-                }
-            }
-        }
-        return false
     }
 
     private fun refreshDisplayHdrTypes() {
@@ -188,6 +171,18 @@ internal fun shouldMaskHdrFormatForDisplay(
     }
 
     return requiredHdrType !in supportedHdrTypes
+}
+
+internal fun hasSupportedSdrTrack(
+    group: TrackGroup,
+    groupSupports: IntArray,
+): Boolean {
+    for (trackIndex in 0 until group.length) {
+        if (isSupportedSdrFallback(group.getFormat(trackIndex), groupSupports[trackIndex])) {
+            return true
+        }
+    }
+    return false
 }
 
 internal fun isRendererFormatSupported(rendererSupportFlags: Int): Boolean =
