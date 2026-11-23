@@ -11,4 +11,12 @@ class PlaybackVideoSchedulingTest {
         assertTrue(shouldEnableMediaCodecVideoRendererDurationToProgressUs(31))
         assertTrue(shouldEnableMediaCodecVideoRendererDurationToProgressUs(35))
     }
+
+    @Test
+    fun frameProcessingOffsetReportsAnAverageOnlyWhenFramesWereMeasured() {
+        assertEquals(250L, averageVideoFrameProcessingOffsetUs(1_000L, 4))
+        assertEquals(-250L, averageVideoFrameProcessingOffsetUs(-1_000L, 4))
+        assertEquals(null, averageVideoFrameProcessingOffsetUs(1_000L, 0))
+        assertEquals(null, averageVideoFrameProcessingOffsetUs(1_000L, -1))
+    }
 }
