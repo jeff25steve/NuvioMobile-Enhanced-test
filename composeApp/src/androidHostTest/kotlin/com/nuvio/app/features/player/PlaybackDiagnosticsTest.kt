@@ -114,7 +114,7 @@ class PlaybackDiagnosticsTest {
     }
 
     @Test
-    fun droppedVideoFrameCountAccumulatesAndResetsForEachAttempt() {
+    fun droppedVideoFrameCountRemainsSourceScopedAcrossPrepareAttempts() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)
 
@@ -126,8 +126,10 @@ class PlaybackDiagnosticsTest {
 
         diagnostics.beginAttempt(250L)
 
-        assertEquals(0L, diagnostics.droppedVideoFrameCount)
-        assertEquals(2L, diagnostics.recordDroppedVideoFrames(2))
+        // Analytics callbacks can be delivered after a new prepare attempt begins.
+        // Keep this counter scoped to the player/source session, not the current attempt.
+        assertEquals(8L, diagnostics.droppedVideoFrameCount)
+        assertEquals(10L, diagnostics.recordDroppedVideoFrames(2))
     }
 
     @Test
