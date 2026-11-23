@@ -2341,11 +2341,11 @@ Changed:
 - Used the display width as the horizontal layout reference for eligible cues, so wide/cropped Zoom content does not pull the caption off the visible viewport.
 - Preserved embedded foreground, background, bold, italic and underline text spans in the Compose overlay; the background-span path now has regression coverage.
 - Applied the same MIME gating to embedded tracks and the external sidecar subtitle controller. The preference is re-evaluated when style changes while a cue remains visible.
-- When the preference is enabled, bypassed the existing external-WebVTT line-normalization step so explicitly positioned VTT cues are not converted into apparently unpositioned cues before classification. With the preference off, the previous normalization behaviour is unchanged.
+- When the preference is enabled, bypassed the existing external-WebVTT line-normalization step so explicitly positioned VTT cues are not converted into apparently unpositioned cues before classification. With the preference off, the previous normalization behaviour is unchanged. The MIME/normalization gate also prevents a cue normalized before a live preference change from being reclassified as display-relative on refresh.
 
 Regression coverage authored:
 
-- Added 11 new regression test cases across four existing test files; none were executed in this cycle.
+- Added 12 new regression test cases across four existing test files; none were executed in this cycle.
 - Default-off behaviour, Compose-overlay activation, reset behaviour, legacy JSON decoding, and device-preference round-tripping.
 - Display-bottom placement when the full cue fits, fallback when the letterbox is too short, full-frame/Zoom placement, and invalid/offscreen inset handling.
 - Distinct layout grouping for video-relative versus display-relative cues.
