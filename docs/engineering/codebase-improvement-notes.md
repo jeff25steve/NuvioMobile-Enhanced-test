@@ -1573,3 +1573,17 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Static review checked the new helper call sites, source-key lifetime, capture-before-rebuild ordering, text-track gating and the existing one-retry guard.
 - No Gradle task, test execution, compilation, build, CI, APK/AAB, Macrobenchmark, Perfetto capture or physical-device playback was run. No measured playback or decoder-recovery improvement is claimed.
+
+
+### Cycle 232 — preserve speed and audio choice through video-renderer rebuilds
+
+- The same-source player is rebuilt when the ASS video-effect renderer is activated or anime video effects are changed. These rebuilds already preserved the playhead and some subtitle state, but they did not consistently preserve the selected audio track or non-default playback speed.
+- The ASS-triggered video-effect rebuild now captures the selected audio track before replacing the player. It already preserves the selected ASS subtitle ordinal; the previous player replacement therefore no longer silently resets the audio choice.
+- Decoder fallback, anime-effect rebuild and ASS video-effect rebuild now capture the current non-default playback speed before the player is replaced. The replacement player reapplies that speed once, then clears the pending value so later player instances do not inherit stale speed state. Normal 1.0x playback remains on Media3's default path.
+- Added host-test coverage for valid non-default speeds and rejection of 1.0x, zero, NaN and infinite values. Test source was committed before implementation; tests were not executed.
+- This is a continuity/correctness improvement across existing player rebuilds, not a claim of higher decoder throughput or measured frame-rate improvement.
+
+#### Verification boundary
+
+- Static source inspection checked every existing renderer/player rebuild trigger found in this file, capture-before-key-change ordering, and one-shot speed restoration.
+- No Gradle task, test execution, compilation, build, CI, APK/AAB, Macrobenchmark, Perfetto capture or physical-device playback was run. No measured performance gain is claimed.

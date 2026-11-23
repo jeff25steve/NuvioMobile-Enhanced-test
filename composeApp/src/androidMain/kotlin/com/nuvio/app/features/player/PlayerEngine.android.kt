@@ -512,6 +512,7 @@ private fun ExoPlayerSurface(
     val subtitleStyleGuard = remember { SubtitleStyleGuard() }
     var decoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
+    var pendingPlaybackSpeed by remember(playerSourceKey) { mutableStateOf<Float?>(null) }
     var initializedVideoDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     var initializedAudioDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     var playerChapters by remember(playerSourceKey) { mutableStateOf<List<PlayerChapter>>(emptyList()) }
@@ -1101,6 +1102,13 @@ private fun ExoPlayerSurface(
         Log.d(TAG, "$reason: preserving audio track index=${selection.index} id=${selection.id}")
     }
 
+    fun preservePlaybackSpeedForReload(reason: String) {
+        pendingPlaybackSpeed = playbackSpeedToRestoreAfterRebuild(exoPlayer.playbackParameters.speed)
+        pendingPlaybackSpeed?.let { speed ->
+            Log.d(TAG, "$reason: preserving playback speed=$speed")
+        }
+    }
+
     LaunchedEffect(exoPlayer, animeEnhancementStatus, discSnapshotVersion) {
         dispatchExoPlayerSnapshot()
     }
@@ -1149,6 +1157,7 @@ private fun ExoPlayerSurface(
         delay(ANIME_EFFECTS_REBUILD_DEBOUNCE_MS)
         InAppLogger.info("ExoPlayer/Android", "anime effects changed, rebuilding player upscale=$upscale lineSharpen=$sharpen")
         preserveAudioSelectionForReload("animeEffectsRebuild")
+        preservePlaybackSpeedForReload("animeEffectsRebuild")
         val currentTracks = exoPlayer.currentTracks
         if (currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
             // Preserve -1 as well: it means the user had subtitles disabled despite available tracks.
@@ -1216,6 +1225,7 @@ private fun ExoPlayerSurface(
                 // A renderer-priority rebuild creates a fresh track selector. Preserve user choices
                 // before changing the remember key so the replacement player restores them.
                 preserveAudioSelectionForReload("decoder fallback")
+                preservePlaybackSpeedForReload("decoder fallback")
                 if (exoPlayer.currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
                     pendingSubtitleTrackIndex.clear()
                     pendingSubtitleTrackIndex.add(exoPlayer.currentTracks.selectedTextTrackOrdinal())
@@ -1541,6 +1551,8 @@ private fun ExoPlayerSurface(
                             pendingSubtitleTrackIndex.clear()
                             pendingSubtitleTrackIndex.add(selectedSubIdx)
                         }
+                        preserveAudioSelectionForReload("assVideoEffectRebuild")
+                        preservePlaybackSpeedForReload("assVideoEffectRebuild")
                         fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                         videoEffectsNeeded = true
                     }
@@ -1807,6 +1819,13 @@ private fun ExoPlayerSurface(
 
     LaunchedEffect(aiostreamsAss, subtitleDelayMs) {
         aiostreamsAss?.setSubtitleDelayMs(subtitleDelayMs)
+    }
+
+    LaunchedEffect(exoPlayer) {
+        val speedToRestore = pendingPlaybackSpeed ?: return@LaunchedEffect
+        exoPlayer.setPlaybackSpeed(speedToRestore)
+        pendingPlaybackSpeed = null
+        Log.d(TAG, "restored playback speed=$speedToRestore after player rebuild")
     }
 
     LaunchedEffect(exoPlayer, playWhenReady) {
@@ -4922,6 +4941,9 @@ internal fun shouldApplyPendingSubtitleTrackSelection(
     hasTrackGroups: Boolean,
     hasTextTracks: Boolean,
 ): Boolean = hasTrackGroups && (pendingTrackIndex < 0 || hasTextTracks)
+
+internal fun playbackSpeedToRestoreAfterRebuild(speed: Float): Float? =
+    speed.takeIf { it.isFinite() && it > 0f && it != 1f }
 
 internal fun softwareVideoRendererInsertionIndex(
     extensionRendererMode: Int,
