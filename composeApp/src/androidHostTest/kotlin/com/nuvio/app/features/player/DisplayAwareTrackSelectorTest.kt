@@ -280,6 +280,60 @@ class DisplayAwareTrackSelectorTest {
         )
     }
 
+    @Test
+    fun unsupportedHdrIsMaskedWhenAnotherSupportedHdrExistsWithoutSdr() {
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                format = videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_HLG),
+                rendererSupportFlags = primaryDecoderSupport,
+                supportedHdrTypes = setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+                hasSdrFallback = false,
+                hasSupportedHdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun unsupportedHdrRemainsWhenNoSupportedAlternativeExists() {
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                format = videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_HLG),
+                rendererSupportFlags = primaryDecoderSupport,
+                supportedHdrTypes = setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+                hasSdrFallback = false,
+                hasSupportedHdrFallback = false,
+            ),
+        )
+    }
+
+    @Test
+    fun wideGamutHighBitDepthWithUnknownTransferIsNotAnSdrFallback() {
+        val ambiguousColorInfo = ColorInfo.Builder()
+            .setColorSpace(C.COLOR_SPACE_BT2020)
+            .setColorRange(C.COLOR_RANGE_FULL)
+            .setLumaBitdepth(10)
+            .setChromaBitdepth(10)
+            .build()
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(ambiguousColorInfo)
+            .build()
+
+        assertFalse(isSupportedSdrFallback(format, primaryDecoderSupport))
+    }
+
+    @Test
+    fun unsetColorInfoRemainsAnAssumedSdrFallback() {
+        val format = Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build()
+        assertTrue(isSupportedSdrFallback(format, primaryDecoderSupport))
+    }
+
+    @Test
+    fun explicitGamma22TransferIsRecognizedAsSdrFallback() {
+        val format = videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_GAMMA_2_2)
+        assertTrue(isSupportedSdrFallback(format, primaryDecoderSupport))
+    }
+
     private fun videoFormat(
         mimeType: String,
         transfer: Int,
