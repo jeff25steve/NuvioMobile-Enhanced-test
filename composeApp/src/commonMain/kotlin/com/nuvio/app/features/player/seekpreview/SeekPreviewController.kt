@@ -34,9 +34,11 @@ import kotlin.time.TimeSource.Monotonic.ValueTimeMark
 private const val FrameMaxWidthPx = 320
 
 private const val MaxCachedFrames = 100
+private const val MaxCachedPreviewBytes = 24L * 1024L * 1024L
 
 private const val MinBucketMs = 1_000L
-private const val MaxBucketMs = 5_000L
+private const val MaxBucketMs = 2_000L
+private const val MaxCachedPreviewDistanceMs = MaxBucketMs
 private const val BucketsPerTitle = 1_000L
 
 private const val MaxInitialFailures = 3
@@ -141,7 +143,7 @@ internal class SeekPreviewController(
         if (cached != null) {
             frame = SeekPreviewFrame(bucket, cached)
         } else {
-            nearestCached(bucket)?.let { frame = it }
+            frame = nearestCached(bucket)
         }
         requests.value = bucket
         if (worker == null) worker = scope.launch { decodeRequests() }
@@ -283,9 +285,7 @@ internal class SeekPreviewController(
         feedFallbackJob?.cancel()
         feedCache.remove(positionMs)
         feedCache[positionMs] = bitmap
-        while (feedCache.size > MaxCachedFrames) {
-            feedCache.remove(feedCache.keys.first())
-        }
+        trimSeekPreviewCache(feedCache, MaxCachedFrames, MaxCachedPreviewBytes) { it.estimatedRgbaBytes() }
         feedArrived?.complete(Unit)
         val wanted = feedWanted
         if (wanted != null) {
@@ -413,16 +413,14 @@ internal class SeekPreviewController(
             hasSucceeded = true
             consecutiveFailures = 0
             cache[bucket] = bitmap
-            while (cache.size > MaxCachedFrames) {
-                cache.remove(cache.keys.first())
-            }
+            trimSeekPreviewCache(cache, MaxCachedFrames, MaxCachedPreviewBytes) { it.estimatedRgbaBytes() }
             val latest = requests.value
             val shown = frame
             if (latest == bucket || shown == null || shown.positionMs != latest) {
-                frame = if (latest == bucket) {
+                frame = if (latest == bucket || latest == null) {
                     SeekPreviewFrame(bucket, bitmap)
                 } else {
-                    latest?.let(::nearestCached) ?: SeekPreviewFrame(bucket, bitmap)
+                    nearestCached(latest)
                 }
             }
         }
@@ -491,6 +489,7 @@ internal class SeekPreviewController(
             }
         }
         val key = bestKey ?: return null
+        if (!isSeekPreviewFrameWithinDistance(key, positionMs, MaxCachedPreviewDistanceMs)) return null
         val bitmap = cache[key] ?: return null
         return SeekPreviewFrame(key, bitmap)
     }
@@ -498,8 +497,14 @@ internal class SeekPreviewController(
     private object UnsupportedSeekPreviewSource : RuntimeException("no frame source for this stream")
 }
 
+private fun ImageBitmap.estimatedRgbaBytes(): Long =
+    width.toLong().coerceAtLeast(0L) * height.toLong().coerceAtLeast(0L) * 4L
+
+internal fun seekPreviewBucketDurationMs(durationMs: Long): Long =
+    (durationMs.coerceAtLeast(0L) / BucketsPerTitle).coerceIn(MinBucketMs, MaxBucketMs)
+
 internal fun bucketFor(positionMs: Long, durationMs: Long): Long {
-    val bucketMs = (durationMs / BucketsPerTitle).coerceIn(MinBucketMs, MaxBucketMs)
+    val bucketMs = seekPreviewBucketDurationMs(durationMs)
     return ((positionMs + bucketMs / 2) / bucketMs * bucketMs).coerceAtMost(durationMs)
 }
 

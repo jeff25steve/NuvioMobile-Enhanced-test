@@ -2365,3 +2365,27 @@ Verification boundary:
 - Remote source review confirms the overlay is a sibling of the full-size `AndroidView`/Media3 `PlayerView`, the setting is only exposed by the ExoPlayer controller, and native/explicit subtitle routes remain intact.
 - Device validation is still required for SRT and WebVTT on 16:9, 2.35:1, portrait, Fit, Fill and Zoom content; include a bright scene near the lower picture edge and a letterbox too short to fit the full caption. No claim of measured visual improvement is made before that validation.
 
+
+## Seek-preview precision and memory bounds — 23 November 2026
+
+A source-level review of the existing seek-preview pipeline found two concrete issues in the fallback path and retained thumbnail caches.
+
+### Changes
+
+- Reduced the duration-derived fallback frame bucket ceiling from 5,000 ms to 2,000 ms while preserving the existing 1,000 ms minimum. On long titles this halves the worst-case time quantization, so the fallback preview is less likely to show a frame several seconds away from the seek target.
+- Bounded fallback cached-frame reuse to 2,000 ms from the requested bucket. When no nearby cached frame exists, the overlay returns to its existing loading state instead of retaining an unrelated old frame while the new request is decoded.
+- Added a shared insertion-order cache trimmer for both the native thumbnail feed cache and the ExoPlayer-decoded frame cache. Both retain the existing 100-entry ceiling and now also use a 24 MiB estimated RGBA bitmap budget. The oldest entries are evicted first; an individual frame larger than the budget is not retained.
+- Kept the native thumbnail feed, custom ExoFrameGrabber, HTTP request headers, GL readback path, MPV playback, iOS, HDR playback output, decoder selection, and player buffering unchanged.
+- Added regression-test source for bucket quantization, stale-frame distance, LRU entry/byte eviction, oversized images, invalid accounting inputs, and Long-range timestamp distance.
+
+### Research and rationale
+
+- Context7 was used for the pinned AndroidX Media3 1.12.0-beta01 API surface and Kotlin collection iterator semantics. The official [Media3 FrameExtractor guide](https://developer.android.com/media/media3/inspector/extract-frames) confirms the modern API, but it is not substituted in this change: its documented default prefers software decoding, its API is Unstable, and its reference warns about color inaccuracies and differences between HLG bitmaps and SurfaceView output. A FrameExtractor migration needs a separate source-header parity review and real-device validation.
+- The current code already coalesces pending thumbnail requests, caches decoded frames, uses a native thumbnail feed where available, and releases the fallback connection after idle. Replacing that pipeline wholesale would duplicate existing work and introduce risk.
+- The 24 MiB cap is a deterministic cache-retention policy based on the decoded bitmap's estimated RGBA storage (width × height × 4). It is not a claim about total heap/GPU allocation.
+
+### Verification boundary
+
+- Regression tests were authored but not executed because Gradle test execution/compilation was not authorized under the no-build/no-CI constraint. The TDD RED result and GREEN result therefore remain unverified.
+- No Gradle tasks, compilation, build, CI, benchmark, APK/AAB generation, or physical-device playback was started.
+- Remote source review and branch-head verification are recorded with this change. Device validation is still required to compare preview accuracy on short and feature-length sources, verify memory pressure during repeated scrubbing, and check native-feed fallback behavior.

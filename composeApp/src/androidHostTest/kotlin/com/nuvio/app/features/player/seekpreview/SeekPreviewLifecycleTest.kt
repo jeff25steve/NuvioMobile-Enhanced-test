@@ -112,6 +112,25 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
+    fun fallbackBucketResolutionIsBoundedToTwoSecondsForLongTitles() {
+        assertEquals(1_000L, seekPreviewBucketDurationMs(60_000L))
+        assertEquals(2_000L, seekPreviewBucketDurationMs(7_200_000L))
+        assertEquals(2_000L, seekPreviewBucketDurationMs(Long.MAX_VALUE))
+    }
+
+    @Test
+    fun longTitleBucketRoundingKeepsFallbackPreviewWithinOneSecond() {
+        assertEquals(2_000L, bucketFor(2_500L, 7_200_000L))
+        assertEquals(4_000L, bucketFor(3_500L, 7_200_000L))
+    }
+
+    @Test
+    fun cachedFallbackFramesAreRejectedWhenTooFarFromTheRequestedPosition() {
+        assertTrue(isSeekPreviewFrameWithinDistance(8_000L, 10_000L, 2_000L))
+        assertFalse(isSeekPreviewFrameWithinDistance(7_999L, 10_000L, 2_000L))
+    }
+
+    @Test
     fun previewFrameReadbackRunsOnlyForAnActiveRequest() {
         assertTrue(shouldReadSeekPreviewFrame(hasActiveRequest = true, isReleased = false))
         assertFalse(shouldReadSeekPreviewFrame(hasActiveRequest = false, isReleased = false))
