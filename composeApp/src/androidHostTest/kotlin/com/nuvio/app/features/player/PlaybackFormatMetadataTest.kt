@@ -109,6 +109,11 @@ class PlaybackFormatMetadataTest {
 
         assertEquals(12, mpvBitDepth("yuv420p12le"))
         assertEquals(10, mpvBitDepth("yuv420p10le"))
-        assertEquals(null, mpvBitDepth("yuv420p"))
+        assertEquals(8, mpvBitDepth("yuv420p"))
+        assertEquals(9, mpvBitDepth("yuv420p9le"))
+        assertEquals(14, mpvBitDepth("yuv420p14le"))
+        assertEquals(16, mpvBitDepth("yuv420p16le"))
+        assertEquals(10, mpvBitDepth("p010le"))
+        assertEquals(null, mpvBitDepth("cuda"))
     }
 }
