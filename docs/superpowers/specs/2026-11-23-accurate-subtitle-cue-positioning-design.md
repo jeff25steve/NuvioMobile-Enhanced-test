@@ -43,7 +43,7 @@ Media3 1.11.1 documents `position` as the fractional location of `positionAnchor
 - For explicit `size`, clamp the width to the available video-frame region around the anchor and fill that cue box. If size is unset, measure the text to its content width while limiting its wrapping width to the maximum region available around the position anchor.
 - Preserve `Cue.windowColor` only when `windowColorSet` is true; it overrides the user background for that cue. Otherwise retain the user's configured background.
 - Resolve `Cue.textSize` from Media3's absolute-pixel, fractional and fractional-ignore-padding modes. The full-bleed overlay uses the fitted video height for both fractional inputs; convert resolved px through Compose Density to sp.
-- Extend `SubtitleVideoBoundsPx` with left/top offsets. Fit returns positive letterbox offsets; Zoom returns negative crop offsets; Fill remains the container bounds.
+- Extend `SubtitleVideoBoundsPx` with left/top offsets to mirror Media3's `AspectRatioFrameLayout`. Fit returns positive letterbox offsets; Zoom returns negative crop offsets; Fill remains the container bounds.
 - Position each block with a Compose `Layout` measure policy relative to the fitted video-frame origin, then clip Zoom overflow to the player container. This keeps the behavior commonMain and avoids platform-specific coordinate code.
 - Keep unsupported vertical writing cues and bitmap cues in the native output list.
 - Clamp normalized coordinates to [0, 1], reject non-finite values, and keep fallback placement for unset fields.

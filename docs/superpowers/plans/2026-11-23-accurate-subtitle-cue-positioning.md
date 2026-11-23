@@ -25,7 +25,8 @@
 - Unset anchors must match Media3 SubtitlePainter's START default; unset text alignment must default to CENTER.
 - An unset cue size must measure text width and constrain wrapping to the available region around its anchor; it must not be stretched to a full-width cue box.
 - Explicit cue size must be bounded by the anchor and viewport.
-- Fit letterbox offsets and Zoom negative crop offsets must be applied before clipping to the player container.
+- Fit letterbox offsets and Zoom negative crop offsets must match Media3 AspectRatioFrameLayout and be clipped to the player container.
+- Do not place mobile subtitle cues outside the fitted video bounds into black bars; that is a separate TV-oriented enhancement request.
 - Embedded absolute/fractional text sizes and cue window colors must be preserved; absent embedded styles must use the user's configured defaults.
 - NaN/infinite/out-of-range cue metadata must not produce invalid layout coordinates.
 - Different geometry, color or font-size cues must not be merged.
