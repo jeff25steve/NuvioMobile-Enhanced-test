@@ -504,8 +504,21 @@ internal fun seekPreviewBucketDurationMs(durationMs: Long): Long =
     (durationMs.coerceAtLeast(0L) / BucketsPerTitle).coerceIn(MinBucketMs, MaxBucketMs)
 
 internal fun bucketFor(positionMs: Long, durationMs: Long): Long {
-    val bucketMs = seekPreviewBucketDurationMs(durationMs)
-    return ((positionMs + bucketMs / 2) / bucketMs * bucketMs).coerceAtMost(durationMs)
+    val safeDurationMs = durationMs.coerceAtLeast(0L)
+    val safePositionMs = positionMs.coerceIn(0L, safeDurationMs)
+    if (safePositionMs == safeDurationMs) return safeDurationMs
+
+    val bucketMs = seekPreviewBucketDurationMs(safeDurationMs)
+    val lowerBucketIndex = safePositionMs / bucketMs
+    val remainderMs = safePositionMs % bucketMs
+    val roundsUp = remainderMs >= (bucketMs + 1L) / 2L
+    val roundedBucketIndex = lowerBucketIndex + if (roundsUp) 1L else 0L
+    val lastFullBucketIndex = safeDurationMs / bucketMs
+    return if (roundedBucketIndex > lastFullBucketIndex) {
+        safeDurationMs
+    } else {
+        roundedBucketIndex * bucketMs
+    }
 }
 
 @Composable
