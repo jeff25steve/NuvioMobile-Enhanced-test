@@ -134,10 +134,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             val group: TrackGroup = groups[groupIndex]
             for (trackIndex in 0 until group.length) {
                 val supportFlags = groupSupports[groupIndex][trackIndex]
-                if (
-                    RendererCapabilities.isFormatSupported(supportFlags, true) &&
-                    isSdrFallbackFormat(group.getFormat(trackIndex))
-                ) {
+                if (isSupportedSdrFallback(group.getFormat(trackIndex), supportFlags)) {
                     return true
                 }
             }
@@ -174,7 +171,7 @@ internal fun shouldMaskHdrFormatForDisplay(
     if (
         !hasSdrFallback ||
         supportedHdrTypes == null ||
-        !RendererCapabilities.isFormatSupported(rendererSupportFlags, true)
+        !isRendererFormatSupported(rendererSupportFlags)
     ) return false
 
     val isDolbyVision = isDolbyVisionFormat(format)
@@ -192,6 +189,13 @@ internal fun shouldMaskHdrFormatForDisplay(
 
     return requiredHdrType !in supportedHdrTypes
 }
+
+internal fun isRendererFormatSupported(rendererSupportFlags: Int): Boolean =
+    // FORMAT_EXCEEDS_CAPABILITIES is only a last-resort fallback, not a reliable SDR option.
+    RendererCapabilities.isFormatSupported(rendererSupportFlags, false)
+
+internal fun isSupportedSdrFallback(format: Format, rendererSupportFlags: Int): Boolean =
+    isRendererFormatSupported(rendererSupportFlags) && isSdrFallbackFormat(format)
 
 private fun isSdrFallbackFormat(format: Format): Boolean =
     !ColorInfo.isTransferHdr(format.colorInfo) && !isDolbyVisionFormat(format)
