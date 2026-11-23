@@ -839,6 +839,7 @@ private fun ExoPlayerSurface(
                 }
         }
 
+        player.applySystemVideoFrameRatePreference(context)
         player.applySubtitleTrackPreferences(
             preferredLanguage = playerSettings.preferredSubtitleLanguage,
             useForcedSubtitles = playerSettings.subtitleStyle.useForcedSubtitles,
@@ -1132,6 +1133,18 @@ private fun ExoPlayerSurface(
         }
 
         val listener = object : Player.Listener {
+            override fun onPositionDiscontinuity(
+                oldPosition: Player.PositionInfo,
+                newPosition: Player.PositionInfo,
+                reason: Int,
+            ) {
+                dispatchExoPlayerSnapshot()
+            }
+
+            override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                dispatchExoPlayerSnapshot()
+            }
+
             override fun onPlayerError(error: PlaybackException) {
                 syncPlayerViewKeepScreenOn()
                 InAppLogger.error(
@@ -2002,7 +2015,7 @@ private fun ExoPlayerSurface(
     LaunchedEffect(exoPlayer) {
         while (isActive) {
             dispatchExoPlayerSnapshot()
-            delay(250L)
+            delay(playbackSnapshotPollingIntervalMs(exoPlayer.isPlaying))
         }
     }
 
