@@ -123,6 +123,21 @@ internal fun ReportTimelineTouch(touching: Boolean, onTouchChange: (Boolean) -> 
     }
 }
 
+internal fun shouldEnablePlayerScrubbing(
+    isDragged: Boolean,
+    enabled: Boolean,
+    durationMs: Long,
+): Boolean = isDragged && enabled && durationMs > 0L
+
+@Composable
+internal fun ReportTimelineScrubbing(scrubbing: Boolean, onScrubbingChange: (Boolean) -> Unit) {
+    val latestOnScrubbingChange by rememberUpdatedState(onScrubbingChange)
+    LaunchedEffect(scrubbing) { latestOnScrubbingChange(scrubbing) }
+    DisposableEffect(Unit) {
+        onDispose { latestOnScrubbingChange(false) }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlayerTimeline(
@@ -134,6 +149,7 @@ internal fun PlayerTimeline(
     enabled: Boolean = true,
     seekPreview: SeekPreviewController? = null,
     onTouchChange: (Boolean) -> Unit = {},
+    onScrubbingChange: (Boolean) -> Unit = {},
     /** Each chapter after the first gets a mark where it starts. */
     chapters: List<PlayerChapter> = emptyList(),
 ) {
@@ -151,6 +167,10 @@ internal fun PlayerTimeline(
     val isDragged by interactionSource.collectIsDraggedAsState()
     val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged)
     ReportTimelineTouch(isInteracting, onTouchChange)
+    ReportTimelineScrubbing(
+        scrubbing = shouldEnablePlayerScrubbing(isDragged, enabled, durationMs),
+        onScrubbingChange = onScrubbingChange,
+    )
     val trackThickness by animateDpAsState(
         targetValue = if (isInteracting) 10.dp else 6.dp,
         animationSpec = tween(durationMillis = if (isInteracting) 140 else 180),
