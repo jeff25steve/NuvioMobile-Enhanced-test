@@ -76,6 +76,9 @@ data class PlayerSettingsUiState(
     val streamAutoPlayFallbackStartupTimeoutSeconds: Int = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS,
     val androidLibmpvVideoOutput: AndroidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext,
     val androidLibmpvRenderQuality: AndroidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced,
+    val androidLibmpvUpscaler: AndroidLibmpvScalingFilter = AndroidLibmpvScalingFilter.Default,
+    val androidLibmpvDownscaler: AndroidLibmpvScalingFilter = AndroidLibmpvScalingFilter.Default,
+    val androidLibmpvChromaScaler: AndroidLibmpvScalingFilter = AndroidLibmpvScalingFilter.Default,
     val androidLibmpvDebandEnabled: Boolean = false,
     val androidLibmpvHardwareDecodingEnabled: Boolean = true,
     val androidLibmpvYuv420pEnabled: Boolean = false,
@@ -216,6 +219,9 @@ object PlayerSettingsRepository {
     private var streamAutoPlayFallbackStartupTimeoutSeconds = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS
     private var androidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext
     private var androidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced
+    private var androidLibmpvUpscaler = AndroidLibmpvScalingFilter.Default
+    private var androidLibmpvDownscaler = AndroidLibmpvScalingFilter.Default
+    private var androidLibmpvChromaScaler = AndroidLibmpvScalingFilter.Default
     private var androidLibmpvDebandEnabled = false
     private var androidLibmpvHardwareDecodingEnabled = true
     private var androidLibmpvYuv420pEnabled = false
@@ -342,6 +348,9 @@ object PlayerSettingsRepository {
         streamAutoPlayFallbackStartupTimeoutSeconds = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS
         androidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext
         androidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced
+        androidLibmpvUpscaler = AndroidLibmpvScalingFilter.Default
+        androidLibmpvDownscaler = AndroidLibmpvScalingFilter.Default
+        androidLibmpvChromaScaler = AndroidLibmpvScalingFilter.Default
         androidLibmpvDebandEnabled = false
         androidLibmpvHardwareDecodingEnabled = true
         androidLibmpvYuv420pEnabled = false
@@ -508,6 +517,15 @@ object PlayerSettingsRepository {
         androidLibmpvRenderQuality = PlayerSettingsStorage.loadAndroidLibmpvRenderQuality()
             ?.let { runCatching { AndroidLibmpvRenderQuality.valueOf(it) }.getOrNull() }
             ?: AndroidLibmpvRenderQuality.Balanced
+        androidLibmpvUpscaler = PlayerSettingsStorage.loadAndroidLibmpvUpscaler()
+            ?.let { runCatching { AndroidLibmpvScalingFilter.valueOf(it) }.getOrNull() }
+            ?: AndroidLibmpvScalingFilter.Default
+        androidLibmpvDownscaler = PlayerSettingsStorage.loadAndroidLibmpvDownscaler()
+            ?.let { runCatching { AndroidLibmpvScalingFilter.valueOf(it) }.getOrNull() }
+            ?: AndroidLibmpvScalingFilter.Default
+        androidLibmpvChromaScaler = PlayerSettingsStorage.loadAndroidLibmpvChromaScaler()
+            ?.let { runCatching { AndroidLibmpvScalingFilter.valueOf(it) }.getOrNull() }
+            ?: AndroidLibmpvScalingFilter.Default
         androidLibmpvDebandEnabled = PlayerSettingsStorage.loadAndroidLibmpvDebandEnabled() ?: false
         androidLibmpvHardwareDecodingEnabled = PlayerSettingsStorage.loadAndroidLibmpvHardwareDecodingEnabled() ?: true
         androidLibmpvYuv420pEnabled = PlayerSettingsStorage.loadAndroidLibmpvYuv420pEnabled() ?: false
@@ -967,6 +985,30 @@ object PlayerSettingsRepository {
         androidLibmpvRenderQuality = quality
         publish()
         PlayerSettingsStorage.saveAndroidLibmpvRenderQuality(quality.name)
+    }
+
+    fun setAndroidLibmpvUpscaler(filter: AndroidLibmpvScalingFilter) {
+        ensureLoaded()
+        if (androidLibmpvUpscaler == filter) return
+        androidLibmpvUpscaler = filter
+        publish()
+        PlayerSettingsStorage.saveAndroidLibmpvUpscaler(filter.name)
+    }
+
+    fun setAndroidLibmpvDownscaler(filter: AndroidLibmpvScalingFilter) {
+        ensureLoaded()
+        if (androidLibmpvDownscaler == filter) return
+        androidLibmpvDownscaler = filter
+        publish()
+        PlayerSettingsStorage.saveAndroidLibmpvDownscaler(filter.name)
+    }
+
+    fun setAndroidLibmpvChromaScaler(filter: AndroidLibmpvScalingFilter) {
+        ensureLoaded()
+        if (androidLibmpvChromaScaler == filter) return
+        androidLibmpvChromaScaler = filter
+        publish()
+        PlayerSettingsStorage.saveAndroidLibmpvChromaScaler(filter.name)
     }
 
     fun setAndroidLibmpvDebandEnabled(enabled: Boolean) {
@@ -1654,6 +1696,9 @@ object PlayerSettingsRepository {
             streamAutoPlayFallbackStartupTimeoutSeconds = streamAutoPlayFallbackStartupTimeoutSeconds,
             androidLibmpvVideoOutput = androidLibmpvVideoOutput,
             androidLibmpvRenderQuality = androidLibmpvRenderQuality,
+            androidLibmpvUpscaler = androidLibmpvUpscaler,
+            androidLibmpvDownscaler = androidLibmpvDownscaler,
+            androidLibmpvChromaScaler = androidLibmpvChromaScaler,
             androidLibmpvDebandEnabled = androidLibmpvDebandEnabled,
             androidLibmpvHardwareDecodingEnabled = androidLibmpvHardwareDecodingEnabled,
             androidLibmpvYuv420pEnabled = androidLibmpvYuv420pEnabled,
