@@ -87,17 +87,24 @@ static int load_ffmpeg(void) {
 }
 
 typedef struct {
+    struct SwsContext *context;
+    int source_width;
+    int source_height;
+    int source_format;
+    int colorspace;
+    int full_range;
+    int colorspace_configured;
+} SwsConversionState;
+
+typedef struct {
     AVCodecContext *codec;
     AVPacket *packet;
     AVFrame *frame;
     int has_frame;
-    struct SwsContext *sws;
-    int sws_source_width;
-    int sws_source_height;
-    int sws_source_format;
-    int sws_colorspace;
-    int sws_full_range;
-    int sws_colorspace_configured;
+    // Decoder output conversion and playback-thread surface rendering can overlap.
+    // Keep their mutable libswscale contexts and color caches independent.
+    SwsConversionState yuv_conversion;
+    SwsConversionState surface_conversion;
     ANativeWindow *window;
     jobject surface;
     int window_width;
@@ -126,31 +133,31 @@ static int swscale_colorspace_of(const AVFrame *frame) {
 }
 
 /* Matrix/range configuration is invariant until source geometry, format or color metadata changes. */
-static int configure_sws_colorspace(Decoder *d, const AVFrame *frame) {
+static int configure_sws_colorspace(SwsConversionState *conversion, const AVFrame *frame) {
     const int source_colorspace = swscale_colorspace_of(frame);
     const int full_range = frame->color_range == AVCOL_RANGE_JPEG;
-    if (d->sws_colorspace_configured &&
-        d->sws_source_width == frame->width &&
-        d->sws_source_height == frame->height &&
-        d->sws_source_format == frame->format &&
-        d->sws_colorspace == source_colorspace &&
-        d->sws_full_range == full_range) {
+    if (conversion->colorspace_configured &&
+        conversion->source_width == frame->width &&
+        conversion->source_height == frame->height &&
+        conversion->source_format == frame->format &&
+        conversion->colorspace == source_colorspace &&
+        conversion->full_range == full_range) {
         return 1;
     }
 
     const int *coefficients = ff.sws_getCoefficients(source_colorspace);
     if (!coefficients || ff.sws_setColorspaceDetails(
-            d->sws, coefficients, full_range, coefficients, full_range, 0, 1 << 16, 1 << 16) < 0) {
-        d->sws_colorspace_configured = 0;
+            conversion->context, coefficients, full_range, coefficients, full_range, 0, 1 << 16, 1 << 16) < 0) {
+        conversion->colorspace_configured = 0;
         return 0;
     }
 
-    d->sws_source_width = frame->width;
-    d->sws_source_height = frame->height;
-    d->sws_source_format = frame->format;
-    d->sws_colorspace = source_colorspace;
-    d->sws_full_range = full_range;
-    d->sws_colorspace_configured = 1;
+    conversion->source_width = frame->width;
+    conversion->source_height = frame->height;
+    conversion->source_format = frame->format;
+    conversion->colorspace = source_colorspace;
+    conversion->full_range = full_range;
+    conversion->colorspace_configured = 1;
     return 1;
 }
 
@@ -200,7 +207,8 @@ static void release_window(JNIEnv *env, Decoder *d) {
 }
 
 static void destroy(Decoder *d) {
-    if (d->sws) ff.sws_freeContext(d->sws);
+    if (d->yuv_conversion.context) ff.sws_freeContext(d->yuv_conversion.context);
+    if (d->surface_conversion.context) ff.sws_freeContext(d->surface_conversion.context);
     if (d->frame) ff.av_frame_free(&d->frame);
     if (d->packet) ff.av_packet_free(&d->packet);
     if (d->codec) ff.avcodec_free_context(&d->codec);
@@ -386,13 +394,15 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
         LOGW("Rejected undersized or invalid YUV output buffer");
         return JNI_FALSE;
     }
-    d->sws = ff.sws_getCachedContext(d->sws, frame->width, frame->height, frame->format,
-                                     frame->width, frame->height, AV_PIX_FMT_YUV420P,
-                                     SWS_BILINEAR, NULL, NULL, NULL);
-    if (!d->sws) d->sws_colorspace_configured = 0;
+    SwsConversionState *conversion = &d->yuv_conversion;
+    conversion->context = ff.sws_getCachedContext(
+        conversion->context, frame->width, frame->height, frame->format,
+        frame->width, frame->height, AV_PIX_FMT_YUV420P,
+        SWS_BILINEAR, NULL, NULL, NULL);
+    if (!conversion->context) conversion->colorspace_configured = 0;
     jboolean converted = JNI_FALSE;
-    if (base && d->sws) {
-        if (!configure_sws_colorspace(d, frame)) {
+    if (base && conversion->context) {
+        if (!configure_sws_colorspace(conversion, frame)) {
             LOGW("Failed to configure YUV conversion matrix/range (colorspace=%d full_range=%d)",
                  colorspace_of(frame), frame->color_range == AVCOL_RANGE_JPEG);
         } else {
@@ -404,7 +414,7 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
                 NULL,
             };
             int strides[4] = {y_stride, uv_stride, uv_stride, 0};
-            converted = ff.sws_scale(d->sws, (const uint8_t *const *) frame->data, frame->linesize, 0,
+            converted = ff.sws_scale(conversion->context, (const uint8_t *const *) frame->data, frame->linesize, 0,
                                      frame->height, planes, strides) > 0;
         }
     }
@@ -501,17 +511,19 @@ JNIEXPORT jint JNICALL METHOD(nativeRenderPrivateFrame)(JNIEnv *env, jclass claz
         return RESULT_ERROR;
     }
 
-    d->sws = ff.sws_getCachedContext(d->sws, width, height, frame->format,
-                                     width, height, AV_PIX_FMT_YUV420P,
-                                     SWS_BILINEAR, NULL, NULL, NULL);
-    if (!d->sws) {
-        d->sws_colorspace_configured = 0;
+    SwsConversionState *conversion = &d->surface_conversion;
+    conversion->context = ff.sws_getCachedContext(
+        conversion->context, width, height, frame->format,
+        width, height, AV_PIX_FMT_YUV420P,
+        SWS_BILINEAR, NULL, NULL, NULL);
+    if (!conversion->context) {
+        conversion->colorspace_configured = 0;
         LOGW("Failed to create FFmpeg YUV420 conversion context");
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
         if (unlock_result) LOGW("unlock after swscale setup failure failed: %d", unlock_result);
         return RESULT_ERROR;
     }
-    if (!configure_sws_colorspace(d, frame)) {
+    if (!configure_sws_colorspace(conversion, frame)) {
         LOGW("Failed to configure YUV conversion matrix/range (colorspace=%d full_range=%d)",
              colorspace_of(frame), frame->color_range == AVCOL_RANGE_JPEG);
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
@@ -527,7 +539,7 @@ JNIEXPORT jint JNICALL METHOD(nativeRenderPrivateFrame)(JNIEnv *env, jclass claz
     uint8_t *planes[4] = {base, dst_u, dst_v, NULL};
     int strides[4] = {buffer.stride, chroma_stride, chroma_stride, 0};
     const int converted_rows = ff.sws_scale(
-        d->sws, (const uint8_t *const *) frame->data, frame->linesize,
+        conversion->context, (const uint8_t *const *) frame->data, frame->linesize,
         0, height, planes, strides);
     int unlock_result = ANativeWindow_unlockAndPost(d->window);
     if (converted_rows != height) {
