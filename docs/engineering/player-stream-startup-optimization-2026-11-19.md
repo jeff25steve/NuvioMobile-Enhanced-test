@@ -421,3 +421,20 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 
 - Static source inspection checked every existing renderer/player rebuild trigger found in this file, capture-before-key-change ordering, and one-shot speed restoration.
 - No Gradle task, test execution, compilation, build, CI, APK/AAB, Macrobenchmark, Perfetto capture or physical-device playback was run. No measured performance gain is claimed.
+
+
+### Cycle 233 — distinguish disabled subtitles from automatic no-selection
+
+- The review of the new rebuild-preservation path found an important edge case: Media3 can report no selected text track both when the user explicitly disabled subtitles and when automatic selection simply has not selected a compatible text track. Treating every -1 ordinal as an explicit disable could suppress subtitles after a rebuild.
+- Subtitle rebuild state now preserves a positive selected ordinal, or preserves -1 only when the text track type is explicitly present in TrackSelectionParameters.disabledTrackTypes. A missing automatic selection is left to Media3's normal track-selection policy.
+- Added host-test cases for selected text tracks, explicit disable, automatic no-selection and sources without text tracks. Test source was committed before the implementation correction; tests were not executed.
+- This narrows the previous cycle's subtitle-state preservation to the exact state the user had chosen, without overriding automatic subtitle selection.
+
+#### Versioned source evidence
+
+- Media3 1.11.1 TrackSelectionParameters exposes disabledTrackTypes as the authoritative set of explicitly disabled track types; this is used instead of inferring explicit user intent from selectedTextTrackOrdinal() alone.
+
+#### Verification boundary
+
+- Static inspection checked both decoder-fallback and anime-effect rebuild capture sites and confirmed the helper reads the current player parameters before the replacement player is created.
+- No Gradle task, test execution, compilation, build, CI, APK/AAB or device playback was run.

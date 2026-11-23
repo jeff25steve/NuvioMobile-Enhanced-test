@@ -1159,10 +1159,13 @@ private fun ExoPlayerSurface(
         preserveAudioSelectionForReload("animeEffectsRebuild")
         preservePlaybackSpeedForReload("animeEffectsRebuild")
         val currentTracks = exoPlayer.currentTracks
-        if (currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
-            // Preserve -1 as well: it means the user had subtitles disabled despite available tracks.
+        subtitleTrackIndexForReload(
+            selectedTrackIndex = currentTracks.selectedTextTrackOrdinal(),
+            hasTextTracks = currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT },
+            textTrackTypeDisabled = C.TRACK_TYPE_TEXT in exoPlayer.trackSelectionParameters.disabledTrackTypes,
+        )?.let { selectedSubtitleIndex ->
             pendingSubtitleTrackIndex.clear()
-            pendingSubtitleTrackIndex.add(currentTracks.selectedTextTrackOrdinal())
+            pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
         }
         if (useLibass && (upscale || sharpen) && !videoEffectsNeeded &&
             exoPlayer.currentTracks.hasSelectedAssWithoutDolbyVision()
@@ -1226,9 +1229,14 @@ private fun ExoPlayerSurface(
                 // before changing the remember key so the replacement player restores them.
                 preserveAudioSelectionForReload("decoder fallback")
                 preservePlaybackSpeedForReload("decoder fallback")
-                if (exoPlayer.currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+                val currentTracks = exoPlayer.currentTracks
+                subtitleTrackIndexForReload(
+                    selectedTrackIndex = currentTracks.selectedTextTrackOrdinal(),
+                    hasTextTracks = currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT },
+                    textTrackTypeDisabled = C.TRACK_TYPE_TEXT in exoPlayer.trackSelectionParameters.disabledTrackTypes,
+                )?.let { selectedSubtitleIndex ->
                     pendingSubtitleTrackIndex.clear()
-                    pendingSubtitleTrackIndex.add(exoPlayer.currentTracks.selectedTextTrackOrdinal())
+                    pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
                 }
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 decoderPriorityOverride = fallbackDecoderPriority
@@ -4941,6 +4949,17 @@ internal fun shouldApplyPendingSubtitleTrackSelection(
     hasTrackGroups: Boolean,
     hasTextTracks: Boolean,
 ): Boolean = hasTrackGroups && (pendingTrackIndex < 0 || hasTextTracks)
+
+internal fun subtitleTrackIndexForReload(
+    selectedTrackIndex: Int,
+    hasTextTracks: Boolean,
+    textTrackTypeDisabled: Boolean,
+): Int? = when {
+    !hasTextTracks -> null
+    selectedTrackIndex >= 0 -> selectedTrackIndex
+    textTrackTypeDisabled -> -1
+    else -> null
+}
 
 internal fun playbackSpeedToRestoreAfterRebuild(speed: Float): Float? =
     speed.takeIf { it.isFinite() && it > 0f && it != 1f }
