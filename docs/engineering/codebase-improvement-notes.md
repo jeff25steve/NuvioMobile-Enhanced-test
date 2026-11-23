@@ -1188,3 +1188,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Allocation now closes/unmaps any resource acquired before a failed mapping, removes the fallback temporary file, and preserves the original allocation failure while attaching cleanup failures as suppressed exceptions. Successful block release also retries deletion of the fallback file.
 - Added host coverage for cleanup on allocation failure, preserving both the original and cleanup failures, and not running cleanup on success. Tests not run. The official Android SharedMemory API confirms `close()` and `unmap()` are separate lifecycle operations and mappings remain valid until unmapped.
 - No Gradle task, Kotlin compilation, build, CI, device playback or benchmark was run for these cycles.
+
+
+### Complete SharedMemory cleanup even when unmapping fails (Cycle 174, 23 November 2026)
+
+- The native allocation cleanup added in Cycle 173 still called `SharedMemory.close()` only after `SharedMemory.unmap()` returned normally. If unmapping failed, the backing file descriptor could remain open despite the allocation failure being reported.
+- Shared-memory cleanup now always attempts descriptor close after unmap, both for failed allocation rollback and normal block release. If both operations fail, the descriptor-close failure is propagated with the unmap failure attached as suppressed. The file-backed fallback likewise attempts temporary-file deletion even when closing its RandomAccessFile fails.
+- Added host coverage for descriptor close after unmap failure and preservation of both cleanup failures. Tests not run. Android's SharedMemory API specifies that closing the descriptor does not itself unmap existing mappings, so both operations remain necessary.
