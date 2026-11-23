@@ -116,9 +116,9 @@ internal fun List<AnnotatedString>.joinLines(): AnnotatedString = buildAnnotated
     }
 }
 
-private val assOverrideBlock = Regex("""\\{[^}]*\\}""")
-private val assAlignment = Regex("""\\\\an([1-9])(?!\\d)""")
-private val assStyleTag = Regex("""\\\\(?:([ibu])(\\d*)(?![a-z])|(1?c)(?:&H([0-9A-Fa-f]{1,8})&?|(?![a-z]))|r(?![a-z]))""")
+private val assOverrideBlock = Regex("""\{[^}]*\}""")
+private val assAlignment = Regex("""\\an([1-9])(?!\d)""")
+private val assStyleTag = Regex("""\\(?:([ibu])(\d*)(?![a-z])|(1?c)(?:&H([0-9A-Fa-f]{1,8})&?|(?![a-z]))|r(?![a-z]))""")
 
 internal fun parseMpvSubtitleText(text: String): StyledSubtitleCues =
     styledSubtitleCues(
