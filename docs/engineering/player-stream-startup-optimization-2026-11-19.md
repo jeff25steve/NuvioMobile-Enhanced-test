@@ -378,3 +378,12 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 - The exact 1.11.1 AnalyticsListener.EventTime source exposes event-specific timeline/windowIndex separately from currentTimeline/currentWindowIndex; this change uses the event-specific pair to identify the media whose load actually emitted the callback.
 - The changes preserve the existing Media3 1.11.1 dependency, player buffer policy, retry count, decoder selection, HLS/DASH routing, subtitles and libmpv path.
 - Regression tests were added before the implementation commit, but were not executed because no build/test task or CI was authorised. No Gradle compilation, test execution, APK/AAB build, CI or device playback was run. This is remote source review only; runtime recovery and event-correlation behaviour remain unverified until authorised tests and device validation.
+
+
+### Cycle 230 — audit Media3 1.11.1 video-seek and renderer defaults
+
+- Verified the exact 1.11.1 DefaultRenderersFactory source: AV1 sample-dependency parsing is already enabled by default. It identifies AV1 frames that are not depended on and can accelerate seeks while reducing unnecessary decode work; adding an explicit true setter would be redundant.
+- Verified MediaCodecVideoRenderer's default late decoder-input drop threshold is 15,000 microseconds, and DefaultRenderersFactory adopts that default. No tighter value was introduced because doing so without representative frame-pacing measurements could discard useful frames.
+- Verified Media3 1.11.0 enables dynamic scheduling by default. The app already enables the renderer duration-to-progress hint on API 31+ where asynchronous MediaCodec operation is the default; this remains gated for older Android versions.
+- Did not enable MediaCodec renderer prewarming: the current player prepares one media item at a time, and this app overrides buildVideoRenderers while not providing a matching secondary renderer implementation. Enabling prewarming without the required secondary renderer would be incorrect.
+- This cycle intentionally makes no redundant renderer configuration change. It records confirmed upstream defaults and the exact integration boundary so future work does not duplicate already-active optimisations.

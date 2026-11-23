@@ -1546,3 +1546,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Verification boundary — cycles 228–229**
 - Confirmed the branch dependency is Media3 1.11.1 and checked the versioned StuckPlayerException and AnalyticsListener.EventTime APIs through Context7 and AndroidX source.
 - Regression-test source was committed before production changes. Tests were not executed; no Gradle task, compilation, build, CI, APK/AAB or device playback was run because no build/CI authorisation was given. Static source inspection does not establish compilation or runtime correctness.
+
+
+**Cycle 230 — verify current Media3 video-seek and scheduling defaults**
+- The exact Media3 1.11.1 DefaultRenderersFactory source already defaults AV1 sample-dependency parsing to enabled; no redundant setter was added.
+- The 15 ms late decoder-input drop threshold is already the Media3 default. Dynamic player scheduling is enabled by Media3 1.11.0, and this app already enables the renderer duration-to-progress hint on API 31+.
+- Renderer prewarming was not enabled: the app replaces one media item per prepare and its custom renderer factory does not provide the matching secondary video renderer required by Media3 when buildVideoRenderers is overridden.
+- This is a deliberate no-op after exact-version source inspection, not a claimed code improvement or measured performance gain.
