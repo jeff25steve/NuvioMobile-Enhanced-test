@@ -351,6 +351,10 @@ internal class SoftwareVideoDecoder(
             released = true
             callback = null
             callbackExecutor = null
+            dequeuedInputBuffer?.clear()
+            dequeuedInputBuffer = null
+            while (queuedInputBuffers.isNotEmpty()) queuedInputBuffers.removeFirst().clear()
+            while (queuedOutputBuffers.isNotEmpty()) queuedOutputBuffers.removeFirst().clear()
             lock.notifyAll()
         }
         var interrupted = false
