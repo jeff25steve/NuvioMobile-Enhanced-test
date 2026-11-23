@@ -120,6 +120,7 @@ internal fun PlayerScreenModalHosts(
     mediaInfoJson: String,
     onStreamInfoModalDismissed: () -> Unit,
     supportsAssStyleCustomization: Boolean = false,
+    supportsLetterboxTextSubtitles: Boolean = false,
 ) {
     if (pendingP2pSwitch != null) {
         P2pConsentDialog(
@@ -175,6 +176,7 @@ internal fun PlayerScreenModalHosts(
         secondaryPreferredSubtitleLanguage = playerSettings.secondaryPreferredSubtitleLanguage,
         subtitleStyle = subtitleStyle,
         supportsAssStyleCustomization = supportsAssStyleCustomization,
+        supportsLetterboxTextSubtitles = supportsLetterboxTextSubtitles,
         subtitleDelayMs = subtitleDelayMs,
         selectedAddonSubtitle = selectedAddonSubtitle,
         subtitleAutoSyncState = subtitleAutoSyncState,
