@@ -2212,3 +2212,32 @@ Verification boundary:
 - Regression tests were authored but not run. No compilation, Gradle test, build, CI, benchmark, or physical-device playback was started, per the user's instruction.
 - Source review and remote GitHub verification are still required after the documentation update. Visual validation is still needed for source switches between video and audio-only media and for streams with missing or malformed frame-rate metadata.
 - No measured improvement in playback smoothness or display refresh switching is claimed until device playback is authorised and measured.
+
+
+## Prefer display-supported HDR over same-group SDR fallback — 23 November 2026
+
+A new HDR track-selection pass was based on the concrete AndroidX Media3 HLS report [#3441](https://github.com/androidx/media/issues/3441): an HLS PQ variant and SDR fallback at equal BANDWIDTH can share one adaptive selection, and the cold-start bandwidth estimate can select SDR even when the display supports HDR10. The related upstream [PR #3461](https://github.com/androidx/media/pull/3461) remains open as of this checkpoint; it is not available in the pinned Media3 1.12.0-beta01 artifact.
+
+Nuvio already has DisplayAwareDefaultTrackSelector, which masks an HDR format when the display cannot present it and a supported SDR fallback exists in the same TrackGroup. The missing symmetric case was that, on an HDR-capable display, a supported HDR format did not cause its same-group SDR fallback to be excluded. Media3 could therefore still choose SDR from the mixed adaptive group.
+
+Changed:
+- Added same-TrackGroup detection for a renderer-supported HDR format whose required HDR type is present in the current default display's supported HDR capabilities.
+- When such an HDR alternative exists, supported SDR alternatives in that same group are marked FORMAT_UNSUPPORTED_TYPE before delegating to DefaultTrackSelector. This prevents the equal-bandwidth SDR fallback from winning the adaptive selection on an HDR-capable display.
+- Preserved the existing opposite path: unsupported HDR is masked only when a supported SDR fallback exists. HDR-only content remains selectable.
+- Kept the existing forceLowestBitrate bypass and unknown-display behavior unchanged. A display state that cannot be read is not treated as proof that HDR is unsupported.
+- Added host tests for PQ/HDR10 recognition, SDR fallback masking, unsupported HLG on an HDR10-only display, unsupported HDR decoder capability, and preservation of SDR when the display cannot present the available HDR type.
+
+Scope and trade-offs:
+- This is deliberately a same-TrackGroup fix. It addresses the reported HLS equal-bandwidth adaptive-group case without treating unrelated TrackGroups (which can represent different feeds or camera angles) as interchangeable.
+- It does not yet implement all of PR #3461: global HDR ranking across separate groups, explicit separation of every HDR transfer type into its own adaptive selection, and the upstream display-change invalidation refinements remain open follow-up work.
+- Choosing supported HDR ahead of SDR is a picture-quality preference and can choose a higher-bitrate HDR variant. The existing force-lowest-bitrate mode bypasses this preference for users prioritizing bitrate.
+- No codec, decoder, tone-mapping, renderer, or Media3 dependency was changed.
+
+Evidence:
+- AndroidX issue [#3441](https://github.com/androidx/media/issues/3441) includes a reproducible HLS playlist with equal-bandwidth PQ and SDR variants and explains why the SDR variant can win the first chunk selection.
+- AndroidX PR [#3461](https://github.com/androidx/media/pull/3461) was checked directly and remains open; it implements broader ranking and adaptive-group separation. Nuvio's change is limited to the concrete same-group case and does not claim parity with that PR.
+- The project's pinned Media3 1.12.0-beta01 already includes HLS VIDEO-RANGE PQ/HLG parsing from 1.12.0-alpha01, so the custom selector receives ColorInfo for those HLS variants. The exact ColorInfo builder and RendererCapabilities support flags were checked against the pinned AndroidX source.
+
+Verification boundary:
+- Regression tests were authored but not run. No compilation, Gradle tests, build, CI, benchmark, or device playback was started.
+- The changed selector and test sources were fetched back from the remote branch for source-level review. Runtime selection still needs an authorised HLS test using equal-bandwidth PQ/SDR variants on HDR10 and SDR displays, including a low initial bandwidth estimate.
