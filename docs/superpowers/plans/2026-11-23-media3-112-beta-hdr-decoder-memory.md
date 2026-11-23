@@ -38,9 +38,9 @@
 - Consumes: existing `androidx-media3` version alias.
 - Produces: all catalog-managed Media3 modules resolve to `1.12.0-beta01`.
 
-- [ ] Change only the `androidx-media3` version alias from `1.11.1` to `1.12.0-beta01`.
-- [ ] Confirm every Media3 module continues to use `version.ref = "androidx-media3"`.
-- [ ] Confirm `android-minSdk = "24"` remains unchanged.
+- [x] Change only the `androidx-media3` version alias from `1.11.1` to `1.12.0-beta01`.
+- [x] Confirm every Media3 module continues to use `version.ref = "androidx-media3"`.
+- [x] Confirm `android-minSdk = "24"` remains unchanged.
 
 ### Task 2: Add a static compatibility guard
 
@@ -51,11 +51,11 @@
 - Consumes: version catalog and production source under `composeApp/src`.
 - Produces: nonzero exit on version drift, minSdk below 24, or known removed API references.
 
-- [ ] Check the version alias is exactly `1.12.0-beta01`.
-- [ ] Check the minSdk catalog value is at least 24.
-- [ ] Check all catalog Media3 module aliases reference the common version alias.
-- [ ] Fail if production source references `DashUtil.buildDataSpec`, `setAsyncCryptoSynchronizationEnabled` or `TextureAssetLoader`.
-- [ ] Print a clear success summary; do not invoke Gradle or network commands.
+- [x] Check the version alias is exactly `1.12.0-beta01`.
+- [x] Check the minSdk catalog value is at least 24.
+- [x] Check all catalog Media3 module aliases reference the common version alias.
+- [x] Fail if production source references `DashUtil.buildDataSpec`, `setAsyncCryptoSynchronizationEnabled` or `TextureAssetLoader`.
+- [x] Print a clear success summary; do not invoke Gradle or network commands.
 
 ### Task 3: Update the existing engineering notes
 
@@ -63,10 +63,10 @@
 - Modify: `docs/engineering/codebase-improvement-notes.md`
 - Modify: `docs/engineering/player-stream-startup-optimization-2026-11-19.md`
 
-- [ ] Record the exact upstream HDR, Dolby Vision and sample-buffer changes.
-- [ ] Record the progressive selected-track loading tradeoff and manual validation matrix.
-- [ ] Record that the dependency bump and static checks are source-only until builds/tests/device playback are authorized.
-- [ ] Re-fetch changed files from the remote branch and review the complete diff.
+- [x] Record the exact upstream HDR, Dolby Vision and sample-buffer changes.
+- [x] Record the progressive selected-track loading tradeoff and manual validation matrix.
+- [x] Record that the dependency bump and static checks are source-only until builds/tests/device playback are authorized.
+- [x] Re-fetch changed files from the remote branch and review the complete diff.
 
 ## Verification
 

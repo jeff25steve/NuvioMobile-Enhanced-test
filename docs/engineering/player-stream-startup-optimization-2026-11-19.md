@@ -447,3 +447,13 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 The detailed MPV rendering-quality/debanding record (cycles 234–238) and Media3 subtitle-rendering record (cycles 239–242) are maintained in `docs/engineering/codebase-improvement-notes.md`. This player-specific document intentionally links to the canonical engineering history rather than duplicating implementation details.
 
 The subtitle work preserves fractional cue positions and anchors, explicit/measured cue widths, text alignment, embedded window colors and font sizes, and positions captions relative to the fitted video frame for Fit/Fill/Zoom modes. Regression test source was added but not executed under the current no-build authorization boundary.
+
+## Media3 1.12.0-beta01 HDR and decoder follow-up (23 November 2026)
+
+The testing branch now uses Media3 1.12.0-beta01 through the shared version-catalog alias. The concrete upstream changes are HLS `VIDEO-RANGE` PQ/HLG parsing into `Format.colorInfo`, backward-compatible Dolby Vision Profile 7 HEVC fallback with profile-aware decoder selection, and a smaller sample-buffer segment allocation (65,536 to 65,520 bytes). The project minSdk is already 24.
+
+Progressive media now defaults to loading only selected video/image tracks. This can reduce unnecessary sample loading but may add loading when switching to a different progressive video track; this is explicitly in the pre-release device test matrix. HLS adaptive selection and all custom renderer ordering remain unchanged. MediaCodec renderer prewarming remains disabled because the custom renderer factory does not provide a matching secondary renderer.
+
+Added `scripts/tests/test-media3-112-beta-compatibility.sh` to guard catalog alignment, minSdk and known removed APIs. Positive and negative fixture cases were exercised; no Gradle tests, build, CI or device playback was run. The upgrade must not be considered production-validated until the matrix in `docs/superpowers/specs/2026-11-23-media3-112-beta-hdr-decoder-memory-design.md` passes.
+
+Evidence: [Media3 1.12.0-beta01 release notes](https://github.com/androidx/media/releases/tag/1.12.0-beta01), [HLS HDR metadata parsing #3441](https://github.com/androidx/media/issues/3441), [Dolby Vision decoder selection #3486](https://github.com/androidx/media/issues/3486).

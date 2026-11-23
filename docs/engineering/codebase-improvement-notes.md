@@ -1716,3 +1716,33 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Static remote-source review checked Cue mapping, anchor defaults, width bounds, grouping keys, embedded window-color/text-size handling, Fit/Fill/Zoom offsets, video-frame-relative layout and native fallbacks.
 - Common and Android host regression tests were added but **not executed**. No Gradle task, compilation, build, CI, benchmark, Perfetto trace or physical-device playback was run. No runtime improvement is claimed until authorized validation is performed.
+
+## Media3 1.12.0-beta01 — HDR metadata, Dolby Vision fallback and buffer memory (23 November 2026)
+
+### Integrated on `main-build-testing`
+
+- Updated the single `androidx-media3` version-catalog alias from `1.11.1` to `1.12.0-beta01`; all catalog-managed Media3 modules continue to share that alias.
+- The project already declares `android-minSdk = "24"`, matching Media3 1.12's new minimum SDK. No minimum-SDK increase was made.
+- Media3 1.12 beta parses HLS `VIDEO-RANGE=PQ` and `VIDEO-RANGE=HLG` from `EXT-X-STREAM-INF` and `EXT-X-I-FRAME-STREAM-INF` into `Format.colorInfo` (upstream change #3441). This gives the existing Media3 track-selection/rendering path actual dynamic-range metadata instead of relying on an absent field.
+- Media3 1.12 beta allows HEVC fallback for backward-compatible Dolby Vision Profile 7 streams and fixes decoder selection so a Dolby Vision decoder for the wrong profile is not selected as a false-positive primary decoder (upstream change #3486).
+- Media3 1.12 beta reduces `C.DEFAULT_BUFFER_SEGMENT_SIZE` from 65,536 to 65,520 bytes so each allocation including the array header fits whole OS pages. Google's release notes report about 6% lower sample-buffer memory on 4 KiB-page devices and 20% on 16 KiB-page devices; these are upstream estimates, not Nuvio measurements.
+- Added `scripts/tests/test-media3-112-beta-compatibility.sh`. It checks the exact shared version, minSdk >= 24, catalog module alignment, and known removed API references (`DashUtil.buildDataSpec`, `setAsyncCryptoSynchronizationEnabled`, `TextureAssetLoader`).
+
+### Compatibility and risk boundaries
+
+- The beta enables load-only-selected-tracks by default for progressive sources, filtering unselected video/image tracks. This can reduce unnecessary sample loading, but a later switch to another progressive video track may require additional loading/buffering. This behavior must be tested with multi-video-track MP4/MKV samples before production release.
+- Existing HLS Auto quality remains Media3-adaptive; no custom variant rewriting or quality policy was changed.
+- Existing custom `DefaultRenderersFactory` video/audio/text renderer overrides remain in place. No MediaCodec renderer prewarming was enabled because Nuvio supplies a custom video renderer but no matching secondary renderer.
+- HAGC metadata parsing remains enabled. The 1.11.1 `DefaultExtractorsFactory` already defaults `setParseHagcMetadata` to true, so no redundant flag was added.
+- The beta minimum SDK is compatible with the current project minSdk 24. The removed-API repository searches returned no references; the committed guard now protects these known removals.
+
+### Evidence and verification boundary
+
+- Official release notes: https://github.com/androidx/media/releases/tag/1.12.0-beta01
+- HLS HDR metadata parsing: https://github.com/androidx/media/issues/3441
+- Dolby Vision Profile 7 and profile-aware decoder selection: https://github.com/androidx/media/issues/3486
+- Media3 1.12 AndroidX release page: https://developer.android.com/jetpack/androidx/releases/media3
+- Context7 resolved `/androidx/media` only through stable 1.11.1; the beta was checked against the official 1.12.0-beta01 release notes and upstream source instead of claiming Context7 beta documentation.
+- The compatibility guard was exercised against positive and negative fixture cases: valid catalog passed; wrong module version, minSdk 23 and removed-API references each failed as intended. The repository script itself was not run against a local checkout.
+- GitHub source searches found no references to the known removed APIs, and the live version catalog confirms minSdk 24 and all Media3 artifacts use the shared alias.
+- No Gradle tasks, tests, compilation, build, CI, APK/AAB, benchmark, Perfetto capture or physical-device playback was run. This is a testing-branch beta adoption, not a production-ready validation claim. Before release, run Android builds/tests and validate HLS SDR/PQ/HLG, Dolby Vision Profile 7, unsupported profiles, progressive multi-track switching, subtitle continuity and software-decoder fallback on representative API 24+ devices.
