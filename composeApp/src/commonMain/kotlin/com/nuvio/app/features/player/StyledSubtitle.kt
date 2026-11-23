@@ -106,12 +106,12 @@ private fun PositionedSubtitleBlock(
     // aspect ratios. Explicitly positioned cues keep their source-video-relative scale.
     val subtitleScale = if (block.placeInLetterbox) viewportScale else scale
     val subtitleHeightPx = if (block.placeInLetterbox) viewportHeightPx else videoBounds.height
-    val effectiveBottomInset = if (block.placeInLetterbox) viewportBottomInset else bottomInset
     val horizontalInset = 16.dp * subtitleScale +
         if (block.horizontal == SubtitleHorizontalPosition.CENTER) 0.dp else sideInset
     val horizontalInsetPx = with(density) { horizontalInset.roundToPx() }
     val topInsetPx = with(density) { topInset.roundToPx() }
-    val bottomInsetPx = with(density) { effectiveBottomInset.roundToPx() }
+    val videoBottomInsetPx = with(density) { bottomInset.roundToPx() }
+    val letterboxBottomInsetPx = with(density) { viewportBottomInset.roundToPx() }
 
     Layout(
         modifier = Modifier.fillMaxSize().clipToBounds(),
@@ -172,7 +172,7 @@ private fun PositionedSubtitleBlock(
                     viewportHeightPx = viewportHeight,
                     videoBottomPx = videoTop + videoHeight,
                     contentHeightPx = placeable.height,
-                    bottomInsetPx = bottomInsetPx,
+                    bottomInsetPx = letterboxBottomInsetPx,
                 )
             } else {
                 null
@@ -187,7 +187,7 @@ private fun PositionedSubtitleBlock(
             } ?: letterboxBottomY ?: when (block.vertical) {
                 SubtitleVerticalPosition.TOP -> videoTop + topInsetPx
                 SubtitleVerticalPosition.MIDDLE -> videoTop + (videoHeight - placeable.height) / 2
-                SubtitleVerticalPosition.BOTTOM -> videoTop + videoHeight - placeable.height - bottomInsetPx
+                SubtitleVerticalPosition.BOTTOM -> videoTop + videoHeight - placeable.height - videoBottomInsetPx
             }
             layout(viewportWidth, viewportHeight) {
                 placeable.place(x, y)
