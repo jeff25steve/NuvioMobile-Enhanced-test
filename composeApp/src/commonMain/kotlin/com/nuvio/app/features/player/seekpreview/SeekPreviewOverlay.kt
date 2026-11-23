@@ -100,9 +100,7 @@ internal fun SeekPreviewOverlay(
 private fun SeekPreviewBubble(controller: SeekPreviewController, positionMs: Long) {
     val frame = controller.frame
     val aspectRatio = frame?.bitmap
-        ?.takeIf { it.width > 0 && it.height > 0 }
-        ?.let { it.width.toFloat() / it.height.toFloat() }
-        ?.coerceIn(1f, 2.4f)
+        ?.let { seekPreviewDisplayAspectRatio(it.width, it.height) }
         ?: DefaultAspectRatio
 
     Column(
@@ -121,7 +119,7 @@ private fun SeekPreviewBubble(controller: SeekPreviewController, positionMs: Lon
                 Image(
                     bitmap = frame.bitmap,
                     contentDescription = null,
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier.matchParentSize(),
                 )
             } else {
