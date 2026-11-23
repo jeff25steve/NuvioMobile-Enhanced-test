@@ -134,6 +134,23 @@ static int32_t data_space_of(const AVFrame *frame) {
     return standard | transfer | range;
 }
 
+/* Validate the Java-owned I420 buffer layout before any native pointer arithmetic. */
+static int yuv420_buffer_size(int width, int height, int y_stride, int uv_stride, size_t *size) {
+    if (width <= 0 || height <= 0 || y_stride < width || uv_stride < (width / 2) + (width % 2)) {
+        return 0;
+    }
+    size_t y_row = (size_t) y_stride;
+    size_t uv_row = (size_t) uv_stride;
+    size_t y_height = (size_t) height;
+    size_t uv_height = (y_height + 1) / 2;
+    if (y_height > SIZE_MAX / y_row || uv_height > SIZE_MAX / uv_row) return 0;
+    size_t y_bytes = y_row * y_height;
+    size_t uv_bytes = uv_row * uv_height;
+    if (uv_bytes > (SIZE_MAX - y_bytes) / 2) return 0;
+    *size = y_bytes + (uv_bytes * 2);
+    return 1;
+}
+
 static void release_window(JNIEnv *env, Decoder *d) {
     if (d->window) ANativeWindow_release(d->window);
     if (d->surface) (*env)->DeleteGlobalRef(env, d->surface);
@@ -275,6 +292,14 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
     if (!d->has_frame) return JNI_FALSE;
     AVFrame *frame = d->frame;
     uint8_t *base = (*env)->GetDirectBufferAddress(env, output);
+    jlong capacity = (*env)->GetDirectBufferCapacity(env, output);
+    size_t required_size = 0;
+    if (!base || capacity < 0 ||
+        !yuv420_buffer_size(frame->width, frame->height, y_stride, uv_stride, &required_size) ||
+        (uint64_t) capacity < (uint64_t) required_size) {
+        LOGW("Rejected undersized or invalid YUV output buffer");
+        return JNI_FALSE;
+    }
     d->sws = ff.sws_getCachedContext(d->sws, frame->width, frame->height, frame->format,
                                      frame->width, frame->height, AV_PIX_FMT_YUV420P,
                                      SWS_BILINEAR, NULL, NULL, NULL);
@@ -309,12 +334,23 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
                                             jint uv_stride, jint data_space) {
     Decoder *d = (Decoder *) (intptr_t) handle;
     const uint8_t *src = (*env)->GetDirectBufferAddress(env, source);
-    if (!src) return RESULT_ERROR;
+    jlong source_capacity = (*env)->GetDirectBufferCapacity(env, source);
+    size_t required_size = 0;
+    if (!src || source_capacity < 0 ||
+        !yuv420_buffer_size(width, height, y_stride, uv_stride, &required_size) ||
+        (uint64_t) source_capacity < (uint64_t) required_size) {
+        LOGW("Rejected undersized or invalid YUV surface source");
+        return RESULT_ERROR;
+    }
     if (!d->surface || !(*env)->IsSameObject(env, d->surface, surface)) {
         release_window(env, d);
         d->window = ANativeWindow_fromSurface(env, surface);
         if (!d->window) return RESULT_ERROR;
         d->surface = (*env)->NewGlobalRef(env, surface);
+        if (!d->surface) {
+            release_window(env, d);
+            return RESULT_ERROR;
+        }
     }
     if (d->window_width != width || d->window_height != height) {
         if (ANativeWindow_setBuffersGeometry(d->window, width, height, HAL_PIXEL_FORMAT_YV12)) {
@@ -342,23 +378,28 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         return RESULT_OK;
     }
     if (result) return RESULT_ERROR;
-    if (!buffer.bits) {
+    if (!buffer.bits || buffer.width < width || buffer.height < height || buffer.stride < width) {
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
         if (unlock_result) {
-            LOGW("ANativeWindow_unlockAndPost failed after empty locked buffer: %d", unlock_result);
+            LOGW("ANativeWindow_unlockAndPost failed after invalid locked buffer: %d", unlock_result);
         }
+        LOGW("Rejected undersized native window buffer (%dx%d stride=%d) for frame (%dx%d)",
+             buffer.width, buffer.height, buffer.stride, width, height);
         return RESULT_ERROR;
     }
 
     uint8_t *dst = buffer.bits;
-    int rows = height < buffer.height ? height : buffer.height;
-    int columns = width < buffer.width ? width : buffer.width;
-    for (int y = 0; y < rows; y++) {
-        memcpy(dst + (size_t) y * buffer.stride, src + (size_t) y * y_stride, columns);
+    for (int y = 0; y < height; y++) {
+        memcpy(dst + (size_t) y * buffer.stride, src + (size_t) y * y_stride, width);
     }
     int chroma_stride = ALIGN(buffer.stride / 2, 16);
-    int chroma_rows = (rows + 1) / 2;
-    int chroma_columns = (columns + 1) / 2;
+    int chroma_rows = (height + 1) / 2;
+    int chroma_columns = (width + 1) / 2;
+    if (chroma_stride < chroma_columns) {
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("ANativeWindow_unlockAndPost failed after invalid chroma stride: %d", unlock_result);
+        return RESULT_ERROR;
+    }
     uint8_t *dst_v = dst + (size_t) buffer.stride * buffer.height;
     uint8_t *dst_u = dst_v + (size_t) chroma_stride * ((buffer.height + 1) / 2);
     const uint8_t *src_u = src + (size_t) y_stride * height;
