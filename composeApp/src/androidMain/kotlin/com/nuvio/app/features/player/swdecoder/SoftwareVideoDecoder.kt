@@ -481,6 +481,7 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun sendPendingPacket() {
+        if (isFlushRequested()) return
         val input = checkNotNull(pendingInputBuffer)
         val data = input.data ?: throw SoftwareVideoDecoderException("Missing " + codecName + " packet data")
         val sampleSize = prepareFfmpegPacketData(data)
@@ -511,6 +512,7 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun sendEndOfStream() {
+        if (isFlushRequested()) return
         val result = nativeSendEndOfStream(handle)
         if (result != SOFTWARE_DECODER_RESULT_OK && result != SOFTWARE_DECODER_RESULT_AGAIN) {
             throw SoftwareVideoDecoderException("Failed to signal " + codecName + " end of stream (" + result + ")")
@@ -519,6 +521,10 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun receiveFrame(outputBuffer: VideoDecoderOutputBuffer) {
+        if (isFlushRequested()) {
+            recycleOutputBuffer(outputBuffer)
+            return
+        }
         val result = nativeReceiveFrame(handle, frameInfo)
         if (result == SOFTWARE_DECODER_RESULT_ERROR) {
             throw SoftwareVideoDecoderException("Failed to receive " + codecName + " frame")
