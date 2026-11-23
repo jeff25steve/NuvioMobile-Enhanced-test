@@ -848,6 +848,7 @@ private fun ExoPlayerSurface(
         )
         player
     }
+    val exoPlayerReleased = remember(exoPlayer) { AtomicBoolean(false) }
 
     val nowPlayingController = remember(context, exoPlayer) {
         AndroidPlayerNowPlayingController(
@@ -1579,6 +1580,7 @@ private fun ExoPlayerSurface(
             )
             playerViewRef?.releaseLibassOverlay()
             exoPlayer.setScrubbingModeEnabled(false)
+            exoPlayerReleased.set(true)
             exoPlayer.release()
         }
     }
@@ -1638,6 +1640,7 @@ private fun ExoPlayerSurface(
                 }
 
                 override fun setScrubbingMode(enabled: Boolean, fractionalSeekTolerance: Double?) {
+                    if (exoPlayerReleased.get()) return
                     val currentParameters = exoPlayer.scrubbingModeParameters
                     exoPlayer.setScrubbingModeParameters(
                         currentParameters.buildUpon()
