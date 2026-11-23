@@ -276,6 +276,11 @@ JNIEXPORT jlong JNICALL METHOD(nativeCreate)(JNIEnv *env, jclass clazz, jstring 
     }
     d->codec->thread_count = thread_count;
     d->codec->thread_type = thread_type;
+    LOGI("decoder=%s threading=%s threads=%d capabilities=0x%x",
+         codec->name,
+         thread_type == FF_THREAD_SLICE ? "slice" :
+             (thread_type == FF_THREAD_FRAME ? "frame" : "single"),
+         thread_count, codec_capabilities);
     d->codec->flags2 |= AV_CODEC_FLAG2_FAST;
     int result = ff.avcodec_open2(d->codec, codec, NULL);
     if (result < 0) {
@@ -283,14 +288,6 @@ JNIEXPORT jlong JNICALL METHOD(nativeCreate)(JNIEnv *env, jclass clazz, jstring 
         destroy(d);
         return 0;
     }
-    // Report the mode FFmpeg actually activated, not only the requested policy:
-    // codecs may downgrade unsupported threading modes during avcodec_open2().
-    const int active_thread_type = d->codec->active_thread_type;
-    LOGI("decoder=%s threading=%s threads=%d requestedThreads=%d capabilities=0x%x",
-         codec->name,
-         active_thread_type & FF_THREAD_SLICE ? "slice" :
-             (active_thread_type & FF_THREAD_FRAME ? "frame" : "single"),
-         d->codec->thread_count, threads, codec_capabilities);
     return (jlong) (intptr_t) d;
 }
 

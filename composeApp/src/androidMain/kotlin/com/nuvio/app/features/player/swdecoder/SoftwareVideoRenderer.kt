@@ -67,7 +67,7 @@ internal class SoftwareVideoRenderer(
             InAppLogger.info(
                 "ExoPlayer/Android",
                 "Software video decoder mime=${format.sampleMimeType} codecs=${format.codecs} " +
-                    "size=${format.width}x${format.height} requestedThreads=$threads",
+                    "size=${format.width}x${format.height} threads=$threads",
             )
             return SoftwareVideoDecoder(format, threads).also { decoder = it }
         } finally {
