@@ -1441,9 +1441,9 @@
     <string name="settings_playback_secondary_subtitle_language">Secondary Preferred Language</string>
     <string name="settings_playback_section_decoder">DECODER</string>
     <string name="settings_playback_engine">Playback Engine</string>
-    <string name="settings_playback_engine_auto_description">ExoPlayer for Movies &amp; TV Shows · MPV for Anime</string>
-    <string name="settings_playback_engine_exoplayer_description">Use ExoPlayer and Android Media3 decoders.</string>
-    <string name="settings_playback_engine_libmpv_description">Use libmpv for Android playback.</string>
+    <string name="settings_playback_engine_auto_description">ExoPlayer for tagged HDR/Dolby Vision and most video · MPV for Anime</string>
+    <string name="settings_playback_engine_exoplayer_description">Use Android Media3 and MediaCodec; supports native HDR output on compatible devices.</string>
+    <string name="settings_playback_engine_libmpv_description">Use libmpv; HDR is tone-mapped to SDR on Android rather than passed through natively.</string>
     <string name="settings_playback_auto_switch_engine_on_error">Auto-switch engine on playback error</string>
     <string name="settings_playback_auto_switch_engine_on_error_description">Switch to the other playback engine when playback fails, no matter which engine is selected.</string>
     <string name="settings_playback_auto_switch_engine_blocked_by_fallback">Turn off fallback to next matching source to use this.</string>
