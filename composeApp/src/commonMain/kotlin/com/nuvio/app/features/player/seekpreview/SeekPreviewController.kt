@@ -65,6 +65,11 @@ internal fun canUseSeekPreviewSource(generation: Int, currentGeneration: Int, di
 internal fun isSeekPreviewSourceCancellationStale(generation: Int, currentGeneration: Int): Boolean =
     generation != currentGeneration
 
+internal fun isSeekPreviewFrameCachedAtExactPosition(
+    cachedPositionMs: Long?,
+    requestedPositionMs: Long,
+): Boolean = cachedPositionMs == requestedPositionMs
+
 internal class SeekPreviewFrame(val positionMs: Long, val bitmap: ImageBitmap)
 
 @Stable
@@ -154,6 +159,12 @@ internal class SeekPreviewController(
             feedDurationMs = durationMs
             feedAnchorMs = target
             warmJob?.cancel()
+            val cached = nearestFeed(target)
+            if (cached != null && isSeekPreviewFrameCachedAtExactPosition(cached.positionMs, target)) {
+                frame = cached
+                if (hasSucceeded) startPrefetch()
+                return
+            }
             warmJob = scope.launch {
                 if (!hasSucceeded) delay(WarmUpDelayMs)
                 repeat(WarmAttempts) {
@@ -210,8 +221,15 @@ internal class SeekPreviewController(
 
     private fun wantFeed(positionMs: Long) {
         feedWanted = positionMs
-        nearestFeed(positionMs)?.let { near ->
-            if (isCloser(near.positionMs, positionMs)) frame = near
+        val cached = nearestFeed(positionMs)
+        if (cached != null) {
+            if (isCloser(cached.positionMs, positionMs)) frame = cached
+            if (isSeekPreviewFrameCachedAtExactPosition(cached.positionMs, positionMs)) {
+                // The exact frame is already visible or can be shown immediately; don't decode it again.
+                feedAskJob?.cancel()
+                feedAskJob = null
+                return
+            }
         }
         if (feedAskJob?.isActive == true) return
         val waitMs = feedAskedAt?.let { ThumbnailAskMs - it.elapsedNow().inWholeMilliseconds } ?: 0L
