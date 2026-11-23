@@ -1451,6 +1451,12 @@
     <string name="settings_playback_libmpv_video_output_dialog">libmpv Renderer</string>
     <string name="settings_playback_libmpv_render_quality">libmpv Render Quality</string>
     <string name="settings_playback_libmpv_render_quality_dialog">libmpv Render Quality</string>
+    <string name="settings_playback_libmpv_upscaler">libmpv Upscaling Filter</string>
+    <string name="settings_playback_libmpv_upscaler_dialog">Upscaling Filter</string>
+    <string name="settings_playback_libmpv_downscaler">libmpv Downscaling Filter</string>
+    <string name="settings_playback_libmpv_downscaler_dialog">Downscaling Filter</string>
+    <string name="settings_playback_libmpv_chroma_scaler">libmpv Chroma Scaling Filter</string>
+    <string name="settings_playback_libmpv_chroma_scaler_dialog">Chroma Scaling Filter</string>
     <string name="settings_playback_libmpv_deband">libmpv Debanding</string>
     <string name="settings_playback_libmpv_deband_description">Reduce visible color banding in gradients. Optional GPU processing can soften fine detail, and hardware decoding may limit its effect.</string>
     <string name="settings_playback_libmpv_hardware_decoding">libmpv Hardware Decoding</string>
