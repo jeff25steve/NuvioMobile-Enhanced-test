@@ -91,6 +91,14 @@ internal class SoftwareVideoRenderer(
         decoder?.outputMode = outputMode
     }
 
+    override fun releaseDecoder() {
+        try {
+            super.releaseDecoder()
+        } finally {
+            decoder = null
+        }
+    }
+
     private companion object {
         const val TAG = "SoftwareVideoRenderer"
         const val MAX_THREADS = 8
