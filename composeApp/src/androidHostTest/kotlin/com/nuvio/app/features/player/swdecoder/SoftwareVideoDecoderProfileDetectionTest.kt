@@ -83,6 +83,21 @@ class SoftwareVideoDecoderProfileDetectionTest {
     }
 
     @Test
+    fun avcSpsSearchContinuesAcrossInitializationDataEntries() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setInitializationData(
+                listOf(
+                    byteArrayOf(0x00),
+                    byteArrayOf(0, 0, 0, 1, 0x67, 0x6E, 0x00, 0x20),
+                ),
+            )
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
     fun malformedFirstAvcCodecEntryDoesNotHideLaterValidProfile() {
         val format = Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
