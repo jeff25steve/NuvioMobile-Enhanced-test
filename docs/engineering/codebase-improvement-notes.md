@@ -1807,6 +1807,7 @@ Changed:
 Evidence:
 - mpv's [property manual](https://mpv.io/manual/stable/#command-interface-properties) defines `video-params` as decoder output and `video-out-params` as the format after video filters; it explicitly warns that `container-fps` can contain bogus values and defines `estimated-vf-fps` as a recent-frame output estimate.
 - mpv's [video-filter manual](https://mpv.io/manual/stable/#video-filters) documents that the `format` filter converts to the requested pixel format, which is why source and post-filter bit depths must not be combined into one label.
+- Community evidence: [mpv-android issue #423](https://github.com/mpv-android/mpv-android/issues/423) records the maintainer-confirmed trade-off that forcing `vf=format=yuv420p` converts high-bit-depth input down to 8-bit and can also reduce chroma information. [Findroid issue #701](https://github.com/jarnedemeulemeester/findroid/issues/701) includes real-device reports of 10-bit playback varying across MediaCodec/GPU paths. These reports support making the source/post-filter distinction visible; they do not justify changing Nuvio's decoder or filter defaults. A targeted Reddit search did not return a reproducible implementation, so no Reddit-only claim was used.
 
 Verification boundary:
 - Updated common and Android host test sources and re-fetched the changed production/test files from `main-build-testing` for static review.
