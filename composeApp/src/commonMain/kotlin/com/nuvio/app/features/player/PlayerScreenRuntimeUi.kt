@@ -881,11 +881,14 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             modifier = modifier,
             seekPreview = seekPreview,
             onTimelineTouchChange = { touching -> isTouchingTimeline = touching },
-            onTimelineScrubbingChange = { enabled ->
+            onTimelineScrubbingChange = { enabled, fractionalSeekTolerance ->
                 isExoPlayerScrubbing = enabled &&
                     !isPartyControlLocked &&
                     playerController?.playbackEngine == AndroidPlaybackEngine.ExoPlayer
-                playerController?.setScrubbingMode(isExoPlayerScrubbing)
+                playerController?.setScrubbingMode(
+                    isExoPlayerScrubbing,
+                    fractionalSeekTolerance.takeIf { isExoPlayerScrubbing },
+                )
             },
             foldLayout = folded,
             gestureController = gestureController,
