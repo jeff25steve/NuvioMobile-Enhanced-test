@@ -2109,6 +2109,28 @@ private fun ExoPlayerSurface(
         }
     }
 
+    fun updateAlwaysFrameRateController(playerView: PlayerView) {
+        val alwaysRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            shouldUseAlwaysSurfaceFrameRateMatching(context.videoFrameRateUserPreference())
+        if (!alwaysRequested) {
+            alwaysFrameRateController?.release()
+            alwaysFrameRateController = null
+            return
+        }
+        if (alwaysFrameRateController == null) {
+            val surfaceView = playerView.videoSurfaceView as? android.view.SurfaceView
+            if (surfaceView != null) {
+                alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
+            }
+        }
+        alwaysFrameRateController?.updatePlaybackState(
+            exoPlayer.playWhenReady,
+            exoPlayer.playbackState,
+            exoPlayer.duration,
+            liveStream,
+        )
+    }
+
     Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -2550,28 +2572,6 @@ private fun LibmpvPlayerSurface(
             view.keepScreenOn = snapshot.isPlaying || snapshot.isLoading
             delay(250L)
         }
-    }
-
-    fun updateAlwaysFrameRateController(playerView: PlayerView) {
-        val alwaysRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            shouldUseAlwaysSurfaceFrameRateMatching(context.videoFrameRateUserPreference())
-        if (!alwaysRequested) {
-            alwaysFrameRateController?.release()
-            alwaysFrameRateController = null
-            return
-        }
-        if (alwaysFrameRateController == null) {
-            val surfaceView = playerView.videoSurfaceView as? android.view.SurfaceView
-            if (surfaceView != null) {
-                alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
-            }
-        }
-        alwaysFrameRateController?.updatePlaybackState(
-            exoPlayer.playWhenReady,
-            exoPlayer.playbackState,
-            exoPlayer.duration,
-            liveStream,
-        )
     }
 
     Box(modifier = modifier) {
