@@ -67,6 +67,9 @@ actual object PlayerSettingsStorage {
     private const val androidLibmpvHardwareDecodingEnabledKey = "android_libmpv_hardware_decoding_enabled"
     private const val androidLibmpvVideoOutputKey = "android_libmpv_video_output"
     private const val androidLibmpvRenderQualityKey = "android_libmpv_render_quality"
+    private const val androidLibmpvUpscalerKey = "android_libmpv_upscaler"
+    private const val androidLibmpvDownscalerKey = "android_libmpv_downscaler"
+    private const val androidLibmpvChromaScalerKey = "android_libmpv_chroma_scaler"
     private const val androidLibmpvDebandEnabledKey = "android_libmpv_deband_enabled"
     private const val androidLibmpvYuv420pEnabledKey = "android_libmpv_yuv420p_enabled"
     private const val androidAnimeUpscaleEnabledKey = "android_anime_upscale_enabled"
@@ -185,6 +188,9 @@ actual object PlayerSettingsStorage {
         streamAutoPlayFallbackStartupTimeoutSecondsKey,
         androidLibmpvVideoOutputKey,
         androidLibmpvRenderQualityKey,
+        androidLibmpvUpscalerKey,
+        androidLibmpvDownscalerKey,
+        androidLibmpvChromaScalerKey,
         androidLibmpvDebandEnabledKey,
         androidLibmpvHardwareDecodingEnabledKey,
         androidLibmpvYuv420pEnabledKey,
@@ -990,6 +996,27 @@ actual object PlayerSettingsStorage {
             ?.edit()
             ?.putString(ProfileScopedKey.of(androidLibmpvRenderQualityKey), quality)
             ?.apply()
+    }
+
+    actual fun loadAndroidLibmpvUpscaler(): String? =
+        preferences?.getString(ProfileScopedKey.of(androidLibmpvUpscalerKey), null)
+
+    actual fun saveAndroidLibmpvUpscaler(filter: String) {
+        preferences?.edit()?.putString(ProfileScopedKey.of(androidLibmpvUpscalerKey), filter)?.apply()
+    }
+
+    actual fun loadAndroidLibmpvDownscaler(): String? =
+        preferences?.getString(ProfileScopedKey.of(androidLibmpvDownscalerKey), null)
+
+    actual fun saveAndroidLibmpvDownscaler(filter: String) {
+        preferences?.edit()?.putString(ProfileScopedKey.of(androidLibmpvDownscalerKey), filter)?.apply()
+    }
+
+    actual fun loadAndroidLibmpvChromaScaler(): String? =
+        preferences?.getString(ProfileScopedKey.of(androidLibmpvChromaScalerKey), null)
+
+    actual fun saveAndroidLibmpvChromaScaler(filter: String) {
+        preferences?.edit()?.putString(ProfileScopedKey.of(androidLibmpvChromaScalerKey), filter)?.apply()
     }
 
     actual fun loadAndroidLibmpvDebandEnabled(): Boolean? =
@@ -2109,6 +2136,9 @@ actual object PlayerSettingsStorage {
         }
         loadAndroidLibmpvVideoOutput()?.let { put(androidLibmpvVideoOutputKey, encodeSyncString(it)) }
         loadAndroidLibmpvRenderQuality()?.let { put(androidLibmpvRenderQualityKey, encodeSyncString(it)) }
+        loadAndroidLibmpvUpscaler()?.let { put(androidLibmpvUpscalerKey, encodeSyncString(it)) }
+        loadAndroidLibmpvDownscaler()?.let { put(androidLibmpvDownscalerKey, encodeSyncString(it)) }
+        loadAndroidLibmpvChromaScaler()?.let { put(androidLibmpvChromaScalerKey, encodeSyncString(it)) }
         loadAndroidLibmpvDebandEnabled()?.let { put(androidLibmpvDebandEnabledKey, encodeSyncBoolean(it)) }
         loadAndroidLibmpvHardwareDecodingEnabled()?.let {
             put(androidLibmpvHardwareDecodingEnabledKey, encodeSyncBoolean(it))
@@ -2203,6 +2233,9 @@ actual object PlayerSettingsStorage {
             ?.let(::saveStreamAutoPlayFallbackStartupTimeoutSeconds)
         payload.decodeSyncString(androidLibmpvVideoOutputKey)?.let(::saveAndroidLibmpvVideoOutput)
         payload.decodeSyncString(androidLibmpvRenderQualityKey)?.let(::saveAndroidLibmpvRenderQuality)
+        payload.decodeSyncString(androidLibmpvUpscalerKey)?.let(::saveAndroidLibmpvUpscaler)
+        payload.decodeSyncString(androidLibmpvDownscalerKey)?.let(::saveAndroidLibmpvDownscaler)
+        payload.decodeSyncString(androidLibmpvChromaScalerKey)?.let(::saveAndroidLibmpvChromaScaler)
         payload.decodeSyncBoolean(androidLibmpvDebandEnabledKey)?.let(::saveAndroidLibmpvDebandEnabled)
         payload.decodeSyncBoolean(androidLibmpvHardwareDecodingEnabledKey)
             ?.let(::saveAndroidLibmpvHardwareDecodingEnabled)
