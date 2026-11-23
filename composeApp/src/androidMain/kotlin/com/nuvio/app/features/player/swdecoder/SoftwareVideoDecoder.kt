@@ -172,6 +172,28 @@ internal fun takeSoftwarePrivateFrameHandle(outputBuffer: VideoDecoderOutputBuff
     return handle
 }
 
+/** Bounded, lock-confined pool for reusable AVFrame owner structs. */
+internal class SoftwareVideoFrameHandlePool(private val capacity: Int) {
+    private val handles = ArrayDeque<Long>(capacity)
+
+    init {
+        require(capacity > 0)
+    }
+
+    fun acquire(): Long = if (handles.isEmpty()) 0L else handles.removeFirst()
+
+    /** Returns false when the caller must free [handle] instead of retaining it. */
+    fun recycle(handle: Long): Boolean {
+        if (handle == 0L || handles.size >= capacity) return false
+        handles.addLast(handle)
+        return true
+    }
+
+    fun drain(): List<Long> = buildList {
+        while (handles.isNotEmpty()) add(handles.removeFirst())
+    }
+}
+
 internal fun usesSoftwarePrivateSurfaceFrame(outputMode: Int): Boolean =
     outputMode == C.VIDEO_OUTPUT_MODE_SURFACE_YUV
 
@@ -246,6 +268,8 @@ internal class SoftwareVideoDecoder(
     private val queuedInputBuffers = ArrayDeque<DecoderInputBuffer>(INPUT_BUFFERS)
     private val availableOutputBuffers = ArrayDeque<VideoDecoderOutputBuffer>(OUTPUT_BUFFERS)
     private val queuedOutputBuffers = ArrayDeque<VideoDecoderOutputBuffer>(OUTPUT_BUFFERS)
+    // AVFrame owner structs return here when Media3 releases their output buffers.
+    private val reusableFrameHandles = SoftwareVideoFrameHandlePool(OUTPUT_BUFFERS)
     private val flow = SoftwareVideoDecoderFlowState()
     private val frameInfo = LongArray(6)
 
@@ -438,6 +462,7 @@ internal class SoftwareVideoDecoder(
                 while (queuedOutputBuffers.isNotEmpty()) recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
                 availableInputBuffers.clear()
                 availableOutputBuffers.clear()
+                reusableFrameHandles.drain().forEach { frameHandle -> nativeReleaseFrame(frameHandle) }
                 lock.notifyAll()
             }
             val currentHandle = handle
@@ -591,7 +616,9 @@ internal class SoftwareVideoDecoder(
             // Drop all views before switching to the native-owned surface frame.
             clearSoftwareYuvOutputStorage(outputBuffer)
             outputBuffer.initForPrivateFrame(width, height)
-            val frameHandle = nativeTakeFrame(handle)
+            val reusableFrameHandle = synchronized(lock) { reusableFrameHandles.acquire() }
+            // nativeTakeFrame consumes the reusable handle on both success and failure.
+            val frameHandle = nativeTakeFrame(handle, reusableFrameHandle)
             if (frameHandle == 0L) {
                 nativeDiscardFrame(handle)
                 throw SoftwareVideoDecoderException("Failed to retain " + codecName + " output frame")
@@ -647,7 +674,9 @@ internal class SoftwareVideoDecoder(
     private fun recycleOutputBufferLocked(outputBuffer: VideoDecoderOutputBuffer) {
         if (usesSoftwarePrivateSurfaceFrame(outputBuffer.mode)) {
             val frameHandle = takeSoftwarePrivateFrameHandle(outputBuffer)
-            if (frameHandle != 0L) nativeReleaseFrame(frameHandle)
+            if (frameHandle != 0L && (released || !reusableFrameHandles.recycle(frameHandle))) {
+                nativeReleaseFrame(frameHandle)
+            }
         }
         outputBuffer.clear()
         if (!released) availableOutputBuffers.addLast(outputBuffer)
@@ -807,7 +836,7 @@ internal class SoftwareVideoDecoder(
         @JvmStatic private external fun nativeSendPacket(handle: Long, data: ByteBuffer, size: Int, timeUs: Long): Int
         @JvmStatic private external fun nativeSendEndOfStream(handle: Long): Int
         @JvmStatic private external fun nativeReceiveFrame(handle: Long, info: LongArray): Int
-        @JvmStatic private external fun nativeTakeFrame(handle: Long): Long
+        @JvmStatic private external fun nativeTakeFrame(handle: Long, reusableFrameHandle: Long): Long
         @JvmStatic private external fun nativeReleaseFrame(frameHandle: Long)
         @JvmStatic private external fun nativeDiscardFrame(handle: Long)
         @JvmStatic private external fun nativeConvertFrame(handle: Long, output: ByteBuffer, yStride: Int, uvStride: Int): Boolean
