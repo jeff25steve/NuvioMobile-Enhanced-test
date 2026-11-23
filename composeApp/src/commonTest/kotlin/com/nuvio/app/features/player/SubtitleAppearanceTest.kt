@@ -21,6 +21,29 @@ class SubtitleAppearanceTest {
     }
 
     @Test
+    fun letterboxTextSubtitlePreferenceDefaultsOffAndUsesStyledOverlayWhenEnabled() {
+        assertFalse(SubtitleAppearance().placeUnpositionedTextInLetterbox)
+        assertFalse(SubtitleStyleState.DEFAULT.usesStyledOverlay)
+
+        val enabled = SubtitleStyleState(
+            appearance = SubtitleAppearance(placeUnpositionedTextInLetterbox = true),
+        )
+        assertTrue(enabled.requiresComposeStyledOverlay)
+        assertTrue(enabled.usesStyledOverlay)
+        assertFalse(enabled.resetAppearance().appearance.placeUnpositionedTextInLetterbox)
+    }
+
+    @Test
+    fun legacySubtitleAppearanceDefaultsLetterboxPreferenceOffAndRoundTripsNewValue() {
+        assertFalse(decodeSubtitleAppearance("""{"fontId":"serif"}""").placeUnpositionedTextInLetterbox)
+        val current = SubtitleAppearance(
+            fontId = "serif",
+            placeUnpositionedTextInLetterbox = true,
+        )
+        assertEquals(current, decodeSubtitleAppearance(current.encode()))
+    }
+
+    @Test
     fun customOutlineWidthUsesStyledOverlay() {
         assertTrue(SubtitleStyleState(outlineWidth = 4).usesStyledOverlay)
         assertFalse(SubtitleStyleState(outlineWidth = 4, outlineEnabled = false).usesStyledOverlay)
