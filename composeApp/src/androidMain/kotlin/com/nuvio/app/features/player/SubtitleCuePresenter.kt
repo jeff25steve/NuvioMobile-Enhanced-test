@@ -40,7 +40,8 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
     }
 
     fun refresh(): List<Cue> {
-        if (!canStyle || !style().usesStyledOverlay) {
+        val currentStyle = style()
+        if (!canStyle || !currentStyle.usesStyledOverlay) {
             cues = StyledSubtitleCues()
             return lastCues
         }
@@ -85,7 +86,7 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 textSizeValue = cueTextSizeValue,
                 textSizeType = cueTextSizeType,
                 placeInLetterbox = allowLetterboxPlacement &&
-                    style().appearance.placeUnpositionedTextInLetterbox &&
+                    currentStyle.appearance.placeUnpositionedTextInLetterbox &&
                     cue.bitmap == null &&
                     cue.line == Cue.DIMEN_UNSET &&
                     cue.position == Cue.DIMEN_UNSET &&
