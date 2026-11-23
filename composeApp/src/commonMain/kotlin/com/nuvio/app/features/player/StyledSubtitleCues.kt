@@ -111,7 +111,7 @@ internal fun subtitleCueWidthFraction(
 
 internal fun List<AnnotatedString>.joinLines(): AnnotatedString = buildAnnotatedString {
     this@joinLines.forEachIndexed { index, line ->
-        if (index > 0) append('\\n')
+        if (index > 0) append('\n')
         append(line)
     }
 }
@@ -122,7 +122,7 @@ private val assStyleTag = Regex("""\\\\(?:([ibu])(\\d*)(?![a-z])|(1?c)(?:&H([0-9
 
 internal fun parseMpvSubtitleText(text: String): StyledSubtitleCues =
     styledSubtitleCues(
-        text.split('\\n').map(String::trim).filter { it.isNotEmpty() }.map { event ->
+        text.split('\n').map(String::trim).filter { it.isNotEmpty() }.map { event ->
             val alignment = assOverrideBlock.findAll(event)
                 .flatMap { block -> assAlignment.findAll(block.value) }
                 .lastOrNull()
