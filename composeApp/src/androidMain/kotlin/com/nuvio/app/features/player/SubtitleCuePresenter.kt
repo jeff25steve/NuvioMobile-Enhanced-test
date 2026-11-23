@@ -48,11 +48,16 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 cue.lineType == Cue.LINE_TYPE_FRACTION && isSubtitleCueFraction(it)
             }
             val positionYAnchor = cue.lineAnchor.toSubtitleAnchorFraction()
-            val widthFraction = subtitleCueWidthFraction(
-                positionFraction = positionX,
-                anchorFraction = positionXAnchor,
-                requestedSize = cue.size.takeIf(::isSubtitleCueFraction),
-            )
+            val cueSize = cue.size.takeIf(::isSubtitleCueFraction)
+            val widthFraction = if (cueSize != null || positionX != null) {
+                subtitleCueWidthFraction(
+                    positionFraction = positionX,
+                    anchorFraction = positionXAnchor,
+                    requestedSize = cueSize ?: 1f,
+                )
+            } else {
+                null
+            }
             val cueTextSizeType = cue.subtitleTextSizeType()
             val cueTextSizeValue = cue.textSize.takeIf {
                 cueTextSizeType != null && it.isFinite() && it > 0f
@@ -67,7 +72,7 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 positionY = positionY,
                 positionYAnchor = positionYAnchor,
                 widthFraction = widthFraction,
-                fillCueWidth = widthFraction != null,
+                fillCueWidth = cueSize != null,
                 textAlignment = textAlignment,
                 windowColor = cue.windowColor.takeIf { cue.windowColorSet }?.let { Color(it) },
                 textSizeValue = cueTextSizeValue,

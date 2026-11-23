@@ -100,6 +100,7 @@ class StyledSubtitleCuesTest {
         assertEquals(0.4f, subtitleCueWidthFraction(0.2f, 0.5f, 0.8f))
         assertEquals(0.2f, subtitleCueWidthFraction(0.8f, 0f, 0.8f))
         assertEquals(0.5f, subtitleCueWidthFraction(null, 0.5f, 0.5f))
+        assertEquals(0.5f, subtitleCueWidthFraction(0.75f, 0.5f, 1f))
         assertEquals(null, subtitleCueWidthFraction(null, 0.5f, null))
     }
 

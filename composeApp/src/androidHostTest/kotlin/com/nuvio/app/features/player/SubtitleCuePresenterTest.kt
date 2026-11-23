@@ -136,7 +136,7 @@ class SubtitleCuePresenterTest {
         val block = presenter.cues.blocks.single()
         assertEquals(0.75f, block.positionX)
         assertEquals(0.5f, block.positionXAnchor)
-        assertEquals(null, block.widthFraction)
+        assertEquals(0.5f, block.widthFraction)
         assertFalse(block.fillCueWidth)
     }
 
