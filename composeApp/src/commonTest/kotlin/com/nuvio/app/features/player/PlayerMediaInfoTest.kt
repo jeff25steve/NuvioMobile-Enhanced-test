@@ -45,4 +45,42 @@ class PlayerMediaInfoTest {
 
         assertEquals(emptyList(), mpvMediaInfo { properties[it] }.hdr)
     }
+
+    @Test
+    fun mpvBitDepthRecognizesCommonPlanarSemiPlanarAndPackedFormats() {
+        val formats = listOf(
+            "yuv420p" to 8,
+            "nv12" to 8,
+            "yuv420p9le" to 9,
+            "yuv420p10le" to 10,
+            "p010le" to 10,
+            "yuv420p12le" to 12,
+            "xyz12le" to 12,
+            "yuv420p14le" to 14,
+            "yuv420p16le" to 16,
+            "p016le" to 16,
+            "rgb48le" to 16,
+            "rgba64le" to 16,
+        )
+        formats.forEach { (pixelFormat, expectedDepth) ->
+            assertEquals(expectedDepth, mpvBitDepth(pixelFormat), pixelFormat)
+        }
+    }
+
+    @Test
+    fun mpvLeavesUnknownAndHardwareOnlyPixelFormatsUnclassified() {
+        listOf("cuda", "mediacodec", "vulkan", "unknown-format").forEach { pixelFormat ->
+            assertEquals(null, mpvBitDepth(pixelFormat), pixelFormat)
+        }
+    }
+
+    @Test
+    fun estimatedOutputFpsMustBeFiniteAndPositive() {
+        assertEquals(23.976, mpvPlaybackEstimatedFps(23.976))
+        assertEquals(null, mpvPlaybackEstimatedFps(null))
+        assertEquals(null, mpvPlaybackEstimatedFps(0.0))
+        assertEquals(null, mpvPlaybackEstimatedFps(-1.0))
+        assertEquals(null, mpvPlaybackEstimatedFps(Double.NaN))
+        assertEquals(null, mpvPlaybackEstimatedFps(Double.POSITIVE_INFINITY))
+    }
 }
