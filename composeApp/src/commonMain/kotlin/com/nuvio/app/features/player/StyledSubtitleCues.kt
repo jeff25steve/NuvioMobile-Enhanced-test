@@ -34,6 +34,7 @@ internal data class StyledSubtitleBlock(
     val windowColor: Color? = null,
     val textSizeValue: Float? = null,
     val textSizeType: SubtitleCueTextSizeType? = null,
+    val placeInLetterbox: Boolean = false,
 )
 
 internal data class StyledSubtitleCues(val blocks: List<StyledSubtitleBlock> = emptyList()) {
@@ -53,6 +54,7 @@ private data class StyledSubtitleCueLayoutKey(
     val windowColor: Color?,
     val textSizeValue: Float?,
     val textSizeType: SubtitleCueTextSizeType?,
+    val placeInLetterbox: Boolean,
 )
 
 internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtitleCues =
@@ -73,6 +75,7 @@ internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtit
                     windowColor = block.windowColor,
                     textSizeValue = block.textSizeValue,
                     textSizeType = block.textSizeType,
+                    placeInLetterbox = block.placeInLetterbox,
                 )
             }
             .map { (key, grouped) ->
@@ -90,9 +93,33 @@ internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtit
                     windowColor = key.windowColor,
                     textSizeValue = key.textSizeValue,
                     textSizeType = key.textSizeType,
+                    placeInLetterbox = key.placeInLetterbox,
                 )
             },
     )
+
+/**
+ * Returns a display-relative top coordinate only when the complete text cue fits in the
+ * bottom letterbox. Otherwise the caller keeps the cue inside the video frame.
+ */
+internal fun subtitleBottomLetterboxTopPx(
+    viewportHeightPx: Int,
+    videoBottomPx: Int,
+    contentHeightPx: Int,
+    bottomInsetPx: Int,
+): Int? {
+    if (
+        viewportHeightPx <= 0 ||
+        videoBottomPx !in 0 until viewportHeightPx ||
+        contentHeightPx <= 0 ||
+        bottomInsetPx < 0
+    ) return null
+
+    val top = viewportHeightPx.toLong() - contentHeightPx.toLong() - bottomInsetPx.toLong()
+    val bottom = top + contentHeightPx.toLong()
+    if (top < videoBottomPx.toLong() || bottom > viewportHeightPx.toLong()) return null
+    return top.toInt()
+}
 
 internal fun subtitleCueAxisOffset(
     viewportSize: Int,
