@@ -27,6 +27,24 @@ class SoftwareVideoFrameTimestampTest {
     }
 
     @Test
+    fun privateNativeFrameOutputIsRestrictedToSurfaceYuvMode() {
+        assertEquals(true, usesSoftwarePrivateSurfaceFrame(androidx.media3.common.C.VIDEO_OUTPUT_MODE_SURFACE_YUV))
+        assertEquals(false, usesSoftwarePrivateSurfaceFrame(androidx.media3.common.C.VIDEO_OUTPUT_MODE_YUV))
+        assertEquals(false, usesSoftwarePrivateSurfaceFrame(androidx.media3.common.C.VIDEO_OUTPUT_MODE_NONE))
+    }
+
+    @Test
+    fun nativePrivateFrameOwnershipCanOnlyBeTransferredOnce() {
+        val output = VideoDecoderOutputBuffer(object : VideoDecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
+            override fun releaseOutputBuffer(buffer: VideoDecoderOutputBuffer) = Unit
+        })
+        output.decoderPrivate = 0x1234L
+
+        assertEquals(0x1234L, takeSoftwarePrivateFrameHandle(output))
+        assertEquals(0L, takeSoftwarePrivateFrameHandle(output))
+    }
+
+    @Test
     fun requiresEvenDimensionsForYv12SurfaceOutput() {
         assertEquals(true, supportsYv12SurfaceSize(1920, 1080))
         assertEquals(false, supportsYv12SurfaceSize(1919, 1080))

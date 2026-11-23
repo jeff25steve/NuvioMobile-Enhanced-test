@@ -37,7 +37,7 @@
     X(avcodec_version) X(avcodec_find_decoder_by_name) X(avcodec_alloc_context3) X(avcodec_open2) \
     X(avcodec_free_context) X(avcodec_send_packet) X(avcodec_receive_frame) X(avcodec_flush_buffers) \
     X(av_packet_alloc) X(av_packet_free)
-#define AVUTIL(X) X(avutil_version) X(av_frame_alloc) X(av_frame_free) X(av_frame_unref) X(av_mallocz)
+#define AVUTIL(X) X(avutil_version) X(av_frame_alloc) X(av_frame_ref) X(av_frame_free) X(av_frame_unref) X(av_mallocz)
 #define SWSCALE(X) X(swscale_version) X(sws_getCachedContext) X(sws_getCoefficients) X(sws_setColorspaceDetails) X(sws_scale) X(sws_freeContext)
 
 typedef int32_t (*SetDataSpace)(ANativeWindow *window, int32_t dataSpace);
@@ -271,6 +271,30 @@ JNIEXPORT jint JNICALL METHOD(nativeSendEndOfStream)(JNIEnv *env, jclass clazz, 
     return RESULT_ERROR;
 }
 
+JNIEXPORT jlong JNICALL METHOD(nativeTakeFrame)(JNIEnv *env, jclass clazz, jlong handle) {
+    Decoder *d = (Decoder *) (intptr_t) handle;
+    if (!d || !d->has_frame) return 0;
+    AVFrame *owned_frame = ff.av_frame_alloc();
+    if (!owned_frame) {
+        LOGW("Failed to allocate native output frame owner");
+        return 0;
+    }
+    int result = ff.av_frame_ref(owned_frame, d->frame);
+    if (result < 0) {
+        LOGW("Failed to retain decoded frame: %d", result);
+        ff.av_frame_free(&owned_frame);
+        return 0;
+    }
+    ff.av_frame_unref(d->frame);
+    d->has_frame = 0;
+    return (jlong) (intptr_t) owned_frame;
+}
+
+JNIEXPORT void JNICALL METHOD(nativeReleaseFrame)(JNIEnv *env, jclass clazz, jlong frame_handle) {
+    AVFrame *frame = (AVFrame *) (intptr_t) frame_handle;
+    if (frame) ff.av_frame_free(&frame);
+}
+
 JNIEXPORT void JNICALL METHOD(nativeDiscardFrame)(JNIEnv *env, jclass clazz, jlong handle) {
     Decoder *d = (Decoder *) (intptr_t) handle;
     if (!d || !d->has_frame) return;
@@ -347,21 +371,16 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
     return converted;
 }
 
-JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong handle, jobject surface,
-                                            jobject source, jint width, jint height, jint y_stride,
-                                            jint uv_stride, jint data_space) {
+JNIEXPORT jint JNICALL METHOD(nativeRenderPrivateFrame)(JNIEnv *env, jclass clazz,
+                                                       jlong handle, jlong frame_handle,
+                                                       jobject surface) {
     Decoder *d = (Decoder *) (intptr_t) handle;
+    AVFrame *frame = (AVFrame *) (intptr_t) frame_handle;
+    if (!d || !frame || !surface) return RESULT_ERROR;
+    const int width = frame->width;
+    const int height = frame->height;
     if (width <= 0 || height <= 0 || (width & 1) || (height & 1)) {
         LOGW("YV12 surface output requires positive even dimensions (%dx%d)", width, height);
-        return RESULT_ERROR;
-    }
-    const uint8_t *src = (*env)->GetDirectBufferAddress(env, source);
-    jlong source_capacity = (*env)->GetDirectBufferCapacity(env, source);
-    size_t required_size = 0;
-    if (!src || source_capacity < 0 ||
-        !yuv420_buffer_size(width, height, y_stride, uv_stride, &required_size) ||
-        (uint64_t) source_capacity < (uint64_t) required_size) {
-        LOGW("Rejected undersized or invalid YUV surface source");
         return RESULT_ERROR;
     }
     if (!d->surface || !(*env)->IsSameObject(env, d->surface, surface)) {
@@ -376,61 +395,108 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
     }
     if (d->window_width != width || d->window_height != height) {
         if (ANativeWindow_setBuffersGeometry(d->window, width, height, HAL_PIXEL_FORMAT_YV12)) {
+            LOGW("Failed to configure YV12 surface geometry (%dx%d)", width, height);
             return RESULT_ERROR;
         }
         d->window_width = width;
         d->window_height = height;
     }
+
+    const int32_t data_space = data_space_of(frame);
     if (ff.set_data_space && data_space && d->window_data_space != data_space &&
         d->window_data_space_attempted != data_space) {
         int status = ff.set_data_space(d->window, data_space);
         d->window_data_space_attempted = data_space;
-        if (status == 0) {
-            d->window_data_space = data_space;
-        } else {
-            LOGW("ANativeWindow_setBuffersDataSpace failed: %d (dataspace=0x%08x)",
-                 status, (unsigned int) data_space);
-        }
+        if (status == 0) d->window_data_space = data_space;
+        else LOGW("ANativeWindow_setBuffersDataSpace failed: %d (dataspace=0x%08x)",
+                  status, (unsigned int) data_space);
     }
 
     ANativeWindow_Buffer buffer;
-    int result = ANativeWindow_lock(d->window, &buffer, NULL);
-    if (result == -ENODEV) {
+    int lock_result = ANativeWindow_lock(d->window, &buffer, NULL);
+    if (lock_result == -ENODEV) {
         release_window(env, d);
         return RESULT_OK;
     }
-    if (result) return RESULT_ERROR;
-    if (!buffer.bits || buffer.width < width || buffer.height < height ||
+    if (lock_result != 0) {
+        LOGW("ANativeWindow_lock failed: %d", lock_result);
+        return RESULT_ERROR;
+    }
+    if (!buffer.bits || buffer.format != HAL_PIXEL_FORMAT_YV12 ||
+        buffer.width < width || buffer.height < height ||
         (buffer.width & 1) || (buffer.height & 1) || buffer.stride < width ||
-        (buffer.stride % 16) != 0 || buffer.stride > INT32_MAX - 15) {
+        (buffer.stride % 16) != 0 || buffer.stride > INT32_MAX - 31) {
+        LOGW("Rejected native YV12 buffer (%dx%d stride=%d format=0x%x) for frame (%dx%d)",
+             buffer.width, buffer.height, buffer.stride, buffer.format, width, height);
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
-        if (unlock_result) {
-            LOGW("ANativeWindow_unlockAndPost failed after invalid locked buffer: %d", unlock_result);
-        }
-        LOGW("Rejected undersized native window buffer (%dx%d stride=%d) for frame (%dx%d)",
-             buffer.width, buffer.height, buffer.stride, width, height);
+        if (unlock_result) LOGW("unlock after invalid YV12 buffer failed: %d", unlock_result);
         return RESULT_ERROR;
     }
 
-    int chroma_stride = ALIGN(buffer.stride / 2, 16);
-    int chroma_rows = (height + 1) / 2;
-    int chroma_columns = (width + 1) / 2;
+    const int chroma_stride = ALIGN(buffer.stride / 2, 16);
+    const int chroma_columns = (width + 1) / 2;
     if (chroma_stride < chroma_columns) {
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
-        if (unlock_result) LOGW("ANativeWindow_unlockAndPost failed after invalid chroma stride: %d", unlock_result);
+        if (unlock_result) LOGW("unlock after invalid chroma stride failed: %d", unlock_result);
         return RESULT_ERROR;
     }
-    uint8_t *dst = buffer.bits;
-    for (int y = 0; y < height; y++) {
-        memcpy(dst + (size_t) y * buffer.stride, src + (size_t) y * y_stride, width);
+    if ((size_t) buffer.height > SIZE_MAX / (size_t) buffer.stride) {
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("unlock after invalid Y plane size failed: %d", unlock_result);
+        return RESULT_ERROR;
     }
-    uint8_t *dst_v = dst + (size_t) buffer.stride * buffer.height;
-    uint8_t *dst_u = dst_v + (size_t) chroma_stride * ((buffer.height + 1) / 2);
-    const uint8_t *src_u = src + (size_t) y_stride * height;
-    const uint8_t *src_v = src_u + (size_t) uv_stride * ((height + 1) / 2);
-    for (int y = 0; y < chroma_rows; y++) {
-        memcpy(dst_v + (size_t) y * chroma_stride, src_v + (size_t) y * uv_stride, chroma_columns);
-        memcpy(dst_u + (size_t) y * chroma_stride, src_u + (size_t) y * uv_stride, chroma_columns);
+    const size_t y_plane_size = (size_t) buffer.stride * (size_t) buffer.height;
+    const size_t chroma_height = (size_t) ((buffer.height + 1) / 2);
+    if (chroma_height > SIZE_MAX / (size_t) chroma_stride) {
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("unlock after invalid chroma plane size failed: %d", unlock_result);
+        return RESULT_ERROR;
     }
-    return ANativeWindow_unlockAndPost(d->window) ? RESULT_ERROR : RESULT_OK;
+    const size_t chroma_plane_size = (size_t) chroma_stride * chroma_height;
+    if (chroma_plane_size > (SIZE_MAX - y_plane_size) / 2) {
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("unlock after YV12 plane offset overflow failed: %d", unlock_result);
+        return RESULT_ERROR;
+    }
+
+    d->sws = ff.sws_getCachedContext(d->sws, width, height, frame->format,
+                                     width, height, AV_PIX_FMT_YUV420P,
+                                     SWS_BILINEAR, NULL, NULL, NULL);
+    if (!d->sws) {
+        LOGW("Failed to create FFmpeg YUV420 conversion context");
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("unlock after swscale setup failure failed: %d", unlock_result);
+        return RESULT_ERROR;
+    }
+    const int *coefficients = ff.sws_getCoefficients(swscale_colorspace_of(frame));
+    const int full_range = frame->color_range == AVCOL_RANGE_JPEG;
+    if (!coefficients || ff.sws_setColorspaceDetails(
+            d->sws, coefficients, full_range, coefficients, full_range, 0, 1 << 16, 1 << 16) < 0) {
+        LOGW("Failed to configure YUV conversion matrix/range (colorspace=%d full_range=%d)",
+             colorspace_of(frame), full_range);
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) LOGW("unlock after colorspace setup failure failed: %d", unlock_result);
+        return RESULT_ERROR;
+    }
+
+    // ANativeWindow YV12 layout is Y, V, U; libswscale YUV420P is Y, U, V.
+    // Reverse the chroma destinations and honor the actual locked-buffer strides.
+    uint8_t *base = (uint8_t *) buffer.bits;
+    uint8_t *dst_v = base + y_plane_size;
+    uint8_t *dst_u = dst_v + chroma_plane_size;
+    uint8_t *planes[4] = {base, dst_u, dst_v, NULL};
+    int strides[4] = {buffer.stride, chroma_stride, chroma_stride, 0};
+    const int converted_rows = ff.sws_scale(
+        d->sws, (const uint8_t *const *) frame->data, frame->linesize,
+        0, height, planes, strides);
+    int unlock_result = ANativeWindow_unlockAndPost(d->window);
+    if (converted_rows != height) {
+        LOGW("FFmpeg converted %d/%d rows directly to YV12 surface", converted_rows, height);
+        return RESULT_ERROR;
+    }
+    if (unlock_result != 0) {
+        LOGW("ANativeWindow_unlockAndPost failed: %d", unlock_result);
+        return RESULT_ERROR;
+    }
+    return RESULT_OK;
 }

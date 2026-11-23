@@ -165,8 +165,15 @@ internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dat
     outputBuffer.decoderPrivate = dataSpace.toLong()
 }
 
-internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
-    outputBuffer.decoderPrivate.toInt()
+/** Transfers a native-owned decoded frame out of the Media3 output buffer exactly once. */
+internal fun takeSoftwarePrivateFrameHandle(outputBuffer: VideoDecoderOutputBuffer): Long {
+    val handle = outputBuffer.decoderPrivate
+    outputBuffer.decoderPrivate = 0L
+    return handle
+}
+
+internal fun usesSoftwarePrivateSurfaceFrame(outputMode: Int): Boolean =
+    outputMode == C.VIDEO_OUTPUT_MODE_SURFACE_YUV
 
 internal fun supportsYv12SurfaceSize(width: Int, height: Int): Boolean =
     width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0
@@ -312,9 +319,7 @@ internal class SoftwareVideoDecoder(
 
     override fun releaseOutputBuffer(outputBuffer: VideoDecoderOutputBuffer) {
         synchronized(lock) {
-            outputBuffer.clear()
-            if (!released) availableOutputBuffers.addLast(outputBuffer)
-            lock.notifyAll()
+            recycleOutputBufferLocked(outputBuffer)
         }
     }
 
@@ -354,7 +359,7 @@ internal class SoftwareVideoDecoder(
             dequeuedInputBuffer?.clear()
             dequeuedInputBuffer = null
             while (queuedInputBuffers.isNotEmpty()) queuedInputBuffers.removeFirst().clear()
-            while (queuedOutputBuffers.isNotEmpty()) queuedOutputBuffers.removeFirst().clear()
+            while (queuedOutputBuffers.isNotEmpty()) recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
             lock.notifyAll()
         }
         var interrupted = false
@@ -369,34 +374,21 @@ internal class SoftwareVideoDecoder(
     }
 
     fun renderToSurface(outputBuffer: VideoDecoderOutputBuffer, surface: Surface) {
-        val data = outputBuffer.data
-        if (outputBuffer.mode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV || data == null) {
-            throw SoftwareVideoDecoderException("Invalid output buffer")
+        if (outputBuffer.mode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV) {
+            throw SoftwareVideoDecoderException("Invalid software video surface output mode")
         }
         if (!supportsYv12SurfaceSize(outputBuffer.width, outputBuffer.height)) {
             throw SoftwareVideoDecoderException("YV12 surface output requires positive even frame dimensions")
         }
-        val requiredBytes = requiredSoftwareYuv420BufferSize(
-            outputBuffer.width,
-            outputBuffer.height,
-            outputBuffer.yStride,
-            outputBuffer.uvStride,
-        ) ?: throw SoftwareVideoDecoderException("Invalid output frame layout")
-        if (!data.isDirect || data.capacity().toLong() < requiredBytes) {
-            throw SoftwareVideoDecoderException("Insufficient output frame buffer capacity")
+        val decoderHandle = handle
+        if (decoderHandle == 0L) {
+            throw SoftwareVideoDecoderException("Software video decoder has been released")
         }
-        val currentHandle = handle
-        if (currentHandle == 0L) throw SoftwareVideoDecoderException("Software video decoder has been released")
-        val result = nativeRender(
-            currentHandle,
-            surface,
-            data,
-            outputBuffer.width,
-            outputBuffer.height,
-            outputBuffer.yStride,
-            outputBuffer.uvStride,
-            outputFrameDataSpace(outputBuffer),
-        )
+        val frameHandle = outputBuffer.decoderPrivate
+        if (frameHandle == 0L) {
+            throw SoftwareVideoDecoderException("Software video output frame has no native owner")
+        }
+        val result = nativeRenderPrivateFrame(decoderHandle, frameHandle, surface)
         if (result == SOFTWARE_DECODER_RESULT_ERROR) {
             throw SoftwareVideoDecoderException("Failed to render " + codecName + " frame")
         }
@@ -436,7 +428,7 @@ internal class SoftwareVideoDecoder(
             pendingInputBuffer = null
             synchronized(lock) {
                 while (queuedInputBuffers.isNotEmpty()) queuedInputBuffers.removeFirst().clear()
-                while (queuedOutputBuffers.isNotEmpty()) queuedOutputBuffers.removeFirst().clear()
+                while (queuedOutputBuffers.isNotEmpty()) recycleOutputBufferLocked(queuedOutputBuffers.removeFirst())
                 availableInputBuffers.clear()
                 availableOutputBuffers.clear()
                 lock.notifyAll()
@@ -576,23 +568,42 @@ internal class SoftwareVideoDecoder(
 
         val width = frameInfo[2].toInt()
         val height = frameInfo[3].toInt()
+        if (usesSoftwarePrivateSurfaceFrame(currentOutputMode) && !supportsYv12SurfaceSize(width, height)) {
+            nativeDiscardFrame(handle)
+            throw SoftwareVideoDecoderException("YV12 surface output requires even frame dimensions")
+        }
         val yStride = align(width)
         val uvStride = align((width / 2) + (width % 2))
+        outputBuffer.decoderPrivate = 0L
         outputBuffer.init(timeUs, currentOutputMode, null)
-        if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, softwareFrameColorSpace(frameInfo))) {
-            nativeDiscardFrame(handle)
-            throw SoftwareVideoDecoderException("Invalid " + codecName + " frame " + width + "x" + height)
-        }
-        val frameData = outputBuffer.data
-            ?: throw SoftwareVideoDecoderException("Missing " + codecName + " frame buffer")
-        val requiredBytes = requiredSoftwareYuv420BufferSize(width, height, yStride, uvStride)
-            ?: throw SoftwareVideoDecoderException("Invalid " + codecName + " YUV buffer layout")
-        if (!frameData.isDirect || frameData.capacity().toLong() < requiredBytes) {
-            nativeDiscardFrame(handle)
-            throw SoftwareVideoDecoderException("Insufficient " + codecName + " YUV frame buffer capacity")
-        }
-        if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
-            throw SoftwareVideoDecoderException("Failed to convert " + codecName + " frame")
+        if (usesSoftwarePrivateSurfaceFrame(currentOutputMode)) {
+            // Keep the reference-counted FFmpeg frame alive until Media3 renders or drops it.
+            // JNI converts directly into ANativeWindow's YV12 buffer, avoiding an intermediate
+            // direct ByteBuffer allocation and a second full-frame copy.
+            outputBuffer.initForPrivateFrame(width, height)
+            val frameHandle = nativeTakeFrame(handle)
+            if (frameHandle == 0L) {
+                nativeDiscardFrame(handle)
+                throw SoftwareVideoDecoderException("Failed to retain " + codecName + " output frame")
+            }
+            outputBuffer.decoderPrivate = frameHandle
+        } else {
+            if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, softwareFrameColorSpace(frameInfo))) {
+                nativeDiscardFrame(handle)
+                throw SoftwareVideoDecoderException("Invalid " + codecName + " frame " + width + "x" + height)
+            }
+            val frameData = outputBuffer.data
+                ?: throw SoftwareVideoDecoderException("Missing " + codecName + " frame buffer")
+            val requiredBytes = requiredSoftwareYuv420BufferSize(width, height, yStride, uvStride)
+                ?: throw SoftwareVideoDecoderException("Invalid " + codecName + " YUV buffer layout")
+            if (!frameData.isDirect || frameData.capacity().toLong() < requiredBytes) {
+                nativeDiscardFrame(handle)
+                throw SoftwareVideoDecoderException("Insufficient " + codecName + " YUV frame buffer capacity")
+            }
+            if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
+                throw SoftwareVideoDecoderException("Failed to convert " + codecName + " frame")
+            }
+            setOutputFrameDataSpace(outputBuffer, frameInfo[5].toInt())
         }
         outputBuffer.format = format
         if (firstSamplePending) {
@@ -624,6 +635,10 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun recycleOutputBufferLocked(outputBuffer: VideoDecoderOutputBuffer) {
+        if (usesSoftwarePrivateSurfaceFrame(outputBuffer.mode)) {
+            val frameHandle = takeSoftwarePrivateFrameHandle(outputBuffer)
+            if (frameHandle != 0L) nativeReleaseFrame(frameHandle)
+        }
         outputBuffer.clear()
         if (!released) availableOutputBuffers.addLast(outputBuffer)
         lock.notifyAll()
@@ -782,18 +797,10 @@ internal class SoftwareVideoDecoder(
         @JvmStatic private external fun nativeSendPacket(handle: Long, data: ByteBuffer, size: Int, timeUs: Long): Int
         @JvmStatic private external fun nativeSendEndOfStream(handle: Long): Int
         @JvmStatic private external fun nativeReceiveFrame(handle: Long, info: LongArray): Int
+        @JvmStatic private external fun nativeTakeFrame(handle: Long): Long
+        @JvmStatic private external fun nativeReleaseFrame(frameHandle: Long)
         @JvmStatic private external fun nativeDiscardFrame(handle: Long)
         @JvmStatic private external fun nativeConvertFrame(handle: Long, output: ByteBuffer, yStride: Int, uvStride: Int): Boolean
-        @JvmStatic
-        private external fun nativeRender(
-            handle: Long,
-            surface: Surface,
-            source: ByteBuffer,
-            width: Int,
-            height: Int,
-            yStride: Int,
-            uvStride: Int,
-            dataSpace: Int,
-        ): Int
+        @JvmStatic private external fun nativeRenderPrivateFrame(handle: Long, frameHandle: Long, surface: Surface): Int
     }
 }

@@ -1365,9 +1365,24 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added immediate snapshot publication for position discontinuities and timeline changes, so paused seeks and duration/timeline updates do not wait for the slower fallback poll.
 - Added host tests for the active polling interval and the absence of an idle polling interval.
 
+**Cycle 208 — transfer software-decoded frames without an intermediate pixel buffer**
+- The Media3 surface-YUV path now transfers a reference-counted FFmpeg AVFrame through VideoDecoderOutputBuffer.decoderPrivate and initForPrivateFrame(). The frame remains owned until Media3 renders or releases that output buffer.
+- This removes the per-frame Java direct YUV buffer allocation and avoids the former full-frame copy from that buffer into the Android surface. The alternate VIDEO_OUTPUT_MODE_YUV path retains the existing direct-buffer conversion for GL/output-buffer renderers.
+- Private-frame ownership is transferred exactly once, cleared before output-buffer reuse, and released when the renderer releases or drops a frame. Queued frames are also released on flush, decoder failure, and decoder shutdown. The fixed six-output-buffer pool bounds outstanding native frame references.
+
+**Cycle 209 — convert directly into the device's locked YV12 surface**
+- The native renderer now passes the locked ANativeWindow_Buffer planes and actual device strides directly to FFmpeg sws_scale(). It writes the Y plane and the reversed V/U chroma planes in the Android YV12 layout, eliminating the intermediate-frame copy.
+- The native path validates the actual surface pixel format, even frame dimensions, buffer geometry, stride alignment, chroma stride, and plane-offset arithmetic. Every successful surface lock is paired with unlock/post, including validation and conversion failures.
+- The existing FFmpeg color matrix/range handling and Android dataspace selection are retained, now using the retained AVFrame's metadata at render time.
+
+**Cycle 210 — keep output modes and native-frame ownership isolated**
+- Private AVFrame ownership is used only for VIDEO_OUTPUT_MODE_SURFACE_YUV; the VIDEO_OUTPUT_MODE_YUV path continues to use Media3's regular YUV planes and dataspace metadata. This avoids treating the legacy dataspace value as a native pointer.
+- A reused output buffer has its previous private value cleared before a new frame is initialized. Odd-sized frames are rejected before private-frame transfer because the YV12 surface layout requires even dimensions.
+- Added host coverage for the surface-only private-frame mode and one-time native handle transfer. These tests were added but not executed.
+
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
 - Exa independently retrieved FFmpeg 8.0's official send/receive API documentation. It confirms that a send-side EAGAIN requires receiving output before retrying the same packet; receive must be repeated until EAGAIN; a packet may produce zero or multiple frames; and EOS requires a null packet followed by receive calls through AVERROR_EOF. The AndroidX renderer source confirms that its callback executor wakes the playback thread and that it queues EOS during decoder replacement.
-- The changes address correctness and avoid unnecessary software YUV conversion when seeking or when no output is attached. No frame-rate, startup-time or smoothness improvement is claimed without device measurements.
-- Added host regression tests for the playback and decoder changes (cycles 202–207) but did not execute them. No Gradle task, Kotlin compilation, CMake/NDK build, CI, APK, device playback, HDR validation or benchmark was run, as requested.
+- The software surface path now removes a per-frame Java YUV allocation and an intermediate full-frame surface copy by construction. The real-world frame-time, dropped-frame, CPU, memory and thermal impact remains unmeasured; no measured smoothness or performance percentage is claimed.
+- Added host regression tests for the playback and decoder changes (cycles 202–210) but did not execute them. No Gradle task, Kotlin compilation, CMake/NDK build, CI, APK, device playback, HDR validation or benchmark was run, as requested.
 - The output-count reconciliation is aggregate: it accounts for input samples that produce no frame once draining completes. Media3's renderer itself tracks buffers per input sample, so codec-specific cases where a single compressed sample expands into multiple independent video frames remain a renderer-contract edge case to validate with real media before claiming universal coverage.
