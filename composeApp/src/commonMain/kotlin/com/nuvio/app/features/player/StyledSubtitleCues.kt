@@ -119,6 +119,7 @@ internal fun subtitleBottomDisplayTopPx(
     val top = viewportHeightPx.toLong() - contentHeightPx.toLong() - bottomInsetPx.toLong()
     val bottom = top + contentHeightPx.toLong()
     if (
+        top < 0L ||
         bottom > viewportHeightPx.toLong() ||
         (videoBottomPx < viewportHeightPx && top < videoBottomPx.toLong())
     ) return null
