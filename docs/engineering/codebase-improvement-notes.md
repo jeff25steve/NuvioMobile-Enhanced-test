@@ -1571,6 +1571,8 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 #### Verification boundary
 
+- Final diff review caught and corrected the AndroidView constructor named argument to match `NuvioLibmpvView.initialRenderQuality`; this was found by source inspection, not compilation.
+
 - Static review checked the new helper call sites, source-key lifetime, capture-before-rebuild ordering, text-track gating and the existing one-retry guard.
 - No Gradle task, test execution, compilation, build, CI, APK/AAB, Macrobenchmark, Perfetto capture or physical-device playback was run. No measured playback or decoder-recovery improvement is claimed.
 

@@ -2717,7 +2717,7 @@ private fun LibmpvPlayerSurface(
                 NuvioLibmpvView(
                     context = viewContext,
                     videoOutput = videoOutput,
-                    renderQuality = renderQuality,
+                    initialRenderQuality = renderQuality,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
