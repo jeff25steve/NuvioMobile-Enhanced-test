@@ -289,6 +289,8 @@ internal class AiostreamsAssEngine(
             videoHeight = dimensions?.height ?: 0,
         )
         updateLayout()
+        // Re-select only after valid dimensions arrive; never render against the previous source.
+        show()
     }
 
     override fun onTracksChanged(tracks: Tracks) {
@@ -318,7 +320,10 @@ internal class AiostreamsAssEngine(
     }
 
     private fun show() {
-        ass.select(externalKey ?: embeddedKey)
+        val key = (externalKey ?: embeddedKey).takeIf {
+            hasUsableAssVideoGeometry(layout.videoWidth, layout.videoHeight)
+        }
+        ass.select(key)
     }
 
     private fun updateClock() {
