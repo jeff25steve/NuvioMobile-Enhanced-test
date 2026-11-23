@@ -926,7 +926,7 @@ internal class SoftwareVideoDecoder(
                 else -> null
             }
 
-        private fun avcProfiles(format: Format): List<Int> = buildList {
+        private fun avcProfiles(format: Format): List<Int> = buildList<Int> {
             format.codecs
                 ?.split(',')
                 ?.map(String::trim)
@@ -948,7 +948,7 @@ internal class SoftwareVideoDecoder(
             return data[header + 1].toInt() and 0xFF
         }
 
-        private fun hevcProfiles(format: Format): List<Int> = buildList {
+        private fun hevcProfiles(format: Format): List<Int> = buildList<Int> {
             format.codecs
                 ?.split(',')
                 ?.map(String::trim)
