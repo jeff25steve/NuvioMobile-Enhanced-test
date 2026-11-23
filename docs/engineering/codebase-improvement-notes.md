@@ -1338,7 +1338,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Errors from an in-flight decode operation that belongs to the old seek epoch remain suppressed when a flush is already pending.
 
 **Cycle 202 — use Media3 scrubbing mode for interactive ExoPlayer timeline drags**
-- The custom Compose timeline now reports drag lifecycle separately from ordinary touch/tap interactions. ExoPlayer enters scrubbing mode only while the user is actively dragging; it receives seek updates during the drag and a final seek on release.
+- The standard, legacy and folded Compose timelines now report drag lifecycle separately from ordinary touch/tap interactions. ExoPlayer enters scrubbing mode only while the user is actively dragging; it receives seek updates during the drag and a final seek on release.
 - Tap-to-seek, MPV playback and party-locked seeking retain their existing single-seek behavior. The shared controller API defaults to a no-op so engines without a matching native mode are unaffected.
 - Scrubbing mode is explicitly disabled when the timeline interaction ends or the ExoPlayer surface is disposed.
 
