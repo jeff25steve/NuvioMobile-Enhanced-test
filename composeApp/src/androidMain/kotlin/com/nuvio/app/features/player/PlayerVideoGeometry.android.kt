@@ -3,6 +3,7 @@ package com.nuvio.app.features.player
 import android.graphics.RectF
 import androidx.compose.ui.unit.IntSize
 import androidx.media3.common.VideoSize
+import androidx.media3.common.text.Cue
 import kotlin.math.abs
 
 /**
@@ -93,6 +94,25 @@ internal fun displayedVideoHeightPx(
         videoAspectRatio = videoAspectRatio,
         resizeMode = resizeMode,
     )
+}
+
+
+/** Maps bitmap subtitle coordinates from source-video space into the displayed video rectangle. */
+internal fun remapBitmapCueToVideoBounds(cue: Cue, bounds: RectF): Cue {
+    val builder = cue.buildUpon()
+    if (cue.position != Cue.DIMEN_UNSET) {
+        builder.setPosition(bounds.left + cue.position * bounds.width())
+    }
+    if (cue.size != Cue.DIMEN_UNSET) {
+        builder.setSize(cue.size * bounds.width())
+    }
+    if (cue.lineType == Cue.LINE_TYPE_FRACTION && cue.line != Cue.DIMEN_UNSET) {
+        builder.setLine(bounds.top + cue.line * bounds.height(), Cue.LINE_TYPE_FRACTION)
+    }
+    if (cue.bitmapHeight != Cue.DIMEN_UNSET) {
+        builder.setBitmapHeight(cue.bitmapHeight * bounds.height())
+    }
+    return builder.build()
 }
 
 private const val MAX_ASPECT_RATIO_DEFORMATION_FRACTION = 0.01f
