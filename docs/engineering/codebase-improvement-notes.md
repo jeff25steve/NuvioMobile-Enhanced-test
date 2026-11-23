@@ -1321,7 +1321,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Skipped-output counts now saturate at Int.MAX_VALUE instead of overflowing. Regression tests cover packets retained over EAGAIN, multiple frames per packet, output-pool backpressure, EOS retry/drain, flush reset, no-output/seek skipping, sample reconciliation and counter saturation.
 
 **Cycle 198 — release the renderer's last decoder reference**
-- SoftwareVideoRenderer now clears its decoder field in a finally block after the base renderer releases the decoder, and the decoder detaches its callback/executor at release. This prevents retaining the released decoder's buffer pools, stale output-mode state and renderer callback reference across format changes or disable/re-enable cycles.
+- SoftwareVideoRenderer now clears its decoder field in a finally block after the base renderer releases the decoder. The decoder detaches its callback/executor and clears queued/dequeued buffers at release, preventing stale renderer references and buffer pools from being retained across format changes or disable/re-enable cycles.
 
 **Cycle 199 — make flush non-blocking on the playback thread**
 - The first custom-Decoder implementation waited for the worker to finish its in-flight native operation before returning from flush(). Review against Media3's SimpleDecoder flush contract showed this could stall the playback thread during a seek.
