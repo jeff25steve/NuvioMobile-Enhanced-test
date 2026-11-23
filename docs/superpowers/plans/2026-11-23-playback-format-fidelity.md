@@ -39,17 +39,17 @@
 - Produces: `PlayerQualityVariantMetadata(videoRange: String?, frameRate: Double?)`, `parsePlayerQualityVariantMetadata(attributes: Map<String, String>)`, and `rewriteHlsAttribute(line: String, attributeName: String, value: String)`.
 - The resolver uses these helpers when mapping `#EXT-X-STREAM-INF` attributes and rewriting `#EXT-X-MEDIA:URI`.
 
-- [ ] **Step 1: Write common tests first**
+- [x] **Step 1: Write common tests first**
   - Normalize `VIDEO-RANGE` values `pq`, ` HLG `, and `sdr` to canonical values.
   - Omit unknown/missing ranges.
   - Parse finite positive frame rates; omit malformed, zero, negative, NaN and infinite values.
   - Rewrite a quoted URI while preserving literal `$1` and `$token` in the replacement URL.
   - Append a quoted URI attribute when the original line has none.
-- [ ] **Step 2: Implement the minimal parser helpers**
+- [x] **Step 2: Implement the minimal parser helpers**
   - Extract the HLS metadata helper and use it from `HlsMasterPlaylist.parse`.
   - Change URI replacement to a lambda so replacement text is not interpreted as regex group syntax.
   - Preserve the original stream-info line and all existing playback behavior.
-- [ ] **Step 3: Record source review**
+- [x] **Step 3: Record source review**
   - Confirm the corrected regex quoting remains identical to the original intended behavior.
   - Do not run Gradle tests without authorization.
 
@@ -69,21 +69,21 @@
   - `mpvPlaybackColorRange(colorLevels: String?): String?`
 - The ExoPlayer JSON builder and libmpv JSON builder consume the normalized results.
 
-- [ ] **Step 1: Add Android host tests**
+- [x] **Step 1: Add Android host tests**
   - Cover DVHE, DVH1, DVAV, DVA1 and DAV1 Dolby Vision codec families with fallback MIME.
   - Cover Dolby Vision MIME, PQ, HLG, SDR and unknown transfer values.
   - Cover DV profile extraction for HEVC, AVC and AV1 codec strings.
   - Cover full/limited/unknown color ranges.
   - Prove BT.2020 matrix/primaries without PQ/HLG/DV signalling is not classified as HDR.
-- [ ] **Step 2: Implement ExoPlayer classification**
+- [x] **Step 2: Implement ExoPlayer classification**
   - Make playback-info DV detection/profile extraction use the same five codec families already recognized by the player media-info helper.
   - Map ST2084 to generic PQ/HDR, HLG to HLG, explicit SDR to SDR; do not infer HDR10+ from a codec string.
-- [ ] **Step 3: Implement libmpv classification**
+- [x] **Step 3: Implement libmpv classification**
   - Detect DV from explicit profile/codec/decoder or `video-params/colormatrix=dolbyvision`.
   - Detect PQ/HLG/SDR from `video-params/gamma`.
   - Remove the BT.2020-primaries-only HDR fallback.
   - Reuse the classification helper in `mpvMediaInfo` so the two info surfaces agree.
-- [ ] **Step 4: Update playback format tests and source review**
+- [x] **Step 4: Update playback format tests and source review**
   - Ensure all codec prefixes and transfer cases have assertions.
   - Do not run Gradle tests without authorization.
 
@@ -99,21 +99,23 @@
 - libmpv JSON fields: `bitDepth` (integer, zero if unavailable), `colorRange` (empty/full/limited).
 - Shared UI reads those fields and displays only valid values. The Selected Quality section reads `PlayerQualityVariant.videoRange` and `frameRate`.
 
-- [ ] **Step 1: Add source metadata to ExoPlayer JSON**
+- [x] **Step 1: Add source metadata to ExoPlayer JSON**
   - Reuse `Format.exoBitDepth()` and `Format.colorInfo.colorRange`.
   - Emit zero/empty defaults when no selected video format exists.
-- [ ] **Step 2: Add source metadata to libmpv JSON**
+- [x] **Step 2: Add source metadata to libmpv JSON**
   - Derive bit depth from `video-params/pixelformat`, not post-filter `video-out-params/pixelformat`.
   - Normalize only mpv `full` and `limited` color-level values.
-- [ ] **Step 3: Render the additional rows**
+- [x] **Step 3: Render the additional rows**
   - Show selected HLS variant's declared dynamic range and frame rate.
   - Show actual bit depth and color range when known.
   - Render `hdr` as `HDR (PQ)`; omit an unknown dynamic-range row.
-- [ ] **Step 4: Update canonical engineering notes and plan**
+- [x] **Step 4: Update canonical engineering notes and plan**
   - Keep the main research in `docs/engineering/codebase-improvement-notes.md`.
   - Add only a short pointer to `docs/engineering/player-stream-startup-optimization-2026-11-19.md`.
   - Record that Gradle tests/build/CI/device verification were not run.
 
 ## Verification boundary
 
-Perform remote source review, test-source review, diff review and documentation checks only. No Gradle command, compilation, build, CI, APK/AAB generation, benchmark or device playback is authorized in this task.
+**Execution status:** Source changes and regression-test sources are integrated. All Gradle tests remain unexecuted because explicit build/test authorization has not been granted. Do not mark the plan as runtime-verified.
+
+Perform remote source review, test-source review, diff review and documentation checks only. The common and Android host test sources are authored but not executed. TDD RED/GREEN results are therefore unverified. No Gradle command, compilation, build, CI, APK/AAB generation, benchmark or device playback is authorized in this task.

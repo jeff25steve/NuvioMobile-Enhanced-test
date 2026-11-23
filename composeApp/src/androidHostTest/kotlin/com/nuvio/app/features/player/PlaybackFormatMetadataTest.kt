@@ -3,8 +3,8 @@
 package com.nuvio.app.features.player
 
 import androidx.media3.common.C
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -63,6 +63,16 @@ class PlaybackFormatMetadataTest {
                 colorMatrix = "dolbyvision",
             ),
         )
+        assertEquals(
+            "dolby_vision",
+            mpvPlaybackHdrFormat(null, "hevc", "hardware decoder", "Profile 8.1", "pq", "bt.2020-ncl"),
+        )
+        listOf("dvhe.08.06", "dvh1.08.06", "dvav.09.06", "dva1.09.06", "dav1.10.09").forEach { codec ->
+            assertEquals(
+                "dolby_vision",
+                mpvPlaybackHdrFormat(null, codec, "hardware decoder", "", "pq", "bt.2020-ncl"),
+            )
+        }
         assertEquals(
             "hdr",
             mpvPlaybackHdrFormat(null, "hevc", "hardware decoder", "", "pq", "bt.2020-ncl"),

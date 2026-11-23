@@ -1767,3 +1767,27 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Added common tests for PQ/HLG/SDR labels, unknown values, finite-positive frame-rate parsing, fractional formatting and unchanged labels when metadata is absent.
 - Tests were authored before the production-code update, but the RED/GREEN execution cycle was not run because Gradle test/build execution has not been authorized. No compilation, Gradle tests, build, CI, benchmark or physical-device playback was run. No runtime or HDR output improvement is claimed.
+
+
+## Playback format fidelity and diagnostics — Dolby Vision, HLS and source color details (23 November 2026)
+
+### Integrated on `main-build-testing`
+
+- Corrected ExoPlayer playback-info Dolby Vision detection to recognize `dvhe`, `dvh1`, `dvav`, `dva1` and `dav1` codec strings even when the selected track exposes a fallback HEVC/AVC/AV1 MIME type. Dolby Vision profile extraction now covers the same codec families.
+- Corrected libmpv dynamic-range classification to use explicit Dolby Vision profile/codec/decoder or `video-params/colormatrix=dolbyvision`, and PQ/HLG/SDR transfer information. BT.2020 primaries alone no longer imply HDR; a wide-gamut SDR source must not be labelled HDR.
+- ExoPlayer and libmpv playback-info JSON now include source bit depth and normalized source color range when the active engine exposes them. The shared Playback Info modal shows these fields and omits unavailable values.
+- The selected/recommended HLS quality details now show the variant's declared dynamic range and frame rate. Auto mode labels these as recommended metadata, not the currently adaptive-selected rendition.
+- Extracted and tested HLS metadata normalization. URI rewriting now uses a replacement lambda so dollar-sign tokens in resolved URLs remain literal instead of being interpreted as regex replacement groups.
+
+### Audit corrections and research
+
+- Today's earlier HLS resolver history briefly contained a double-escaped quote-regex edit in commit `654543b`; the subsequent `fc8ddb4` correction restored the original correct quoted-URI pattern. The current branch was re-fetched and verified to use the corrected pattern. The new regression test covers replacement values containing `$1` and `$token`.
+- The previous HLS metadata test set covered display helpers but not parser metadata extraction. This cycle adds direct tests for the extracted parser helper and URI rewrite path.
+- Media3 PR #3461 remains open. It is the upstream solution for display-HDR-capability ranking, dynamic-range-separated adaptive selections and re-selection after display changes; Nuvio does not partially reimplement it. No custom HDR selection or display lifecycle logic was added.
+- The Dolby Vision codec families were cross-checked against Nuvio's existing `Format.hdrFormats()` / `exoVideoCodec()` handling. The mpv metadata mapping follows the official property names `video-params/pixelformat`, `video-params/colorlevels`, `video-params/colormatrix` and `video-params/gamma`.
+- Community/source review included maintained [Just Player](https://github.com/moneytoo/Player), AndroidX Media PR #3461, mpv discussion #14024, and Jellyfin's reported Realtek Dolby Vision decoder teardown case #5908. Nuvio already keys its ExoPlayer instance by source URL, so the reported same-instance next-item failure did not justify a duplicate workaround here.
+
+### Verification boundary
+
+- Added four common HLS resolver metadata tests and five Android host playback-format tests (including all five Dolby Vision codec families, transfer-function classification, BT.2020-only SDR, color range and bit-depth parsing).
+- Source files, test sources, the Media3 catalog and compatibility guard were re-fetched and reviewed. No Gradle test, compilation, build, CI, benchmark or device playback was run because authorization has not been given. No runtime playback improvement is claimed until those checks and representative device tests pass.

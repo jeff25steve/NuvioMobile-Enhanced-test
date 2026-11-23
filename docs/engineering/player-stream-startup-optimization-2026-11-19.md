@@ -461,3 +461,8 @@ Evidence: [Media3 1.12.0-beta01 release notes](https://github.com/androidx/media
 ## HLS quality metadata visibility (23 November 2026)
 
 The manual HLS quality chooser now carries the playlist's declared PQ/HLG/SDR range and valid frame rate into each option subtitle, alongside codec and bitrate. The canonical implementation, upstream selection caveat and verification boundary are recorded in `docs/engineering/codebase-improvement-notes.md` under “HLS quality chooser — dynamic-range and frame-rate visibility”. This is metadata visibility only: Media3's separate HDR display-capability-aware adaptive-selection issue remains open upstream, and no HDR selection/output behavior was changed.
+
+
+## Playback format diagnostics follow-up (23 November 2026)
+
+Playback Info now exposes signalled dynamic range, source bit depth and source color range for ExoPlayer/libmpv when available, and shows declared/recommended HLS variant range/frame-rate metadata. Dolby Vision codec-family detection and libmpv HDR classification were corrected. Canonical details, upstream caveats and test/verification status are recorded in `docs/engineering/codebase-improvement-notes.md` under “Playback format fidelity and diagnostics — Dolby Vision, HLS and source color details”.
