@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.nuvio.app.features.player.swdecoder
 
 import androidx.media3.common.ColorInfo
