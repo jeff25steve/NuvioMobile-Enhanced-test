@@ -2184,3 +2184,31 @@ Verification boundary:
 
 Follow-up deliberately deferred:
 - Moving unpositioned SRT/VTT text cues into the display's black-bar area is a separate presentation policy. It must selectively leave PGS/VobSub bitmaps and explicitly positioned ASS/SSA/WebVTT cues in source-video coordinates. AndroidX maintainers call out this exact distinction in issue #2977; no global SubtitleView reparenting or black-bar behavior change was made here.
+
+
+## Video metadata validation prevents stale display geometry and refresh-rate requests — 23 November 2026
+
+A follow-up audit of the Android video-size and frame-rate callbacks found two related state-retention defects:
+
+- `onVideoSizeChanged` only updated the stored aspect ratio when both dimensions were positive. When Media3 reported `VideoSize.UNKNOWN` or invalid pixel-aspect metadata, Nuvio retained the previous video's aspect ratio. Subtitle geometry and the custom overlay could therefore continue using an obsolete shape after a video-track reset.
+- `onVideoInputFormatChanged` copied `Format.frameRate` directly into the value used by the manual `CHANGE_FRAME_RATE_ALWAYS` surface controller. Media3 uses an unset sentinel for unknown frame rates; carrying that through the controller also made it possible for the prior video's frame-rate request to remain active across a stream transition.
+
+Corrections:
+- Added `videoAspectRatioFromSize(VideoSize)` as the single validated conversion used by PiP sizing and the player callback. It validates dimensions, pixel width/height ratio, and the final finite positive aspect ratio while preserving anamorphic content.
+- `onVideoSizeChanged` now explicitly resets the aspect ratio to the unknown state when Media3 reports invalid/unknown dimensions, rather than retaining stale geometry.
+- When the video size becomes unknown, the active manual surface frame-rate state is cleared by invalidating the previous source rate and refreshing the frame-rate policy.
+- Added `normalizedVideoFrameRate(Float)` to preserve exact fractional rates such as 23.976/29.97 while rejecting unset, zero, NaN, and infinite metadata.
+- The frame-rate callback now normalizes metadata before updating the always-match controller, so an unknown incoming rate cannot reuse a previous stream's cadence.
+- Added regression tests for anamorphic pixel aspect ratio, unknown dimensions, invalid/non-finite pixel ratios, PiP height calculation, fractional frame rates, and invalid/unset frame rates.
+
+Research and implementation constraints:
+- Context7 documentation for AndroidX Media3 was consulted. Its indexed Media3 versions did not include the project's exact 1.12.0-beta01 pin, so the relevant behavior was checked against AndroidX PlayerView source. PlayerView computes the display aspect ratio from width × pixelWidthHeightRatio ÷ height; the shared helper follows that same contract rather than applying an extra rotation swap.
+- Android's [frame-rate guidance](https://developer.android.com/media/optimize/performance/frame-rate) confirms that Surface.setFrameRate is a request rather than a guarantee, that the exact source rate should be passed, and that a visible but idle surface should clear its frame-rate request.
+- The mpv-android project sets `display-fps-override` from Android's reported display refresh rate. However, current mpv documentation explicitly warns that an incorrect override can ruin playback and should only be set when automatic detection is known to be wrong. Nuvio's libmpv path does not currently establish that condition, so this setting was not copied blindly.
+- mpv documentation also warns that `container-fps` can contain bogus values. That makes it unsuitable as a blind source for `Surface.setFrameRate`; no unverified libmpv refresh-rate request was added. A safe cross-engine implementation needs reliable fixed-cadence detection and the same user preference semantics as ExoPlayer.
+- AndroidX Media3 issue [#3035](https://github.com/androidx/media/issues/3035) documents device-specific high-frame-rate drops, while maintainers caution that a decoder that cannot keep up cannot be fixed by changing frame-release thresholds alone. The proposed TV-only threshold changes were not transplanted into this mobile app.
+
+Verification boundary:
+- Regression tests were authored but not run. No compilation, Gradle test, build, CI, benchmark, or physical-device playback was started, per the user's instruction.
+- Source review and remote GitHub verification are still required after the documentation update. Visual validation is still needed for source switches between video and audio-only media and for streams with missing or malformed frame-rate metadata.
+- No measured improvement in playback smoothness or display refresh switching is claimed until device playback is authorised and measured.
