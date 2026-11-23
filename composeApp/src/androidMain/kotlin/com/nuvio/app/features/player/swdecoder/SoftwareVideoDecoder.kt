@@ -908,13 +908,22 @@ internal class SoftwareVideoDecoder(
             }
 
         fun needsSoftwareDecoding(format: Format): Boolean =
+            softwareDecodingReason(format) != null
+
+        internal fun softwareDecodingReason(format: Format): String? =
             when (format.sampleMimeType) {
-                MimeTypes.VIDEO_H264 ->
-                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES || format.hasBitDepthAbove(8)
-                MimeTypes.VIDEO_H265 ->
-                    hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS || format.hasBitDepthAbove(10)
-                MimeTypes.VIDEO_VC1 -> true
-                else -> false
+                MimeTypes.VIDEO_H264 -> when {
+                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES -> "avc-high-bit-depth-profile"
+                    format.hasBitDepthAbove(8) -> "avc-color-info-bit-depth"
+                    else -> null
+                }
+                MimeTypes.VIDEO_H265 -> when {
+                    hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS -> "hevc-range-extensions"
+                    format.hasBitDepthAbove(10) -> "hevc-12-bit"
+                    else -> null
+                }
+                MimeTypes.VIDEO_VC1 -> "vc1"
+                else -> null
             }
 
         private fun avcProfile(format: Format): Int? {
