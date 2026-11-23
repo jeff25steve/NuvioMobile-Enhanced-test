@@ -18,6 +18,21 @@ internal class ResponseHeaderOverridingDataSourceFactory(
         )
 }
 
+internal fun mergePlaybackResponseHeaders(
+    upstreamHeaders: Map<String, List<String>>,
+    overrides: Map<String, String>,
+): Map<String, List<String>> {
+    if (overrides.isEmpty()) return upstreamHeaders
+    val merged = LinkedHashMap(upstreamHeaders)
+    overrides.forEach { (name, value) ->
+        merged.keys
+            .filter { it.equals(name, ignoreCase = true) }
+            .forEach(merged::remove)
+        merged[name] = listOf(value)
+    }
+    return merged
+}
+
 internal class PlaybackLoggingDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
     private val sourceLabel: String,
@@ -132,17 +147,8 @@ private class ResponseHeaderOverridingDataSource(
 
     override fun getUri(): Uri? = upstream.uri
 
-    override fun getResponseHeaders(): Map<String, List<String>> {
-        val upstreamHeaders = upstream.responseHeaders
-        if (defaultResponseHeaders.isEmpty()) return upstreamHeaders
-
-        val merged = LinkedHashMap<String, List<String>>(upstreamHeaders.size + defaultResponseHeaders.size)
-        merged.putAll(upstreamHeaders)
-        defaultResponseHeaders.forEach { (key, value) ->
-            merged[key] = listOf(value)
-        }
-        return merged
-    }
+    override fun getResponseHeaders(): Map<String, List<String>> =
+        mergePlaybackResponseHeaders(upstream.responseHeaders, defaultResponseHeaders)
 
     override fun close() {
         upstream.close()
