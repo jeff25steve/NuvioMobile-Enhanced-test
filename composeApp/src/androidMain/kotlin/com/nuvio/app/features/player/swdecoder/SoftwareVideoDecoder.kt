@@ -39,6 +39,7 @@ internal class SoftwareVideoDecoderFlowState {
         private set
     var ended = false
         private set
+    private var sendBlockedAwaitingFrame = false
     private var queuedInputSampleCount = 0L
     private var producedFrameCount = 0L
 
@@ -83,10 +84,17 @@ internal class SoftwareVideoDecoderFlowState {
         when (result) {
             SOFTWARE_DECODER_RESULT_OK -> {
                 packetPending = false
+                sendBlockedAwaitingFrame = false
                 receivePending = true
             }
-            SOFTWARE_DECODER_RESULT_AGAIN -> receivePending = true
-            SOFTWARE_DECODER_RESULT_SKIP -> packetPending = false
+            SOFTWARE_DECODER_RESULT_AGAIN -> {
+                sendBlockedAwaitingFrame = true
+                receivePending = true
+            }
+            SOFTWARE_DECODER_RESULT_SKIP -> {
+                packetPending = false
+                sendBlockedAwaitingFrame = false
+            }
             else -> error("Unexpected FFmpeg packet-send result: " + result)
         }
     }
@@ -96,24 +104,35 @@ internal class SoftwareVideoDecoderFlowState {
         when (result) {
             SOFTWARE_DECODER_RESULT_OK -> {
                 eosPending = false
+                sendBlockedAwaitingFrame = false
                 draining = true
                 receivePending = true
             }
-            SOFTWARE_DECODER_RESULT_AGAIN -> receivePending = true
+            SOFTWARE_DECODER_RESULT_AGAIN -> {
+                sendBlockedAwaitingFrame = true
+                receivePending = true
+            }
             else -> error("Unexpected FFmpeg EOS-send result: " + result)
         }
     }
 
     fun onFrameReceiveResult(result: Int) {
         when (result) {
-            SOFTWARE_DECODER_RESULT_OK -> receivePending = true
+            SOFTWARE_DECODER_RESULT_OK -> {
+                sendBlockedAwaitingFrame = false
+                receivePending = true
+            }
             SOFTWARE_DECODER_RESULT_AGAIN -> {
                 check(!draining) { "FFmpeg returned EAGAIN after entering drain mode" }
+                check(!sendBlockedAwaitingFrame) {
+                    "FFmpeg returned EAGAIN from both send and receive without making progress"
+                }
                 receivePending = false
             }
             SOFTWARE_DECODER_RESULT_EOF -> {
                 check(draining) { "FFmpeg returned EOF before drain mode" }
                 draining = false
+                sendBlockedAwaitingFrame = false
                 receivePending = false
                 ended = true
             }
@@ -126,6 +145,7 @@ internal class SoftwareVideoDecoderFlowState {
         eosPending = false
         receivePending = false
         draining = false
+        sendBlockedAwaitingFrame = false
         ended = false
         queuedInputSampleCount = 0L
         producedFrameCount = 0L
