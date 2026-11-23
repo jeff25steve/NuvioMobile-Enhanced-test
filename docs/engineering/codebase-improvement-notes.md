@@ -1498,3 +1498,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - No Gradle test task, Kotlin compilation, Android build, CI, APK generation or device playback was run, in accordance with the no-build/no-CI instruction. Tests are added but unexecuted; this is source-level review, not a passing test or visual-device validation.
 - The queue design was reviewed for offer/take/close races, including the handoff between clearing the scheduled flag and rescheduling a newly arrived request. Device-level scrubbing responsiveness still needs measurement under slow native thumbnail extraction.
 - The portrait/ultrawide framing change is grounded in the Media3 1.11.1 Presentation API, but preview appearance still needs visual verification on real portrait, 16:9 and ultrawide samples. The preview should not be described as device-verified.
+
+
+**Cycle 224 — skip GPU readback when no seek-preview request is waiting**
+- The ExoPlayer preview effect previously performed `glReadPixels`, allocated an ARGB bitmap and copied the pixel buffer for every frame reaching the reader, even after the pending frame future had been cancelled or the grabber had been released.
+- Added a request/release guard before the GPU readback. When no active waiter exists, the shader now immediately calls `onInputFrameProcessed` to return the input texture to the effect pipeline without transferring pixels to CPU memory or allocating a bitmap. Active requests retain the existing readback and delivery path.
+- Added host test source for active, cancelled/no-waiter and released states.
+- Expected effect: avoid unnecessary GPU-to-CPU readback and bitmap allocation for stale/cancelled preview frames. No measured GPU time, memory allocation or scrub latency improvement is claimed.
