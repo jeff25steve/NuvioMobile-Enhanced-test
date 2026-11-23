@@ -40,7 +40,13 @@ internal suspend fun transferAndroidDownload(
     val transfer = async(Dispatchers.IO) {
         try {
             require(File(item.fileName).name == item.fileName && item.fileName.isNotBlank())
+            val resumeValidator = validator?.takeIf(::isStrongDownloadEntityTag)
             var offset = sink.length()
+            if (offset > 0L && resumeValidator == null) {
+                // Never append bytes from a previous representation without a strong validator.
+                sink.truncate(0L)
+                offset = 0L
+            }
             var restarted = false
 
             while (true) {
@@ -53,7 +59,7 @@ internal suspend fun transferAndroidDownload(
                     header("Accept-Encoding", "identity")
                     if (offset > 0L) {
                         header("Range", "bytes=$offset-")
-                        validator?.let { header("If-Range", it) }
+                        resumeValidator?.let { header("If-Range", it) }
                     }
                 }.build()
                 val call = client.newCall(request)
@@ -85,8 +91,7 @@ internal suspend fun transferAndroidDownload(
                         )
                     }
                     val totalBytes = range?.completeLength ?: contentLength?.let { startingBytes + it }
-                    val responseValidator = response.header("ETag")?.takeUnless { it.startsWith("W/") }
-                        ?: response.header("Last-Modified")
+                    val responseValidator = response.header("ETag")?.takeIf(::isStrongDownloadEntityTag)
                     onHeaders(totalBytes, responseValidator)
                     var downloaded = startingBytes
                     var responseBytesRead = 0L
@@ -144,3 +149,10 @@ internal suspend fun transferAndroidDownload(
     }
 }
 
+
+
+private fun isStrongDownloadEntityTag(value: String): Boolean =
+    value.length >= 2 && value.first() == '"' && value.last() == '"' &&
+        value.substring(1, value.lastIndex).all { character ->
+            character == '!' || character in '#'..'~' || character.code in 0x80..0xFF
+        }

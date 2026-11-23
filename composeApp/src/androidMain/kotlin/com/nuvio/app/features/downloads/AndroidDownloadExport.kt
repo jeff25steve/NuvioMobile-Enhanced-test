@@ -87,6 +87,8 @@ internal object AndroidDownloadExport {
         try {
             val output = context.contentResolver.openOutputStream(target.uri, "w")
                 ?: throw IOException("Could not open the selected download location")
+            val sourceLength = source.length()
+            var copiedBytes = 0L
             output.use { out ->
                 source.inputStream().use { input ->
                     val buffer = ByteArray(256 * 1024)
@@ -95,11 +97,18 @@ internal object AndroidDownloadExport {
                         val size = input.read(buffer)
                         if (size == -1) break
                         out.write(buffer, 0, size)
+                        copiedBytes += size
                     }
                     out.flush()
                 }
             }
-            if (target.length() != source.length()) {
+            if (copiedBytes != sourceLength) {
+                throw IOException("Copy to the selected download location was incomplete")
+            }
+            // DocumentFile.length() reports 0 when a provider omits COLUMN_SIZE.
+            // The streamed byte count above remains authoritative in that case.
+            val destinationLength = target.length()
+            if (destinationLength > 0L && destinationLength != copiedBytes) {
                 throw IOException("Copy to the selected download location was incomplete")
             }
             target.uri

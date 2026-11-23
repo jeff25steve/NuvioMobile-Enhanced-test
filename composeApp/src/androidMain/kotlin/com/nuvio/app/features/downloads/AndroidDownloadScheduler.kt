@@ -35,6 +35,45 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.ConnectionPool
 
+
+
+/**
+ * Serializes work per key without retaining one Mutex forever for every file ever seen.
+ * The reference count includes both holders and waiters, so an entry cannot be reclaimed
+ * while another coroutine still holds a reference to that same mutex.
+ */
+internal class KeyedMutex<K : Any> {
+    private class Entry {
+        val mutex = Mutex()
+        var users = 0
+    }
+
+    private val entries = ConcurrentHashMap<K, Entry>()
+
+    suspend fun <T> withLock(key: K, action: suspend () -> T): T {
+        val entry = entries.compute(key) { _, current ->
+            (current ?: Entry()).also { it.users++ }
+        }!!
+        return try {
+            entry.mutex.withLock { action() }
+        } finally {
+            entries.compute(key) { _, current ->
+                if (current !== entry) {
+                    current
+                } else {
+                    entry.users--
+                    if (entry.users == 0 && entry.mutex.tryLock()) {
+                        entry.mutex.unlock()
+                        null
+                    } else {
+                        entry
+                    }
+                }
+            }
+        }
+    }
+}
+
 internal object AndroidDownloadSchedulerLifecycleLock {
     private val monitor = Any()
 
@@ -44,7 +83,7 @@ internal object AndroidDownloadSchedulerLifecycleLock {
 internal class AndroidDownloadScheduler(val context: Context) {
     val store = AndroidDownloadStore(File(context.filesDir, "download-transfers"))
     val directory = File(context.filesDir, "downloads")
-    private val locks = ConcurrentHashMap<String, Mutex>()
+    private val locks = KeyedMutex<String>()
     private val cleanupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
@@ -187,13 +226,13 @@ internal class AndroidDownloadScheduler(val context: Context) {
     fun remove(fileName: String) {
         val transfer = AndroidDownloadSchedulerLifecycleLock.withLock {
             val current = store.get(fileName)
-            store.remove(fileName)
-            current?.let(::cancelScheduled)
-            current
+            val removed = current?.let { store.remove(fileName, it.generation) }
+            removed?.let(::cancelScheduled)
+            removed
         }
         transfer?.let { DownloadsLiveStatusPlatform.removeNotification(it.item.id) }
         cleanupScope.launch {
-            lock(fileName).withLock {
+            locks.withLock(fileName) {
                 if (store.get(fileName) == null) {
                     File(directory, "$fileName.part").delete()
                     // Wait behind the worker's per-file lock, then remove a final file too:
@@ -216,7 +255,7 @@ internal class AndroidDownloadScheduler(val context: Context) {
         transfer: AndroidDownloadTransfer,
         network: Network? = null,
         onProgress: (AndroidDownloadTransfer) -> Unit,
-    ): Boolean = lock(transfer.item.fileName).withLock {
+    ): Boolean = locks.withLock(transfer.item.fileName) {
         val fileName = transfer.item.fileName
         if (!isActive(transfer)) return@withLock false
         val destination = File(directory, fileName)
@@ -397,7 +436,6 @@ internal class AndroidDownloadScheduler(val context: Context) {
         } else it
     }
 
-    private fun lock(fileName: String): Mutex = locks.getOrPut(fileName) { Mutex() }
     private fun workName(transfer: AndroidDownloadTransfer) = "nuvio-download-${transfer.jobId}"
 
     companion object {
