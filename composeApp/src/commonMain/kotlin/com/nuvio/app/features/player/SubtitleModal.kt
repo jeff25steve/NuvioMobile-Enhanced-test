@@ -91,6 +91,7 @@ fun SubtitleModal(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     supportsAssStyleCustomization: Boolean = false,
+    supportsLetterboxTextSubtitles: Boolean = false,
 ) {
     val effectiveSelectedAddonSubtitle = selectedAddonSubtitle
         ?: addonSubtitles.findSelectedAddon(selectedAddonSubtitleId)
@@ -312,6 +313,7 @@ fun SubtitleModal(
                                     isCompact = railMaxHeight < 420.dp,
                                     showHeader = false,
                                     supportsAssStyleCustomization = supportsAssStyleCustomization,
+                                    supportsLetterboxTextSubtitles = supportsLetterboxTextSubtitles,
                                     onStyleChanged = onStyleChanged,
                                     onSubtitleDelayChanged = onSubtitleDelayChanged,
                                     onSubtitleDelayReset = onSubtitleDelayReset,
