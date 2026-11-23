@@ -9,6 +9,8 @@ interface PlayerEngineController {
     fun play()
     fun pause()
     fun seekTo(positionMs: Long)
+    /** Enables decoder optimizations only while the user actively drags the timeline. */
+    fun setScrubbingMode(enabled: Boolean) {}
     fun seekBy(offsetMs: Long)
     fun retry()
     fun isPictureInPictureSupported(): Boolean = false
