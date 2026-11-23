@@ -78,11 +78,46 @@ class AutoPlaybackEngineResolverTest {
     }
 
     @Test
-    fun nonWordSeparatedAndSuffixedTokensAreNotDetected() {
-        // Whole-word tokens only: "dolby.vision" and "hdr10plus" fall through to the anime branch.
+    fun commonHdrTokenSeparatorsAndSuffixesAreDetected() {
         listOf(
             "movie.hdr10plus.mkv",
+            "movie.HDR10Plus.mkv",
             "movie.dolby.vision.mkv",
+            "movie.Dolby-Vision.mkv",
+            "movie.DOVI.mkv",
+        ).forEach { filename ->
+            assertEquals(
+                AndroidPlaybackEngine.ExoPlayer,
+                resolve(videoId = "mal:1", filename = filename),
+                "expected HDR/DV detection for $filename",
+            )
+        }
+    }
+
+    @Test
+    fun hlgPqAndStandardTransferMetadataOverrideAnimeRouting() {
+        listOf(
+            "movie.HLG.mkv",
+            "movie.PQ.mkv",
+            "movie.SMPTE-ST-2084.mkv",
+            "movie.ST2084.mkv",
+            "movie.BT.2100.mkv",
+            "movie.ARIB-STD-B67.mkv",
+        ).forEach { filename ->
+            assertEquals(
+                AndroidPlaybackEngine.ExoPlayer,
+                resolve(videoId = "mal:1", filename = filename),
+                "expected HDR transfer detection for $filename",
+            )
+        }
+    }
+
+    @Test
+    fun partialTechnicalTokensAreNotMistakenForHdr() {
+        listOf(
+            "movie.DVDRip.mkv",
+            "movie.PQ10.mkv",
+            "movie.HDR10PlusExtra.mkv",
         ).forEach { filename ->
             assertEquals(
                 AndroidPlaybackEngine.Libmpv,
