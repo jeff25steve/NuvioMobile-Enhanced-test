@@ -2326,3 +2326,40 @@ Verification boundary:
 - Regression tests were authored first and the implementation was reviewed against the exact pinned Media3 source, but tests were not run. No Gradle compilation, tests, build, CI, benchmark, or device playback was started, per the user's instruction.
 - Remote source review and branch comparison are required after this documentation update. HDR selection still needs authorised HLS playback validation on HDR10-only, HLG-capable, and SDR-only displays, including an HDR-only group with mixed transfer types.
 
+## Optional display-relative SRT/WebVTT subtitles for cinematic aspect ratios — 23 November 2026
+
+A review of the current Compose subtitle path found that Nuvio already renders styled text cues in a Compose overlay that is a sibling of the Media3 `PlayerView`. That means it can use the full player viewport without moving or modifying Media3's internal `SubtitleView`. The existing overlay nevertheless positioned every default-bottom cue relative to the fitted video bounds and sized its text from the fitted video height. For cinematic sources (for example 2.35:1/2.39:1 on a 16:9 viewport), this kept plain captions above the lower black bar and made them smaller than captions on 16:9 sources.
+
+Changed:
+
+- Added an opt-in `placeUnpositionedTextInLetterbox` appearance preference. It defaults to false, is stored in the existing versioned subtitle-device preference payload, and legacy appearance/device records decode to false without a migration or version bump.
+- Exposed the control only when the active Android engine advertises the new `supportsLetterboxTextSubtitles` capability. The ExoPlayer controller advertises it; libmpv and iOS keep the default false, so this does not silently change their subtitle paths.
+- Enabled the Compose styled overlay when the preference is enabled, even if the user has not selected another custom appearance option.
+- Limited display-relative routing to unpositioned text cues from Media3 SubRip, WebVTT, and MP4 WebVTT tracks. A cue must have unset line and position and no vertical writing mode. Explicitly positioned cues remain video-relative; ASS/SSA, bitmap PGS/VobSub/DVB cues and unsupported MIME types remain on their native renderers.
+- Scaled eligible plain-text cue typography and outline geometry against the full player viewport rather than the fitted video height. This removes the aspect-ratio-dependent font-size drop for cinematic video and remains consistent in Fit, Fill, and Zoom.
+- Moved the default bottom cue to the display bottom only when its complete measured height and bottom inset fit within the available lower letterbox. If the bar is too short, it falls back to the original video-relative bottom position rather than straddling the picture and black bar. When there is no lower bar (including full-screen Fill/Zoom), it uses the display bottom, which coincides with the visible video edge.
+- Used the display width as the horizontal layout reference for eligible cues, so wide/cropped Zoom content does not pull the caption off the visible viewport.
+- Preserved embedded foreground, background, bold, italic and underline text spans in the Compose overlay; the background-span path now has regression coverage.
+- Applied the same MIME gating to embedded tracks and the external sidecar subtitle controller. The preference is re-evaluated when style changes while a cue remains visible.
+
+Regression coverage authored:
+
+- Default-off behaviour, Compose-overlay activation, reset behaviour, legacy JSON decoding, and device-preference round-tripping.
+- Display-bottom placement when the full cue fits, fallback when the letterbox is too short, full-frame/Zoom placement, and invalid/offscreen inset handling.
+- Distinct layout grouping for video-relative versus display-relative cues.
+- SRT/WebVTT/MP4 WebVTT MIME gating; unpositioned versus explicitly positioned cues; live style changes; and preservation of embedded background spans.
+
+Research and design constraints:
+
+- AndroidX Media3 [issue #2977](https://github.com/androidx/media/issues/2977) describes the same visible issue: unset-position captions become too small on cinematic aspect ratios because `PlayerView` draws them in the video frame. Media3 maintainer feedback explicitly warns that many subtitle formats position text relative to the picture (for example translations of on-screen signs) and that splitting a line across bright picture content and black bars can reduce readability. This implementation therefore requires an explicit user opt-in, moves only cues with unset position, and uses the lower bar only if the whole caption fits.
+- The maintainer of [Just (Video) Player](https://github.com/moneytoo/Player) described moving `SubtitleView` outside the video area for plaintext subtitles, while noting legacy PGS behaviour differs. Nuvio already has a full-viewport Compose overlay, so this change uses that existing layer instead of patching Media3 internals or moving its native bitmap/ASS subtitle view.
+- Jellyfin Android TV [PR #4816](https://github.com/jellyfin/jellyfin-androidtv/pull/4816) and [PR #4825](https://github.com/jellyfin/jellyfin-androidtv/pull/4825) document user-visible font-size/position problems and real-world validation. PR #4816 was later abandoned after maintainers raised concerns about modifying Media3 internals and reports exposed edge cases with non-standard resolutions. Its approach was not copied.
+- The [Emby community request](https://emby.media/community/topic/149019-allow-text-subtitles-in-the-black-bar-below-video-on-android-tv/) from August 2026 independently confirms demand for an opt-in black-bar placement setting.
+- Context7 was consulted for the pinned Compose Multiplatform `1.13.0-beta01` line and Media3 cue API. The indexed Compose docs showed the shared `BoxWithConstraints`/`Layout` measure-and-place API used here; Media3's `Cue` contract confirms the unset-position, line, vertical and bitmap fields used for safe classification.
+
+Verification boundary:
+
+- Tests were added but not run. No Gradle compilation, tests, build, CI, benchmark, or device playback was started, as requested.
+- Remote source review confirms the overlay is a sibling of the full-size `AndroidView`/Media3 `PlayerView`, the setting is only exposed by the ExoPlayer controller, and native/explicit subtitle routes remain intact.
+- Device validation is still required for SRT and WebVTT on 16:9, 2.35:1, portrait, Fit, Fill and Zoom content; include a bright scene near the lower picture edge and a letterbox too short to fit the full caption. No claim of measured visual improvement is made before that validation.
+
