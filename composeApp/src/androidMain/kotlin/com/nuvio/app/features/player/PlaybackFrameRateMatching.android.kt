@@ -25,6 +25,8 @@ internal fun videoFrameRateStrategyForSystemPreference(userPreference: Int): Int
 internal fun shouldUseAlwaysSurfaceFrameRateMatching(userPreference: Int): Boolean =
     userPreference == DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS
 
+private const val MIN_NON_SEAMLESS_MATCH_DURATION_MS = 300_000L
+
 internal fun shouldApplyAlwaysVideoFrameRate(
     playWhenReady: Boolean,
     playbackState: Int,
@@ -152,7 +154,4 @@ internal class AlwaysVideoFrameRateController(
         lastAppliedFrameRate = targetFrameRate
     }
 
-    private companion object {
-        const val MIN_NON_SEAMLESS_MATCH_DURATION_MS = 300_000L
-    }
 }
