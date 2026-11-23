@@ -4,6 +4,7 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -62,6 +63,29 @@ class SeekPreviewLifecycleTest {
     @Test
     fun missingCachedThumbnailDoesNotSuppressARequest() {
         assertFalse(isSeekPreviewFrameCachedAtExactPosition(null, 12_000L))
+    }
+
+    @Test
+    fun queuedThumbnailWantsCoalesceToTheLatestRequestedPosition() {
+        val pending = LatestSeekPreviewWant()
+
+        pending.offer(positionMs = 1_000L, showingMs = 900L)
+        pending.offer(positionMs = 2_000L, showingMs = 1_000L)
+        pending.offer(positionMs = 3_000L, showingMs = 2_000L)
+
+        assertEquals(SeekPreviewWant(3_000L, 2_000L), pending.take())
+        assertNull(pending.take())
+    }
+
+    @Test
+    fun clearingPendingThumbnailWantDropsStaleWorkOnClose() {
+        val pending = LatestSeekPreviewWant()
+        pending.offer(positionMs = 5_000L, showingMs = null)
+
+        pending.clear()
+
+        assertNull(pending.take())
+        assertFalse(pending.hasPending())
     }
 
     @Test
