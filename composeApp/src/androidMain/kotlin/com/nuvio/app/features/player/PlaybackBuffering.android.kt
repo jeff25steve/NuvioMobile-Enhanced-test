@@ -404,7 +404,7 @@ internal class SelectiveBufferedDataSource(
         val closing = active ?: return
         try {
             closing.close()
-        } catch (error: IOException) {
+        } catch (error: Throwable) {
             // A delegate that failed to close is not safe to reuse on the next open.
             if (closing === plain) plain = null
             if (closing === buffered) buffered = null
@@ -425,7 +425,11 @@ internal fun <T> createWithCleanupOnFailure(
 ): T = try {
     create()
 } catch (error: Throwable) {
-    runCatching(cleanup)
+    try {
+        cleanup()
+    } catch (cleanupError: Throwable) {
+        if (cleanupError !== error) error.addSuppressed(cleanupError)
+    }
     throw error
 }
 
@@ -450,7 +454,12 @@ private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
         )
     }
     val file = File.createTempFile("read_ahead", ".bin", directory)
-    val randomAccessFile = RandomAccessFile(file, "rw")
+    val randomAccessFile = try {
+        RandomAccessFile(file, "rw")
+    } catch (error: Throwable) {
+        file.delete()
+        throw error
+    }
     return createWithCleanupOnFailure(
         cleanup = {
             runCatching { randomAccessFile.close() }
