@@ -11,6 +11,13 @@ import kotlin.test.assertTrue
 
 class SeekPreviewLifecycleTest {
     @Test
+    fun releasedOrDisposedSourceGenerationCannotPublishAFrame() {
+        assertTrue(canUseSeekPreviewSource(generation = 4, currentGeneration = 4, disposed = false))
+        assertFalse(canUseSeekPreviewSource(generation = 4, currentGeneration = 5, disposed = false))
+        assertFalse(canUseSeekPreviewSource(generation = 4, currentGeneration = 4, disposed = true))
+    }
+
+    @Test
     fun cancellingPendingFrameUnblocksWaiterAndClearsPendingReference() {
         val future = CompletableFuture<String>()
         val pending = AtomicReference<CompletableFuture<String>?>(future)

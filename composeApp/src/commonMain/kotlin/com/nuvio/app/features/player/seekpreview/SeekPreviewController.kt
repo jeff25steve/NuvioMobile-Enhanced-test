@@ -57,6 +57,9 @@ private const val PrefetchBufferingPollMs = 500L
 
 private const val LogTag = "Player/SeekPreview"
 
+internal fun canUseSeekPreviewSource(generation: Int, currentGeneration: Int, disposed: Boolean): Boolean =
+    generation == currentGeneration && !disposed
+
 internal class SeekPreviewFrame(val positionMs: Long, val bitmap: ImageBitmap)
 
 @Stable
@@ -371,10 +374,11 @@ internal class SeekPreviewController(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
-                if (generation != connectionGeneration) return@collect
+                if (!canUseSeekPreviewSource(generation, connectionGeneration, disposed)) return@collect
                 onFailure(bucket, started.elapsedNow().inWholeMilliseconds, error)
                 return@collect
             }
+            if (!canUseSeekPreviewSource(generation, connectionGeneration, disposed)) return@collect
             val elapsedMs = started.elapsedNow().inWholeMilliseconds
             if (bitmap == null) {
                 onFailure(bucket, elapsedMs, null)
@@ -407,7 +411,7 @@ internal class SeekPreviewController(
         if (needsOpen) {
             val openedSource = openSeekPreviewFrameSource(url, headers)
             val accepted = synchronized(sourceLock) {
-                if (generation == connectionGeneration && !disposed) {
+                if (canUseSeekPreviewSource(generation, connectionGeneration, disposed)) {
                     source = openedSource
                     sourceOpened = true
                     true
