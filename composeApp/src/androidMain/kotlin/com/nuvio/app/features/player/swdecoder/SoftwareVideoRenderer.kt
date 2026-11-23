@@ -8,8 +8,10 @@ import androidx.media3.common.util.TraceUtil
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.CryptoConfig
 import androidx.media3.decoder.VideoDecoderOutputBuffer
+import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.video.DecoderVideoRenderer
+import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import com.nuvio.app.core.logging.InAppLogger
 
@@ -23,6 +25,18 @@ internal class SoftwareVideoRenderer(
     private var decoder: SoftwareVideoDecoder? = null
 
     override fun getName(): String = TAG
+
+    override fun handleMessage(messageType: Int, message: Any?) {
+        if (messageType == Renderer.MSG_SET_VIDEO_OUTPUT &&
+            message !is Surface &&
+            message !is VideoDecoderOutputBufferRenderer
+        ) {
+            // DecoderVideoRenderer intentionally leaves its decoder mode unchanged when output is
+            // removed. The software decoder can avoid YUV conversion until a real output returns.
+            decoder?.outputMode = C.VIDEO_OUTPUT_MODE_NONE
+        }
+        super.handleMessage(messageType, message)
+    }
 
     override fun supportsFormat(format: Format): Int {
         if (SoftwareVideoDecoder.codecNameFor(format.sampleMimeType) == null) {
