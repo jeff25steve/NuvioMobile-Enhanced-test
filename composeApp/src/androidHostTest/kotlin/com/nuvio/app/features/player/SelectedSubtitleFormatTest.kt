@@ -11,9 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -26,7 +24,6 @@ class SelectedSubtitleFormatTest {
             .build()
         val selected = Format.Builder()
             .setSampleMimeType(MimeTypes.TEXT_SSA)
-            .setCodecs(MimeTypes.TEXT_SSA)
             .build()
         val group = Tracks.Group(
             TrackGroup(unselected, selected),
@@ -52,27 +49,22 @@ class SelectedSubtitleFormatTest {
     }
 
     @Test
-    fun ssaMimeTypeIsRecognizedEvenWhenCodecMetadataIsMissing() {
-        val format = Format.Builder().setSampleMimeType(MimeTypes.TEXT_SSA).build()
+    fun ignoresSelectedAudioGroupsWhenFindingSubtitleFormat() {
+        val audio = Format.Builder().setSampleMimeType(MimeTypes.AUDIO_AAC).build()
+        val text = Format.Builder().setSampleMimeType(MimeTypes.APPLICATION_SUBRIP).build()
+        val audioGroup = Tracks.Group(
+            TrackGroup(audio),
+            false,
+            intArrayOf(C.FORMAT_HANDLED),
+            booleanArrayOf(true),
+        )
+        val textGroup = Tracks.Group(
+            TrackGroup(text),
+            false,
+            intArrayOf(C.FORMAT_HANDLED),
+            booleanArrayOf(true),
+        )
 
-        assertTrue(isSsaSubtitleFormat(format))
-        assertFalse(shouldNormalizeSubtitleCuePosition(format))
-    }
-
-    @Test
-    fun ssaCodecIsRecognizedWhenMimeTypeDoesNotIdentifyIt() {
-        val format = Format.Builder()
-            .setSampleMimeType(MimeTypes.APPLICATION_SUBRIP)
-            .setCodecs("video/avc, ${MimeTypes.TEXT_SSA}")
-            .build()
-
-        assertTrue(isSsaSubtitleFormat(format))
-        assertFalse(shouldNormalizeSubtitleCuePosition(format))
-    }
-
-    @Test
-    fun unknownSubtitleFormatRetainsPreviousNormalizationFallback() {
-        assertFalse(isSsaSubtitleFormat(null))
-        assertTrue(shouldNormalizeSubtitleCuePosition(null))
+        assertEquals(text, selectedSubtitleFormat(Tracks(listOf(audioGroup, textGroup))))
     }
 }
