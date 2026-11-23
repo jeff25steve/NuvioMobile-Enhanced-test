@@ -39,19 +39,23 @@ internal class SoftwareVideoDecoderFlowState {
         private set
     var ended = false
         private set
-    var unmatchedInputSamples = 0
-        private set
+    private var queuedInputSampleCount = 0L
+    private var producedFrameCount = 0L
 
     fun onInputSampleQueued() {
-        if (unmatchedInputSamples < Int.MAX_VALUE) unmatchedInputSamples++
+        if (queuedInputSampleCount < Long.MAX_VALUE) queuedInputSampleCount++
     }
 
     fun onFrameProduced() {
-        if (unmatchedInputSamples > 0) unmatchedInputSamples--
+        if (producedFrameCount < Long.MAX_VALUE) producedFrameCount++
     }
 
-    fun drainUnmatchedInputSamples(): Int =
-        unmatchedInputSamples.also { unmatchedInputSamples = 0 }
+    fun drainUnmatchedInputSamples(): Int {
+        val missing = (queuedInputSampleCount - producedFrameCount).coerceAtLeast(0L)
+        queuedInputSampleCount = 0L
+        producedFrameCount = 0L
+        return missing.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+    }
 
     fun nextAction(hasQueuedInput: Boolean, hasAvailableOutput: Boolean): SoftwareDecoderWorkAction =
         when {
@@ -123,7 +127,8 @@ internal class SoftwareVideoDecoderFlowState {
         receivePending = false
         draining = false
         ended = false
-        unmatchedInputSamples = 0
+        queuedInputSampleCount = 0L
+        producedFrameCount = 0L
     }
 }
 
