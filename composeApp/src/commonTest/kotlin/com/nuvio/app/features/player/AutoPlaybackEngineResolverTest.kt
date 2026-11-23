@@ -98,6 +98,7 @@ class AutoPlaybackEngineResolverTest {
     fun hlgPqAndStandardTransferMetadataOverrideAnimeRouting() {
         listOf(
             "movie.HLG.mkv",
+            "movie.HLG10.mkv",
             "movie.PQ.mkv",
             "movie.SMPTE-ST-2084.mkv",
             "movie.ST2084.mkv",
