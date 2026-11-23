@@ -247,4 +247,13 @@ class PlaybackDiagnosticsTest {
         assertEquals(null, playbackSpeedToRestoreAfterRebuild(Float.POSITIVE_INFINITY))
     }
 
+
+    @Test
+    fun subtitleRestoreOnlyDisablesTracksWhenTheyWereExplicitlyDisabled() {
+        assertEquals(4, subtitleTrackIndexForReload(4, hasTextTracks = true, textTrackTypeDisabled = false))
+        assertEquals(-1, subtitleTrackIndexForReload(-1, hasTextTracks = true, textTrackTypeDisabled = true))
+        assertEquals(null, subtitleTrackIndexForReload(-1, hasTextTracks = true, textTrackTypeDisabled = false))
+        assertEquals(null, subtitleTrackIndexForReload(-1, hasTextTracks = false, textTrackTypeDisabled = true))
+    }
+
 }
