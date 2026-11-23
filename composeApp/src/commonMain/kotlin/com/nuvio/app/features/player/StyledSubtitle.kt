@@ -8,10 +8,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.BlurredEdgeTreatment
@@ -36,6 +35,7 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 private const val TOP_SUBTITLE_INSET_FRACTION = 0.08f
@@ -64,45 +64,102 @@ internal fun StyledSubtitleOverlay(
         val topInset = maxHeight * TOP_SUBTITLE_INSET_FRACTION
         val sideInset = maxWidth * SIDE_SUBTITLE_INSET_FRACTION
         cues.blocks.forEach { block ->
-            val horizontalInset = 16.dp * scale + if (block.horizontal == SubtitleHorizontalPosition.CENTER) 0.dp else sideInset
-            Box(
-                Modifier.fillMaxSize().padding(
-                    start = horizontalInset,
-                    end = horizontalInset,
-                    top = if (block.vertical == SubtitleVerticalPosition.TOP) topInset else 0.dp,
-                    bottom = if (block.vertical == SubtitleVerticalPosition.BOTTOM) bottomInset else 0.dp,
-                ),
-                contentAlignment = block.alignment(),
-            ) {
-                StyledSubtitleText(
-                    text = block.text,
-                    style = style,
-                    scale = scale,
-                    videoWidthPx = fittedVideoBounds.width,
-                    videoHeightPx = fittedVideoBounds.height,
-                    fontFamily = fontFamily,
-                    horizontal = block.horizontal,
-                )
-            }
+            PositionedSubtitleBlock(
+                block = block,
+                style = style,
+                scale = scale,
+                fontFamily = fontFamily,
+                videoWidthPx = fittedVideoBounds.width,
+                videoHeightPx = fittedVideoBounds.height,
+                topInset = topInset,
+                bottomInset = bottomInset,
+                sideInset = sideInset,
+            )
         }
     }
 }
 
-private fun StyledSubtitleBlock.alignment(): Alignment = when (vertical) {
-    SubtitleVerticalPosition.TOP -> when (horizontal) {
-        SubtitleHorizontalPosition.START -> Alignment.TopStart
-        SubtitleHorizontalPosition.CENTER -> Alignment.TopCenter
-        SubtitleHorizontalPosition.END -> Alignment.TopEnd
-    }
-    SubtitleVerticalPosition.MIDDLE -> when (horizontal) {
-        SubtitleHorizontalPosition.START -> Alignment.CenterStart
-        SubtitleHorizontalPosition.CENTER -> Alignment.Center
-        SubtitleHorizontalPosition.END -> Alignment.CenterEnd
-    }
-    SubtitleVerticalPosition.BOTTOM -> when (horizontal) {
-        SubtitleHorizontalPosition.START -> Alignment.BottomStart
-        SubtitleHorizontalPosition.CENTER -> Alignment.BottomCenter
-        SubtitleHorizontalPosition.END -> Alignment.BottomEnd
+@Composable
+private fun PositionedSubtitleBlock(
+    block: StyledSubtitleBlock,
+    style: SubtitleStyleState,
+    scale: Float,
+    fontFamily: FontFamily,
+    videoWidthPx: Float,
+    videoHeightPx: Float,
+    topInset: androidx.compose.ui.unit.Dp,
+    bottomInset: androidx.compose.ui.unit.Dp,
+    sideInset: androidx.compose.ui.unit.Dp,
+) {
+    val density = LocalDensity.current
+    val horizontalInset = 16.dp * scale +
+        if (block.horizontal == SubtitleHorizontalPosition.CENTER) 0.dp else sideInset
+    val horizontalInsetPx = with(density) { horizontalInset.roundToPx() }
+    val topInsetPx = with(density) { topInset.roundToPx() }
+    val bottomInsetPx = with(density) { bottomInset.roundToPx() }
+
+    Layout(
+        modifier = Modifier.fillMaxSize(),
+        content = {
+            StyledSubtitleText(
+                text = block.text,
+                style = style,
+                scale = scale,
+                videoWidthPx = videoWidthPx,
+                videoHeightPx = videoHeightPx,
+                fontFamily = fontFamily,
+                horizontal = if (block.fillCueWidth) block.textAlignment else SubtitleHorizontalPosition.CENTER,
+                textAlignment = block.textAlignment,
+                fillCueWidth = block.fillCueWidth,
+            )
+        },
+    ) { measurables, constraints ->
+        val viewportWidth = constraints.maxWidth
+        val viewportHeight = constraints.maxHeight
+        val requestedWidth = block.widthFraction
+            ?.let { (viewportWidth * it.coerceIn(0f, 1f)).roundToInt() }
+            ?: (viewportWidth - horizontalInsetPx * 2)
+        if (requestedWidth <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+            layout(viewportWidth, viewportHeight) {}
+        } else {
+            val placeable = measurables.single().measure(
+                constraints.copy(
+                    minWidth = 0,
+                    maxWidth = requestedWidth.coerceAtMost(viewportWidth),
+                    minHeight = 0,
+                ),
+            )
+            val x = block.positionX?.let { position ->
+                subtitleCueAxisOffset(
+                    viewportSize = viewportWidth,
+                    contentSize = placeable.width,
+                    positionFraction = position,
+                    anchorFraction = block.positionXAnchor,
+                )
+            } ?: when (block.horizontal) {
+                SubtitleHorizontalPosition.START -> horizontalInsetPx
+                SubtitleHorizontalPosition.CENTER -> (viewportWidth - placeable.width) / 2
+                SubtitleHorizontalPosition.END -> viewportWidth - placeable.width - horizontalInsetPx
+            }
+            val y = block.positionY?.let { position ->
+                subtitleCueAxisOffset(
+                    viewportSize = viewportHeight,
+                    contentSize = placeable.height,
+                    positionFraction = position,
+                    anchorFraction = block.positionYAnchor,
+                )
+            } ?: when (block.vertical) {
+                SubtitleVerticalPosition.TOP -> topInsetPx
+                SubtitleVerticalPosition.MIDDLE -> (viewportHeight - placeable.height) / 2
+                SubtitleVerticalPosition.BOTTOM -> viewportHeight - placeable.height - bottomInsetPx
+            }
+            layout(viewportWidth, viewportHeight) {
+                placeable.place(
+                    x = x.coerceIn(0, (viewportWidth - placeable.width).coerceAtLeast(0)),
+                    y = y.coerceIn(0, (viewportHeight - placeable.height).coerceAtLeast(0)),
+                )
+            }
+        }
     }
 }
 
@@ -115,6 +172,9 @@ internal fun StyledSubtitleText(
     videoWidthPx: Float = SUBTITLE_BLUR_REFERENCE_WIDTH_PX,
     videoHeightPx: Float = SUBTITLE_BLUR_REFERENCE_HEIGHT_PX,
     fontFamily: FontFamily = rememberSubtitleFontFamily(style.appearance.fontId),
+    horizontal: SubtitleHorizontalPosition = SubtitleHorizontalPosition.CENTER,
+    textAlignment: SubtitleHorizontalPosition = horizontal,
+    fillCueWidth: Boolean = true,
 ) {
     StyledSubtitleText(
         text = AnnotatedString(text),
@@ -124,6 +184,9 @@ internal fun StyledSubtitleText(
         videoWidthPx = videoWidthPx,
         videoHeightPx = videoHeightPx,
         fontFamily = fontFamily,
+        horizontal = horizontal,
+        textAlignment = textAlignment,
+        fillCueWidth = fillCueWidth,
     )
 }
 
@@ -137,10 +200,12 @@ internal fun StyledSubtitleText(
     videoHeightPx: Float = SUBTITLE_BLUR_REFERENCE_HEIGHT_PX,
     fontFamily: FontFamily = rememberSubtitleFontFamily(style.appearance.fontId),
     horizontal: SubtitleHorizontalPosition = SubtitleHorizontalPosition.CENTER,
+    textAlignment: SubtitleHorizontalPosition = horizontal,
+    fillCueWidth: Boolean = true,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    BoxWithConstraints(modifier.fillMaxWidth()) {
+    BoxWithConstraints(if (fillCueWidth) modifier.fillMaxWidth() else modifier) {
         val paddingX = with(density) { (8.dp * scale).toPx() }
         val paddingY = with(density) { (4.dp * scale).toPx() }
         val availableWidth = constraints.maxWidth.toFloat()
@@ -169,10 +234,10 @@ internal fun StyledSubtitleText(
             fontFamily = fontFamily,
             fontSize = (style.fontSizeSp * scale).sp,
             fontWeight = if (style.bold) FontWeight.Bold else FontWeight.Normal,
-            textAlign = when (horizontal) {
-                SubtitleHorizontalPosition.START -> TextAlign.Left
+            textAlign = when (textAlignment) {
+                SubtitleHorizontalPosition.START -> TextAlign.Start
                 SubtitleHorizontalPosition.CENTER -> TextAlign.Center
-                SubtitleHorizontalPosition.END -> TextAlign.Right
+                SubtitleHorizontalPosition.END -> TextAlign.End
             },
             textDirection = TextDirection.ContentOrLtr,
         )
@@ -198,7 +263,7 @@ internal fun StyledSubtitleText(
         val contentHeight = with(density) { (layout.size.height + paddingY * 2).toDp() }
         val boxWidthPx = contentWidth + edgePaddingPx * 2
         val boxWidth = with(density) { boxWidthPx.toDp() }
-        val leftPx = when (horizontal) {
+        val leftPx = if (!fillCueWidth) 0f else when (horizontal) {
             SubtitleHorizontalPosition.START -> 0f
             SubtitleHorizontalPosition.CENTER -> (availableWidth - boxWidthPx) / 2f
             SubtitleHorizontalPosition.END -> availableWidth - boxWidthPx
