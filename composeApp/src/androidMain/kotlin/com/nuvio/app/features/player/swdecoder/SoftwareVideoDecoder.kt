@@ -419,10 +419,16 @@ internal class SoftwareVideoDecoder(
                     }
                 } catch (error: RuntimeException) {
                     work.outputBuffer?.let(::recycleOutputBuffer)
-                    fail(SoftwareVideoDecoderException("Unexpected software decode error", error))
+                    fail(
+                        SoftwareVideoDecoderException("Unexpected software decode error", error),
+                        ignoreIfFlushing = work.action != SoftwareDecoderWorkAction.FLUSH,
+                    )
                 } catch (error: OutOfMemoryError) {
                     work.outputBuffer?.let(::recycleOutputBuffer)
-                    fail(SoftwareVideoDecoderException("Software video decoder ran out of memory", error))
+                    fail(
+                        SoftwareVideoDecoderException("Software video decoder ran out of memory", error),
+                        ignoreIfFlushing = work.action != SoftwareDecoderWorkAction.FLUSH,
+                    )
                 }
             }
         } finally {
@@ -630,10 +636,11 @@ internal class SoftwareVideoDecoder(
 
     private fun isFlushRequested(): Boolean = synchronized(lock) { flushRequested || released }
 
-    private fun fail(error: SoftwareVideoDecoderException) {
+    private fun fail(error: SoftwareVideoDecoderException, ignoreIfFlushing: Boolean = true) {
         val notifyError = synchronized(lock) {
-            val staleDecode = flushRequested
+            val staleDecode = flushRequested && ignoreIfFlushing
             if (!staleDecode && exception == null) exception = error
+            if (!staleDecode) flushRequested = false
             pendingInputBuffer?.let {
                 recycleInputBufferLocked(it)
                 pendingInputBuffer = null
