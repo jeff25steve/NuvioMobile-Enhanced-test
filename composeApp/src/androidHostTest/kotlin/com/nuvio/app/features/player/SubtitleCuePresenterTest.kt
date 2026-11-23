@@ -103,6 +103,34 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun letterboxRoutingDoesNotReclassifyAlreadyNormalizedExternalVttCues() {
+        assertTrue(
+            shouldAllowLetterboxTextSubtitlePlacement(
+                androidx.media3.common.MimeTypes.APPLICATION_SUBRIP,
+                placeUnpositionedTextInLetterbox = true,
+            ),
+        )
+        assertTrue(
+            shouldAllowLetterboxTextSubtitlePlacement(
+                androidx.media3.common.MimeTypes.TEXT_VTT,
+                placeUnpositionedTextInLetterbox = true,
+            ),
+        )
+        assertFalse(
+            shouldAllowLetterboxTextSubtitlePlacement(
+                androidx.media3.common.MimeTypes.TEXT_VTT,
+                placeUnpositionedTextInLetterbox = false,
+            ),
+        )
+        assertFalse(
+            shouldAllowLetterboxTextSubtitlePlacement(
+                androidx.media3.common.MimeTypes.APPLICATION_TTML,
+                placeUnpositionedTextInLetterbox = true,
+            ),
+        )
+    }
+
+    @Test
     fun letterboxPlacementRequiresAnEnabledPreferenceAndSupportedTextMimeType() {
         assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_SUBRIP))
         assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.TEXT_VTT))
