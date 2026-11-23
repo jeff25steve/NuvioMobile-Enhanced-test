@@ -2274,8 +2274,9 @@ The separate AIOStreams/libmpv ASS renderer retained its previous source `videoW
 Changed:
 - Added `assVideoDimensionsFromSize(VideoSize)` to return dimensions only when both are positive.
 - `AiostreamsAssEngine.onVideoSizeChanged` now writes zero dimensions for unknown/invalid video sizes instead of returning and retaining stale dimensions.
+- ASS track selection is gated on valid source dimensions. When a new player initially reports `VideoSize.UNKNOWN`, the previous ASS track is hidden; the selected track is restored only after valid dimensions arrive.
 - The valid-size path is unchanged and still passes encoded source dimensions to libass, preserving the subtitle script's source coordinate system.
-- Added tests for valid 1920×1080 geometry and unknown, zero, and negative dimensions.
+- Added tests for valid 1920×1080 geometry, unknown/zero/negative dimensions, and the rule that ASS tracks remain hidden until valid source coordinates exist.
 
 Additional upstream research:
 - The separate bundled `nuvio-libass-release.aar` is a binary artifact. Its GitHub content metadata provides a blob SHA but not the embedded source revision, so its exact upstream commit could not be established from the checked-in binary alone.
