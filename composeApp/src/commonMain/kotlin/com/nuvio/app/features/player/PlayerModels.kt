@@ -178,6 +178,84 @@ enum class AndroidLibmpvVideoOutput(
     ),
 }
 
+enum class AndroidLibmpvScalingFilter(
+    val mpvValue: String?,
+    val label: String,
+    val description: String,
+) {
+    Default(
+        mpvValue = null,
+        label = "Default",
+        description = "Follow the selected render-quality profile.",
+    ),
+    Bilinear(
+        mpvValue = "bilinear",
+        label = "Bilinear",
+        description = "Fastest and lightest, with a softer image.",
+    ),
+    Mitchell(
+        mpvValue = "mitchell",
+        label = "Mitchell",
+        description = "Balanced reconstruction with restrained ringing.",
+    ),
+    Spline36(
+        mpvValue = "spline36",
+        label = "Spline36",
+        description = "Detailed reconstruction with a natural balance.",
+    ),
+    Lanczos(
+        mpvValue = "lanczos",
+        label = "Lanczos",
+        description = "Detailed scaling with moderate GPU cost.",
+    ),
+    EwaLanczos(
+        mpvValue = "ewa_lanczos",
+        label = "EWA Lanczos",
+        description = "High-quality polar scaling with higher GPU cost.",
+    ),
+    EwaLanczosSharp(
+        mpvValue = "ewa_lanczossharp",
+        label = "EWA Lanczos Sharp",
+        description = "Sharper detail; may emphasize ringing on some content.",
+    ),
+    Hermite(
+        mpvValue = "hermite",
+        label = "Hermite",
+        description = "Fast downscaling; can look softer or blockier when upscaling.",
+    ),
+    CatmullRom(
+        mpvValue = "catmull_rom",
+        label = "Catmull-Rom",
+        description = "Sharper cubic scaling that can produce ringing.",
+    ),
+}
+
+internal fun mpvScalingOptionValues(
+    quality: AndroidLibmpvRenderQuality,
+    upscaler: AndroidLibmpvScalingFilter,
+    downscaler: AndroidLibmpvScalingFilter,
+    chromaScaler: AndroidLibmpvScalingFilter,
+): Map<String, String> {
+    val profileUpscaler = when (quality) {
+        AndroidLibmpvRenderQuality.Balanced -> "lanczos"
+        AndroidLibmpvRenderQuality.HighQuality -> "ewa_lanczossharp"
+        AndroidLibmpvRenderQuality.Performance -> "bilinear"
+    }
+    val profileDownscaler = when (quality) {
+        AndroidLibmpvRenderQuality.Balanced,
+        AndroidLibmpvRenderQuality.HighQuality -> "hermite"
+        AndroidLibmpvRenderQuality.Performance -> "bilinear"
+    }
+    val scale = upscaler.mpvValue ?: profileUpscaler
+    val downscale = downscaler.mpvValue ?: profileDownscaler
+    val chroma = chromaScaler.mpvValue ?: scale
+    return mapOf(
+        "scale" to scale,
+        "dscale" to downscale,
+        "cscale" to chroma,
+    )
+}
+
 enum class AndroidLibmpvRenderQuality(
     val profileName: String?,
     val label: String,
