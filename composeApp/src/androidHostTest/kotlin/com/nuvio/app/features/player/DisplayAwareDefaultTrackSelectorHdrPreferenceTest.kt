@@ -10,12 +10,24 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
+    @Test
+    fun unknownHdrCapabilitiesRemainUnknownRatherThanBecomingSdrOnly() {
+        assertNull(displayHdrTypesFromCapabilities(null))
+        assertEquals(emptySet(), displayHdrTypesFromCapabilities(intArrayOf()))
+        assertEquals(
+            setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+            displayHdrTypesFromCapabilities(intArrayOf(Display.HdrCapabilities.HDR_TYPE_HDR10)),
+        )
+    }
+
     @Test
     fun supportedPqAlternativeIsRecognizedOnHdr10Display() {
         val group = TrackGroup(pqFormat(), sdrFormat())
