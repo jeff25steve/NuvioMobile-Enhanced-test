@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player
 
+import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -87,6 +88,33 @@ class PlayerVideoGeometryTest {
     @Test
     fun zoomUsesExpandedVideoFrameHeightForPipSubtitleScale() {
         assertEquals(1440f, displayedVideoHeightPx(1920f, 1440f, 4f / 3f, PlayerResizeMode.Zoom))
+    }
+
+    @Test
+    fun videoAspectRatioUsesPixelWidthHeightRatioForAnamorphicContent() {
+        val aspectRatio = videoAspectRatioFromSize(VideoSize(720, 576, 1.5f, 0))
+
+        assertEquals(1.875f, aspectRatio!!, 0.0001f)
+    }
+
+    @Test
+    fun videoAspectRatioRejectsUnknownOrInvalidVideoGeometry() {
+        assertNull(videoAspectRatioFromSize(VideoSize.UNKNOWN))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 0, 1f, 0)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.NaN, 0)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.POSITIVE_INFINITY, 0)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.MAX_VALUE, 0)))
+    }
+
+    @Test
+    fun pipHeightUsesValidatedAnamorphicVideoAspectRatio() {
+        val height = displayedVideoHeightPx(
+            viewSize = androidx.compose.ui.unit.IntSize(1920, 1080),
+            videoSize = VideoSize(720, 576, 1.5f, 0),
+            resizeMode = PlayerResizeMode.Fit,
+        )
+
+        assertEquals(1024f, height!!, 0.1f)
     }
 
     @Test
