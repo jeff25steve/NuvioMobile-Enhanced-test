@@ -62,6 +62,7 @@ internal fun StyledSubtitleOverlay(
         )
         val videoWidthDp = with(density) { fittedVideoBounds.width.toDp() }
         val videoHeightDp = with(density) { fittedVideoBounds.height.toDp() }
+        val viewportWidthPx = with(density) { maxWidth.toPx() }
         val viewportHeightPx = with(density) { maxHeight.toPx() }
         val viewportScale = (maxHeight / 360.dp).coerceAtMost(1f)
         val viewportBottomInset = maxHeight * (0.0533f + style.bottomOffset.coerceIn(0, 200) / 1000f)
@@ -75,6 +76,7 @@ internal fun StyledSubtitleOverlay(
                 style = style,
                 scale = scale,
                 viewportScale = viewportScale,
+                viewportWidthPx = viewportWidthPx,
                 viewportHeightPx = viewportHeightPx,
                 fontFamily = fontFamily,
                 videoBounds = fittedVideoBounds,
@@ -93,6 +95,7 @@ private fun PositionedSubtitleBlock(
     style: SubtitleStyleState,
     scale: Float,
     viewportScale: Float,
+    viewportWidthPx: Float,
     viewportHeightPx: Float,
     fontFamily: FontFamily,
     videoBounds: SubtitleVideoBoundsPx,
@@ -105,6 +108,7 @@ private fun PositionedSubtitleBlock(
     // Unpositioned SRT/WebVTT text uses the display height for consistent readability across
     // aspect ratios. Explicitly positioned cues keep their source-video-relative scale.
     val subtitleScale = if (block.placeInLetterbox) viewportScale else scale
+    val subtitleWidthPx = if (block.placeInLetterbox) viewportWidthPx else videoBounds.width
     val subtitleHeightPx = if (block.placeInLetterbox) viewportHeightPx else videoBounds.height
     val horizontalInset = 16.dp * subtitleScale +
         if (block.horizontal == SubtitleHorizontalPosition.CENTER) 0.dp else sideInset
@@ -120,7 +124,7 @@ private fun PositionedSubtitleBlock(
                 text = block.text,
                 style = style,
                 scale = subtitleScale,
-                videoWidthPx = videoBounds.width,
+                videoWidthPx = subtitleWidthPx,
                 videoHeightPx = subtitleHeightPx,
                 fontFamily = fontFamily,
                 horizontal = if (block.fillCueWidth) block.textAlignment else SubtitleHorizontalPosition.CENTER,
