@@ -969,6 +969,7 @@ final class MPVPlayerViewController: UIViewController {
             InAppLogBridge.shared.error(tag: "MPV/iOS", message: "Failed to create mpv instance")
             return
         }
+        resetAppliedSubtitleRendererStateForNewCore()
 
         InAppLogBridge.shared.info(tag: "MPV/iOS", message: "Initializing mpv vo=gpu-next gpu-api=vulkan gpu-context=moltenvk hwdec=videotoolbox")
         checkError(mpv_request_log_messages(mpv, "warn"))
@@ -2207,6 +2208,16 @@ final class MPVPlayerViewController: UIViewController {
         currentAssScale = assScale
         currentSubtitlePos = subPos
         updateStyledSubtitle()
+    }
+
+    /// A rebuilt mpv core starts with default subtitle properties; invalidate every cached
+    /// applied value so remembered settings are actually written to the new instance.
+    private func resetAppliedSubtitleRendererStateForNewCore() {
+        appliedAssOverride = nil
+        appliedAssScale = 1.0
+        appliedSubPos = nil
+        styledSubtitleVisible = false
+        lastSubtitleText = ""
     }
 
     private func updateStyledSubtitle() {
