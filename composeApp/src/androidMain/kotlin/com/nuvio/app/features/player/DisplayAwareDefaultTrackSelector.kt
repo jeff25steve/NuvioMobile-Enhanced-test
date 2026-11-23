@@ -90,18 +90,32 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
                 val groupSupports = rendererFormatSupports[rendererIndex][groupIndex]
                 // TrackGroup contains alternative formats for the same content. An SDR track in
                 // a different group may be a different camera angle/feed, not a valid fallback.
-                if (!hasSupportedSdrTrack(group, groupSupports)) continue
+                val hasSdrFallback = hasSupportedSdrTrack(group, groupSupports)
+                val hasSupportedHdrFallback = hasSupportedDisplayHdrTrack(
+                    group,
+                    groupSupports,
+                    displayHdrTypes,
+                )
+                if (!hasSdrFallback && !hasSupportedHdrFallback) continue
 
                 for (trackIndex in 0 until group.length) {
                     val supportFlags = groupSupports[trackIndex]
-                    if (
+                    val format = group.getFormat(trackIndex)
+                    val shouldMask = if (isSdrFallbackFormat(format)) {
+                        shouldMaskSdrFormatForDisplay(
+                            format = format,
+                            rendererSupportFlags = supportFlags,
+                            hasSupportedHdrFallback = hasSupportedHdrFallback,
+                        )
+                    } else {
                         shouldMaskHdrFormatForDisplay(
-                            format = group.getFormat(trackIndex),
+                            format = format,
                             rendererSupportFlags = supportFlags,
                             supportedHdrTypes = displayHdrTypes,
-                            hasSdrFallback = true,
+                            hasSdrFallback = hasSdrFallback,
                         )
-                    ) {
+                    }
+                    if (shouldMask) {
                         adjustedSupports[rendererIndex][groupIndex][trackIndex] = C.FORMAT_UNSUPPORTED_TYPE
                     }
                 }
@@ -157,20 +171,47 @@ internal fun shouldMaskHdrFormatForDisplay(
         !isRendererFormatSupported(rendererSupportFlags)
     ) return false
 
-    val isDolbyVision = isDolbyVisionFormat(format)
+    val requiredHdrType = requiredDisplayHdrType(format, rendererSupportFlags) ?: return false
+    return requiredHdrType !in supportedHdrTypes
+}
+
+internal fun hasSupportedDisplayHdrTrack(
+    group: TrackGroup,
+    groupSupports: IntArray,
+    supportedHdrTypes: Set<Int>?,
+): Boolean {
+    if (supportedHdrTypes == null) return false
+    for (trackIndex in 0 until minOf(group.length, groupSupports.size)) {
+        val supportFlags = groupSupports[trackIndex]
+        if (!isRendererFormatSupported(supportFlags)) continue
+        val requiredHdrType = requiredDisplayHdrType(group.getFormat(trackIndex), supportFlags)
+            ?: continue
+        if (requiredHdrType in supportedHdrTypes) return true
+    }
+    return false
+}
+
+internal fun shouldMaskSdrFormatForDisplay(
+    format: Format,
+    rendererSupportFlags: Int,
+    hasSupportedHdrFallback: Boolean,
+): Boolean =
+    hasSupportedHdrFallback &&
+        isRendererFormatSupported(rendererSupportFlags) &&
+        isSdrFallbackFormat(format)
+
+private fun requiredDisplayHdrType(format: Format, rendererSupportFlags: Int): Int? {
     val transfer = format.colorInfo?.colorTransfer
-    val requiredHdrType = when {
-        isDolbyVision &&
+    return when {
+        isDolbyVisionFormat(format) &&
             RendererCapabilities.getDecoderSupport(rendererSupportFlags) !=
             RendererCapabilities.DECODER_SUPPORT_FALLBACK_MIMETYPE ->
             Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION
 
         transfer == C.COLOR_TRANSFER_ST2084 -> Display.HdrCapabilities.HDR_TYPE_HDR10
         transfer == C.COLOR_TRANSFER_HLG -> Display.HdrCapabilities.HDR_TYPE_HLG
-        else -> return false
+        else -> null
     }
-
-    return requiredHdrType !in supportedHdrTypes
 }
 
 internal fun hasSupportedSdrTrack(
