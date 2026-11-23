@@ -27,12 +27,22 @@ class SubtitleDevicePreferencesTest {
                 shadowOpacity = 61,
                 shadowSize = 5,
                 outlineBlur = 7,
+                placeUnpositionedTextInLetterbox = true,
             ),
         )
 
         val restored = decodeSubtitleDevicePreferences(encodeSubtitleDevicePreferences(expected))
 
         assertEquals(expected, restored)
+    }
+
+    @Test
+    fun legacyDevicePreferenceRecordsDefaultLetterboxPlacementToOff() {
+        val restored = decodeSubtitleDevicePreferences(
+            """{"version":1,"fontSizeSp":30,"appearance":{"fontId":"serif"}}""",
+        )
+
+        assertEquals(false, restored?.appearance?.placeUnpositionedTextInLetterbox)
     }
 
     @Test
