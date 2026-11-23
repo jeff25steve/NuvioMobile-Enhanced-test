@@ -457,3 +457,7 @@ Progressive media now defaults to loading only selected video/image tracks. This
 Added `scripts/tests/test-media3-112-beta-compatibility.sh` to guard catalog alignment, minSdk and known removed APIs. Positive and negative fixture cases were exercised; no Gradle tests, build, CI or device playback was run. The upgrade must not be considered production-validated until the matrix in `docs/superpowers/specs/2026-11-23-media3-112-beta-hdr-decoder-memory-design.md` passes.
 
 Evidence: [Media3 1.12.0-beta01 release notes](https://github.com/androidx/media/releases/tag/1.12.0-beta01), [HLS HDR metadata parsing #3441](https://github.com/androidx/media/issues/3441), [Dolby Vision decoder selection #3486](https://github.com/androidx/media/issues/3486).
+
+## HLS quality metadata visibility (23 November 2026)
+
+The manual HLS quality chooser now carries the playlist's declared PQ/HLG/SDR range and valid frame rate into each option subtitle, alongside codec and bitrate. The canonical implementation, upstream selection caveat and verification boundary are recorded in `docs/engineering/codebase-improvement-notes.md` under “HLS quality chooser — dynamic-range and frame-rate visibility”. This is metadata visibility only: Media3's separate HDR display-capability-aware adaptive-selection issue remains open upstream, and no HDR selection/output behavior was changed.
