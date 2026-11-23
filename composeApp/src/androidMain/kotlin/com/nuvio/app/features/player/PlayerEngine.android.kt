@@ -167,13 +167,7 @@ internal class PlaybackDiagnostics {
     }
 
     fun recordDroppedVideoFrames(droppedFrames: Int): Long {
-        if (droppedFrames <= 0) return droppedVideoFrameCount
-        val increment = droppedFrames.toLong()
-        droppedVideoFrameCount = if (Long.MAX_VALUE - droppedVideoFrameCount < increment) {
-            Long.MAX_VALUE
-        } else {
-            droppedVideoFrameCount + increment
-        }
+        droppedVideoFrameCount = addDroppedVideoFrameCount(droppedVideoFrameCount, droppedFrames)
         return droppedVideoFrameCount
     }
 
