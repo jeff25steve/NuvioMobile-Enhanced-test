@@ -382,7 +382,8 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         return RESULT_OK;
     }
     if (result) return RESULT_ERROR;
-    if (!buffer.bits || buffer.width < width || buffer.height < height || buffer.stride < width ||
+    if (!buffer.bits || buffer.width < width || buffer.height < height ||
+        (buffer.width & 1) || (buffer.height & 1) || buffer.stride < width ||
         (buffer.stride % 16) != 0 || buffer.stride > INT32_MAX - 15) {
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
         if (unlock_result) {
