@@ -46,4 +46,31 @@ class MpvRenderQualityTest {
             ),
         )
     }
+
+    @Test
+    fun balancedIsTheDefaultForNewPlayerSettings() {
+        assertEquals(
+            AndroidLibmpvRenderQuality.Balanced,
+            PlayerSettingsUiState().androidLibmpvRenderQuality,
+        )
+    }
+
+    @Test
+    fun switchingFromEitherOverrideBackToBalancedRestoresThatProfile() {
+        assertEquals(
+            listOf(MpvRenderProfileAction(profileName = "fast", restore = true)),
+            mpvRenderProfileTransition(
+                AndroidLibmpvRenderQuality.Performance,
+                AndroidLibmpvRenderQuality.Balanced,
+            ),
+        )
+        assertEquals(
+            listOf(MpvRenderProfileAction(profileName = "high-quality", restore = true)),
+            mpvRenderProfileTransition(
+                AndroidLibmpvRenderQuality.HighQuality,
+                AndroidLibmpvRenderQuality.Balanced,
+            ),
+        )
+    }
+
 }

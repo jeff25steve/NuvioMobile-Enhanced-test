@@ -1604,3 +1604,40 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Static inspection checked both decoder-fallback and anime-effect rebuild capture sites and confirmed the helper reads the current player parameters before the replacement player is created.
 - No Gradle task, test execution, compilation, build, CI, APK/AAB or device playback was run.
+
+
+### Cycle 234 — remove the forced low-quality MPV renderer default
+
+- The Android libmpv view previously ran `apply-profile fast` unconditionally. The current upstream mpv `fast` profile explicitly changes upscaling and downscaling to bilinear, disables dithering, disables corrected and linear downscaling, disables sigmoid upscaling and disables automatic HDR peak computation.
+- mpv's own GPU output documentation says its unprofiled defaults are balanced for quality and performance; `fast` is for maximum performance and `high-quality` is a separate opt-in. New installs and users without a saved quality choice now use the native balanced defaults instead of being forced into `fast`.
+- This restores mpv's normal Lanczos-based scaling and automatic dithering/downscaling behavior without forcing an expensive EWA scaler on every Android device.
+
+### Cycle 235 — selectable and synchronized MPV render-quality modes
+
+- Added three Android libmpv render choices: Balanced (mpv native defaults), High quality (upstream `high-quality` profile), and Performance (upstream `fast` profile).
+- High quality is deliberately opt-in. The upstream EWA Lanczos sharp filter can be demanding on mobile GPUs and community reports document aliasing on some Android devices; the user can compare it on their hardware or return to Balanced.
+- The setting is profile-scoped, persisted on Android and represented in the existing settings-sync payload. iOS storage implements the shared storage contract, but the Android-only setting is not shown in iOS UI.
+- The selection is passed through the existing Android libmpv surface, so changing the setting while MPV is open applies it to the running renderer rather than waiting for the next app launch.
+
+### Cycle 236 — reversible live profile changes and HDR/display-path audit
+
+- mpv runtime profiles are destructive: applying a second profile overwrites only the options that second profile contains, leaving unrelated values from the first profile behind. The MPV view now sets `profile-restore=copy`, restores the currently active profile, then applies the next profile. Returning to Balanced therefore restores mpv's original values rather than leaving a partial Performance/High-quality mix.
+- Added common tests for preset-to-profile mapping, Balanced defaults, no-op same-profile selection and restore-before-apply transitions. Added Android host tests for persisted selection and settings-sync round trips. These test sources were committed before the production implementation where applicable; none were executed because no build/test task was authorized.
+- Audited Media3 1.11.1 `PlayerView`: its default surface is `SurfaceView`, and its documentation recommends `surface_view` for video applications. The current ExoPlayer path therefore retains the native SurfaceView path; no TextureView conversion was made.
+- Community investigation found Findroid reports of HDR color-shift/banding and the difference between MPV and ExoPlayer output. Stock Android MPV HDR passthrough remains a limitation in the cited project discussion; the app's ExoPlayer path remains the safer HDR-display choice. The MPV quality preset is not presented as an HDR passthrough fix.
+- Did not force `video-sync=display-resample` or `display-fps-override`: mpv documents that `container-fps` may be bogus and `estimated-vf-fps` is a rolling 10-frame estimate that can be unstable. Android community reports also show display-resample timing issues on some devices. This needs device-specific frame-pacing validation before becoming a default.
+- Reviewed the newer `mpv-android-lib 0.2.2` source delta over 0.2.1: it adds Vulkan 1.1 function lookup compatibility for Android below API 28 and adds `estimated-frame-number` to MPV tick notifications. The dependency was not upgraded in this pass because it changes native binaries and requires authorized build/device validation.
+
+#### External source review
+
+- [mpv current built-in profiles](https://github.com/mpv-player/mpv/blob/master/etc/builtin.conf) and [GPU output documentation](https://mpv.io/manual/master/#video-output-drivers-gpu): confirms the exact `fast` and `high-quality` profile roles and balanced native defaults.
+- [mpv scaler discussion #12082](https://github.com/mpv-player/mpv/issues/12082): developers explain the quality/performance tradeoffs between Lanczos, spline36 and EWA Lanczos, including ringing and aliasing.
+- [mpv-android EWA aliasing issue #560](https://github.com/mpv-android/mpv-android/issues/560): Android users reported aliasing and GPU intensity with EWA Lanczos on mobile hardware.
+- [Findroid HDR issue #645](https://github.com/jarnedemeulemeester/findroid/issues/645) and [high-quality profile PR #652](https://github.com/jarnedemeulemeester/findroid/pull/652): community reports motivated the selectable profile and reinforce that MPV HDR output and scaling quality are separate concerns.
+- [Media3 1.11.1 PlayerView source](https://github.com/androidx/media/blob/1.11.1/libraries/ui/src/main/java/androidx/media3/ui/PlayerView.java): documents SurfaceView as the default and recommended video surface.
+- [mpv-android-lib 0.2.1 to 0.2.2 diff](https://github.com/abdallahmehiz/mpv-android/compare/v0.2.1...v0.2.2.diff): exact upstream native patch set reviewed but not adopted without build verification.
+
+#### Verification boundary
+
+- Re-fetched all changed files from `main-build-testing`; static checks cover default Balanced selection, preset mappings, profile restoration order, Android/iOS storage contract, sync serialization, UI exposure and live MPV application.
+- No Gradle task, test execution, compilation, build, CI, APK/AAB, benchmark, Perfetto trace or physical-device playback was run. No measured image-quality, frame-rate or battery improvement is claimed.
