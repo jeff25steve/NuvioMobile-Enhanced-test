@@ -1262,3 +1262,30 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Context7 resolved and queried AndroidX Media3 1.11.1, Android NDK native-window reference documentation and FFmpeg 8.0. Exa independently retrieved the official FFmpeg 8.0 send/receive and libswscale references and Android NDK native-window documentation. The repository pins Media3 1.11.1 and includes FFmpeg 8.0 headers in the native target.
 - Added SoftwareVideoFrameTimestampTest.kt with four host regression cases covering PTS precedence, best-effort fallback, packet timestamp fallback and colorspace metadata indexing. Tests not run.
 - No CMake/NDK build, Kotlin compilation, Gradle task, test execution, CI, device playback, HDR validation or performance benchmark was run. Source-level review and remote GitHub verification only; no measured playback improvement is claimed.
+
+### Software video output-buffer and YV12 surface validation (Cycles 188–191, 23 November 2026)
+
+**Cycle 188 — validate I420 output-buffer layout in Kotlin**
+- Added an overflow-aware requiredSoftwareYuv420BufferSize() helper. It rejects non-positive dimensions, undersized luma/chroma strides, arithmetic overflow and capacities that cannot fit a Java ByteBuffer.
+- The decoder checks the allocated direct output buffer's capacity before passing it to FFmpeg. Surface rendering repeats the check before crossing JNI, so both conversion and presentation boundaries enforce the expected I420 layout.
+
+**Cycle 189 — validate direct-buffer capacity again at the JNI boundary**
+- nativeConvertFrame() and nativeRender() now obtain the direct-buffer capacity and validate it against the required I420 byte count before calculating plane offsets or calling swscale/copying pixels.
+- A non-direct buffer, negative JNI capacity, invalid stride or undersized buffer is rejected before native pointer arithmetic. The size calculation uses checked size_t multiplication/addition to avoid wraparound.
+
+**Cycle 190 — reject incomplete native-window buffers instead of posting clipped frames**
+- nativeRender() previously clipped the copy to the smaller of the requested frame and locked buffer dimensions. That could post a partial image if the native window returned an unexpected geometry.
+- It now validates the locked buffer dimensions and luma stride before writing any plane. Invalid locked buffers are unlocked and rejected rather than publishing a partially copied frame.
+- The JNI surface global reference is also checked; if NewGlobalRef() fails after acquiring the native window, both acquired resources are released.
+
+**Cycle 191 — enforce the Android YV12 layout contract**
+- Android's YV12 layout requires even width and height and a 16-pixel-aligned luma stride. The native renderer now rejects odd frame dimensions before requesting YV12 geometry, and validates the returned buffer's even dimensions and 16-aligned stride before calculating chroma-plane offsets.
+- Kotlin applies the even-dimension check before calling JNI. The I420 conversion helper still supports odd frame sizes; the stricter rule applies only to the YV12 native-window presentation path.
+- Added host regression cases for odd-sized I420 buffer calculations, invalid/undersized strides, Java ByteBuffer capacity limits, and even-dimension YV12 surface requirements. These tests were added but not executed.
+
+### Evidence and verification boundary
+- Context7 resolved Android NDK reference documentation and confirmed that ANativeWindow_lock() returns a buffer for CPU writing and ANativeWindow_unlockAndPost() is the required unlock/post operation. The repository's Media3 version remains 1.11.1; no Media3 API or dependency was changed.
+- Exa retrieved the Android platform ImageFormat.YV12 definition and AOSP NdkImage YV12 plane-layout handling. Those sources specify even dimensions, 16-pixel luma-stride alignment, c_stride = ALIGN(y_stride / 2, 16), and the Y/Cr/Cb plane offsets. The native renderer now validates the constraints it relies on before writing.
+- This is defensive correctness and native-memory safety work at the software-decoder output boundary. It is not a measured frame-rate, startup or playback-smoothness improvement.
+- No Kotlin tests, Gradle tasks, CMake/NDK build, compilation, CI, APK, device playback, HDR validation, Macrobenchmark or Perfetto capture was run. Static source review and GitHub re-fetch only.
+- The separate FFmpeg send/receive queue issue remains open: FFmpeg 8.0 requires receiving available frames until EAGAIN before retrying a packet and supports zero or multiple output frames per input packet. The current SimpleDecoder wrapper still cannot intercept its EOS input to drain delayed B-frames. A correct fix requires a deliberate decoder/renderer queue redesign; these buffer guards do not claim to solve it.
