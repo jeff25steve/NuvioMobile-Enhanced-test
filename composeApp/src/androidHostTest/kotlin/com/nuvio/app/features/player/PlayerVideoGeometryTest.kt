@@ -92,7 +92,7 @@ class PlayerVideoGeometryTest {
 
     @Test
     fun videoAspectRatioUsesPixelWidthHeightRatioForAnamorphicContent() {
-        val aspectRatio = videoAspectRatioFromSize(VideoSize(720, 576, 1.5f, 0))
+        val aspectRatio = videoAspectRatioFromSize(VideoSize(720, 576, 1.5f))
 
         assertEquals(1.875f, aspectRatio!!, 0.0001f)
     }
@@ -100,17 +100,17 @@ class PlayerVideoGeometryTest {
     @Test
     fun videoAspectRatioRejectsUnknownOrInvalidVideoGeometry() {
         assertNull(videoAspectRatioFromSize(VideoSize.UNKNOWN))
-        assertNull(videoAspectRatioFromSize(VideoSize(1920, 0, 1f, 0)))
-        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.NaN, 0)))
-        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.POSITIVE_INFINITY, 0)))
-        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.MAX_VALUE, 0)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 0, 1f)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.NaN)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.POSITIVE_INFINITY)))
+        assertNull(videoAspectRatioFromSize(VideoSize(1920, 1080, Float.MAX_VALUE)))
     }
 
     @Test
     fun pipHeightUsesValidatedAnamorphicVideoAspectRatio() {
         val height = displayedVideoHeightPx(
             viewSize = androidx.compose.ui.unit.IntSize(1920, 1080),
-            videoSize = VideoSize(720, 576, 1.5f, 0),
+            videoSize = VideoSize(720, 576, 1.5f),
             resizeMode = PlayerResizeMode.Fit,
         )
 
