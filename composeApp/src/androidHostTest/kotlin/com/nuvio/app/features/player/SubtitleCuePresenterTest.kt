@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.text.Layout
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import androidx.compose.ui.graphics.Color
@@ -108,6 +109,30 @@ class SubtitleCuePresenterTest {
         )
         presenter.refresh()
         assertTrue(presenter.cues.blocks.single().placeInLetterbox)
+    }
+
+    @Test
+    fun embeddedBackgroundSpansSurviveLetterboxTextOverlay() {
+        val presenter = SubtitleCuePresenter {
+            SubtitleStyleState(
+                appearance = SubtitleAppearance(placeUnpositionedTextInLetterbox = true),
+            )
+        }
+        val highlighted = SpannableString("Highlighted").apply {
+            setSpan(
+                BackgroundColorSpan(android.graphics.Color.RED),
+                0,
+                length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+
+        presenter.present(
+            listOf(Cue.Builder().setText(highlighted).build()),
+            allowLetterboxPlacement = true,
+        )
+
+        assertEquals(Color.Red, presenter.cues.blocks.single().text.spanStyles.single().item.background)
     }
 
     @Test
