@@ -1746,3 +1746,24 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The compatibility guard was exercised against positive and negative fixture cases: valid catalog passed; wrong module version, minSdk 23 and removed-API references each failed as intended. The repository script itself was not run against a local checkout.
 - GitHub source searches found no references to the known removed APIs, and the live version catalog confirms minSdk 24 and all Media3 artifacts use the shared alias.
 - No Gradle tasks, tests, compilation, build, CI, APK/AAB, benchmark, Perfetto capture or physical-device playback was run. This is a testing-branch beta adoption, not a production-ready validation claim. Before release, run Android builds/tests and validate HLS SDR/PQ/HLG, Dolby Vision Profile 7, unsupported profiles, progressive multi-track switching, subtitle continuity and software-decoder fallback on representative API 24+ devices.
+
+## HLS quality chooser — dynamic-range and frame-rate visibility (23 November 2026)
+
+### Integrated on `main-build-testing`
+
+- Extended the common `PlayerQualityVariant` model with optional `videoRange` and `frameRate` metadata, preserving existing constructor call sites with null defaults.
+- The custom HLS master resolver now retains `VIDEO-RANGE` (PQ, HLG or SDR) and parses only finite positive `FRAME-RATE` values from `#EXT-X-STREAM-INF`.
+- The existing quality chooser subtitle now includes `HDR (PQ)`, `HDR (HLG)` or `SDR`, plus a concise frame-rate label such as `23.98 fps`, alongside codec and bandwidth. Unknown ranges and invalid/missing frame rates are omitted.
+- No panel layout, Auto behavior, manual playback URL, recommendation, renderer, decoder or adaptive track-selection behavior was changed. The sanitized playlist continues to preserve the original stream-info line for Media3.
+
+### Research and decision boundary
+
+- AndroidX Media issue #3441 documents a reproducible equal-bandwidth HLS PQ/SDR selection failure.
+- AndroidX Media PR #3461 describes the more complete fix: rank HDR only when the default display supports its HDR type, keep SDR/PQ/HLG/Dolby Vision out of the same adaptive group, and reselect when display HDR capabilities change. It was not included in the 1.12.0-beta01 release notes at the time of this change. Do not treat the new labels as an HDR selection or rendering fix.
+- Jellyfin Android TV issue #5245 contains a real-device report where an SDR fallback was selected instead of a PQ remux on initial playback. The issue and maintainer discussion are more reproducible and technically specific than the Reddit results returned in this search; no stronger independent Reddit implementation was found.
+- Context7 resolved AndroidX Media but only exposed versioned docs through 1.11.1; the 1.12.0-beta01 release behavior was cross-checked against Google's official release notes and upstream issue/PR sources. The implementation itself uses no new Media3 API.
+
+### Verification boundary
+
+- Added common tests for PQ/HLG/SDR labels, unknown values, finite-positive frame-rate parsing, fractional formatting and unchanged labels when metadata is absent.
+- Tests were authored before the production-code update, but the RED/GREEN execution cycle was not run because Gradle test/build execution has not been authorized. No compilation, Gradle tests, build, CI, benchmark or physical-device playback was run. No runtime or HDR output improvement is claimed.
