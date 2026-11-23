@@ -2376,7 +2376,7 @@ A source-level review of the existing seek-preview pipeline found two concrete i
 - Bounded fallback cached-frame reuse to 2,000 ms from the requested bucket. When no nearby cached frame exists, the overlay returns to its existing loading state instead of retaining an unrelated old frame while the new request is decoded.
 - Added a shared insertion-order cache trimmer for both the native thumbnail feed cache and the ExoPlayer-decoded frame cache. Both retain the existing 100-entry ceiling and now also use a 24 MiB estimated RGBA bitmap budget. The oldest entries are evicted first; an individual frame larger than the budget is not retained.
 - Kept the native thumbnail feed, custom ExoFrameGrabber, HTTP request headers, GL readback path, MPV playback, iOS, HDR playback output, decoder selection, and player buffering unchanged.
-- Added regression-test source for bucket quantization, stale-frame distance, LRU entry/byte eviction, oversized images, invalid accounting inputs, and Long-range timestamp distance.
+- Added regression-test source for bucket quantization, stale-frame distance, endpoint clamping at negative/Long.MAX positions, LRU entry/byte eviction, oversized images, invalid accounting inputs, saturated byte totals, and Long-range timestamp distance.
 
 ### Research and rationale
 

@@ -69,4 +69,12 @@
 
 - [x] Record the concrete changes, source evidence, trade-offs, and exact verification boundary.
 - [x] Review the complete remote diff and verify the updated branch ref.
-- [ ] Do not start builds, tests, CI, benchmarks, or device playback without authorization.
+- [x] Do not start builds, tests, CI, benchmarks, or device playback without authorization.
+
+
+## Execution record
+
+- Implementation committed to `main-build-testing` in four fast-forward commits after base `180acafd15435c3033f06342f3faa582c0b1a17e`; final HEAD at this record: `7807fd46f6a91899306f76ae730c8ea139979ccf`.
+- Regression-test source is present. The RED run, GREEN run, host-test suite, and Kotlin compilation remain pending because no Gradle test/build execution was authorized.
+- No CI, build, APK/AAB, benchmark, or device playback was started.
+- Final review was a read-only author self-review of the complete GitHub compare range; no independent reviewer/subagent facility was available.
