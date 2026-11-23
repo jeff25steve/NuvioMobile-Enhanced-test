@@ -132,6 +132,36 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
         )
     }
 
+    @Test
+    fun unsupportedHdrIsMaskedWhenAnotherSupportedHdrExistsWithoutSdr() {
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                format = hlgFormat(),
+                rendererSupportFlags = C.FORMAT_HANDLED,
+                supportedHdrTypes = setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
+                hasSdrFallback = false,
+                hasSupportedHdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun ambiguousWideGamutColorMetadataIsNotClassifiedAsSdr() {
+        val ambiguousFormat = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(
+                ColorInfo.Builder()
+                    .setColorSpace(C.COLOR_SPACE_BT2020)
+                    .setColorRange(C.COLOR_RANGE_FULL)
+                    .setLumaBitdepth(10)
+                    .setChromaBitdepth(10)
+                    .build(),
+            )
+            .build()
+        val group = TrackGroup(ambiguousFormat)
+        assertFalse(hasSupportedSdrTrack(group, intArrayOf(C.FORMAT_HANDLED)))
+    }
+
     private fun pqFormat(): Format = hdrFormat(C.COLOR_TRANSFER_ST2084)
 
     private fun hlgFormat(): Format = hdrFormat(C.COLOR_TRANSFER_HLG)
