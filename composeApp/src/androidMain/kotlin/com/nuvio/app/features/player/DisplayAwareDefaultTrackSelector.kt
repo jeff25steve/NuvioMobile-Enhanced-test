@@ -258,5 +258,5 @@ internal fun shouldApplyDisplayHdrFiltering(
 ): Boolean = supportedHdrTypes != null && !forceLowestBitrate
 
 
-internal fun displayHdrTypesFromCapabilities(supportedHdrTypes: IntArray?): Set<Int> =
-    supportedHdrTypes?.toSet() ?: emptySet()
+internal fun displayHdrTypesFromCapabilities(supportedHdrTypes: IntArray?): Set<Int>? =
+    supportedHdrTypes?.toSet()
