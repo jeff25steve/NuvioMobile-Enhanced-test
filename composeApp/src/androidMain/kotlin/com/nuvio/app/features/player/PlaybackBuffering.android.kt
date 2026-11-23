@@ -432,6 +432,27 @@ internal fun <T> createWithCleanupOnFailure(
     throw error
 }
 
+internal fun closeMappedSharedMemory(
+    unmap: () -> Unit,
+    close: () -> Unit,
+) {
+    var unmapFailure: Throwable? = null
+    try {
+        unmap()
+    } catch (error: Throwable) {
+        unmapFailure = error
+    }
+
+    try {
+        close()
+    } catch (error: Throwable) {
+        unmapFailure?.takeIf { it !== error }?.let(error::addSuppressed)
+        throw error
+    }
+
+    unmapFailure?.let { throw it }
+}
+
 private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
     require(sizeBytes in 1..READ_AHEAD_BLOCK_BYTES)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -439,15 +460,19 @@ private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
         var mapped: ByteBuffer? = null
         return createWithCleanupOnFailure(
             cleanup = {
-                mapped?.let(SharedMemory::unmap)
-                memory.close()
+                closeMappedSharedMemory(
+                    unmap = { mapped?.let(SharedMemory::unmap) },
+                    close = memory::close,
+                )
             },
             create = {
                 val region = memory.mapReadWrite()
                 mapped = region
                 NativeBlock(region) {
-                    SharedMemory.unmap(region)
-                    memory.close()
+                    closeMappedSharedMemory(
+                        unmap = { SharedMemory.unmap(region) },
+                        close = memory::close,
+                    )
                 }
             },
         )
@@ -461,15 +486,13 @@ private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
     }
     return createWithCleanupOnFailure(
         cleanup = {
-            runCatching { randomAccessFile.close() }
-            file.delete()
+            try { randomAccessFile.close() } finally { file.delete() }
         },
         create = {
             val mapped = randomAccessFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, sizeBytes.toLong())
             file.delete()
             NativeBlock(mapped) {
-                runCatching { randomAccessFile.close() }
-                file.delete()
+                try { randomAccessFile.close() } finally { file.delete() }
             }
         },
     )
