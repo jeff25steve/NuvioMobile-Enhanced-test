@@ -14,14 +14,11 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 
 internal fun videoFrameRateStrategyForSystemPreference(userPreference: Int): Int =
-    if (
-        userPreference == DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER ||
-        userPreference == DisplayManager.MATCH_CONTENT_FRAMERATE_ALWAYS
-    ) {
-        // ALWAYS is handled directly on the displayed Surface below; don't let Media3's
-        // seamless-only request compete with the app-managed non-seamless request.
+    if (userPreference == DisplayManager.MATCH_CONTENT_FRAMERATE_NEVER) {
         C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
     } else {
+        // ALWAYS remains seamless-only until the manual Surface request is eligible.
+        // PlayerEngine disables this strategy only while CHANGE_FRAME_RATE_ALWAYS is active.
         C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS
     }
 
