@@ -1930,3 +1930,25 @@ This research did not change HDR track selection, renderer choice, shader policy
 - This is a conservative correction, not a claim that AV1 is hardware accelerated on every device. A follow-up can provide actual Android capability data by checking the selected stream's MIME/profile/level/size/rate against MediaCodec capabilities, while preserving iOS/mpv behavior.
 - Evidence: https://developer.android.com/media/optimize/performance/codec ; https://developer.android.com/reference/android/media/MediaCodecList ; https://github.com/androidx/media/blob/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
 - Verification boundary: tests were authored but not executed. No Gradle test, compilation, build, CI, benchmark or device playback was run, respecting the no-build/no-CI instruction.
+
+
+## Runtime decoder failure recovery — upstream status and app gap (23 November 2026)
+
+A separate resilience review checked whether the existing `setEnableDecoderFallback(true)` protects playback when a decoder initializes successfully and crashes later during playback. It does not: Media3's built-in fallback covers decoder initialization failures, not runtime codec crashes.
+
+Findings:
+- AndroidX Media3 issue [#3421](https://github.com/androidx/media/issues/3421) documents real mid-stream decoder crashes, including a MediaTek HEVC failure after successful initialization.
+- AndroidX Media3 PR [#3422](https://github.com/androidx/media/pull/3422) proposes excluding the failed decoder and continuing with another decoder. It remained open and unmerged when checked on 23 November 2026. Its approach changes Media3 renderer/decoder selection and recovery internals; it is not part of the project's pinned 1.12.0-beta01 release.
+- Jellyfin Android TV PR [#5827](https://github.com/jellyfin/jellyfin-androidtv/pull/5827) describes a device-verified app-side workaround using a failed-decoder tracker, a custom `MediaCodecSelector`, and local re-prepare/seek. The PR was closed without merging. Its author reports recovery on one Philips/MediaTek TV, but that is not broad device validation and the implementation was not copied.
+- Nuvio already enables initialization fallback and logs the selected video decoder, dropped-frame events and processing offsets. The Android `AnalyticsListener` currently does not override `onVideoCodecError`, so a codec error that Media3 recovers from is not separately recorded with its decoder identity and playback position. Adding this telemetry is a small, testable next step; automatic runtime decoder exclusion/retry is a separate, higher-risk behavior change.
+
+Decision:
+- Do not implement an app-level runtime decoder retry in this pass. It can change decoder choice, DRM/secure decoder behavior, playback position and recovery lifecycle. Upstream PR #3422 remains active, and Jellyfin's device-specific workaround is not sufficient evidence for a global policy.
+- Do not change decoder ordering, force software decoding, or claim that initialization fallback handles runtime crashes.
+- Before any retry implementation, add failing host tests for decoder exclusion lifetime, repeat failures, no-alternative-decoder behavior, retry position/state restoration and queue-item reset. Then validate on affected physical devices with a real runtime decoder failure.
+
+Sources: https://github.com/androidx/media/issues/3421 ; https://github.com/androidx/media/pull/3422 ; https://github.com/jellyfin/jellyfin-androidtv/pull/5827 ; https://developer.android.com/reference/androidx/media3/exoplayer/analytics/AnalyticsListener
+
+Verification boundary:
+- Repository source inspection confirmed the current fallback flag, decoder initialization logging, dropped-frame logging and missing codec-error callback.
+- No production code or tests were changed in this research-only cycle. No Gradle task, compilation, build, CI, benchmark or device playback was run, respecting the no-build/no-CI instruction.
