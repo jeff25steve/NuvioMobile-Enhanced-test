@@ -25,6 +25,7 @@ class SoftwareVideoFrameTimestampTest {
     fun fallsBackToPacketTimestampWhenBothFrameTimestampsAreMissing() {
         assertEquals(1_300_000L, resolveSoftwareFrameTimestampUs(Long.MIN_VALUE, Long.MIN_VALUE, 1_300_000L))
     }
+
     @Test
     fun requiresEvenDimensionsForYv12SurfaceOutput() {
         assertEquals(true, supportsYv12SurfaceSize(1920, 1080))
@@ -49,5 +50,4 @@ class SoftwareVideoFrameTimestampTest {
     fun rejectsYuv420BuffersLargerThanByteBufferCapacityCanRepresent() {
         assertEquals(null, requiredSoftwareYuv420BufferSize(Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE))
     }
-
 }
