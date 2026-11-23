@@ -5411,23 +5411,6 @@ private class CueNormalizingTextOutput(
         return processed
     }
 
-    private fun remapBitmapCueToVideoBounds(cue: Cue, bounds: RectF): Cue {
-        val builder = cue.buildUpon()
-        if (cue.position != Cue.DIMEN_UNSET) {
-            builder.setPosition(bounds.left + cue.position * bounds.width())
-        }
-        if (cue.size != Cue.DIMEN_UNSET) {
-            builder.setSize(cue.size * bounds.width())
-        }
-        if (cue.lineType == Cue.LINE_TYPE_FRACTION && cue.line != Cue.DIMEN_UNSET) {
-            builder.setLine(bounds.top + cue.line * bounds.height(), Cue.LINE_TYPE_FRACTION)
-        }
-        if (cue.bitmapHeight != Cue.DIMEN_UNSET) {
-            builder.setBitmapHeight(cue.bitmapHeight * bounds.height())
-        }
-        return builder.build()
-    }
-
     private fun normalizeCuePosition(cue: Cue): Cue {
         if (cue.bitmap != null || cue.verticalType != Cue.TYPE_UNSET || cue.line == Cue.DIMEN_UNSET) {
             return cue
