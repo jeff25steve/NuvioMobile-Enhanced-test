@@ -1398,8 +1398,8 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added host coverage for FIFO reuse, empty acquisition, capacity bounds and shutdown draining. The tests were added but not executed.
 
 **Cycle 213 — cache swscale color-matrix configuration between metadata changes**
-- Both the direct YV12 surface path and the legacy GL/YUV conversion path now cache swscale matrix/range configuration by source dimensions, pixel format, colorspace and full/limited range.
-- FFmpeg's coefficient lookup and sws_setColorspaceDetails() are now performed only when one of those inputs changes, rather than for every decoded frame. The actual matrix/range values and pixel conversion path are unchanged.
+- The direct YV12 surface path and legacy GL/YUV conversion path cache swscale matrix/range configuration by source dimensions, pixel format, colorspace and full/limited range.
+- FFmpeg's coefficient lookup and sws_setColorspaceDetails() are performed only when one of those inputs changes, rather than for every decoded frame. The actual matrix/range values and pixel conversion path are unchanged. Cycle 216 then isolates each cache in its own context to preserve this optimization without cross-thread sharing.
 
 **Cycle 214 — recover the missing attempt-safe playback diagnostics integration from PR #31**
 - The current branch already contained PR #31's separate-audio buffering/source-selection work, but its load diagnostics still used one boolean per data type. The missing task correlation was ported without replacing the newer source-selection implementation.
@@ -1416,3 +1416,11 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - AndroidX Media3 LoadEventInfo source confirms elapsedRealtimeMs is the timestamp of each load event, loadDurationMs is the duration up to that event, and loadTaskId identifies the load task. This supports rejecting stale completion events by subtracting duration from the completion event timestamp.
 - The software-decoder changes remove per-frame AVFrame struct allocation/free and repeated swscale matrix configuration by construction; the Always path adds the system-requested refresh-rate mode switch where supported. No CPU/frame-time, dropped-frame, thermal or visual improvement is claimed as measured.
 - Host regression tests were added first, but not executed. No Gradle tests, Kotlin compilation, CMake/NDK build, CI, APK, device playback, or benchmarks were run. Static source inspection only; runtime/device validation remains required before treating these changes as release-verified.
+
+
+**Cycle 216 — isolate swscale contexts across decoder and playback threads**
+- The worker thread can convert a GL/YUV output while the playback thread renders a previously queued private AVFrame to the Android surface. Both paths previously shared one mutable SwsContext and called sws_getCachedContext/sws_scale concurrently.
+- Added independent SwsConversionState instances for GL/YUV conversion and direct-surface rendering. Each owns its own SwsContext and cached matrix/range key; decoder destruction frees both contexts.
+- This removes the cross-thread context mutation/reconfiguration race during output-mode changes while preserving the existing conversion algorithm and per-path metadata cache.
+
+- Exa inspected FFmpeg's libswscale implementation: sws_scale mutates per-context internal state, and sws_getCachedContext can replace/free the supplied context when parameters change. Separate contexts are therefore used for the concurrently active output paths rather than sharing one mutable instance.
