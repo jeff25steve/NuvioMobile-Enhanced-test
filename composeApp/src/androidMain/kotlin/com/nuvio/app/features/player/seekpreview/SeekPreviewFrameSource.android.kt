@@ -73,6 +73,24 @@ private const val SeekToleranceUs = 2_000_000L
 private const val GrabberMinBufferMs = 1_000
 private const val GrabberMaxBufferMs = 2_000
 
+internal data class SeekPreviewWant(val positionMs: Long, val showingMs: Long?)
+
+internal class LatestSeekPreviewWant {
+    private val latest = AtomicReference<SeekPreviewWant?>(null)
+
+    fun offer(positionMs: Long, showingMs: Long?) {
+        latest.set(SeekPreviewWant(positionMs, showingMs))
+    }
+
+    fun take(): SeekPreviewWant? = latest.getAndSet(null)
+
+    fun clear() {
+        latest.set(null)
+    }
+
+    fun hasPending(): Boolean = latest.get() != null
+}
+
 internal object SeekPreviewAndroid {
     @Volatile
     internal var appContext: Context? = null
@@ -118,11 +136,36 @@ private class NativeSeekPreviewFeed(
     private val main = Handler(Looper.getMainLooper())
     private val headers = headers.flatMap { (name, value) -> listOf(name, value) }.toTypedArray()
     private val thumbnailer = Executors.newSingleThreadExecutor { Thread(it, "thumbnails") }
+    private val pendingWant = LatestSeekPreviewWant()
+    private val wantDrainScheduled = AtomicBoolean(false)
     private var handle = 0L
     private val closed = AtomicBoolean(false)
 
     override fun want(positionMs: Long, showingMs: Long?) {
-        submit { Thumbnails.want(it, positionMs, showingMs ?: -1L) }
+        if (closed.get()) return
+        pendingWant.offer(positionMs, showingMs)
+        scheduleWantDrain()
+    }
+
+    private fun scheduleWantDrain() {
+        if (!wantDrainScheduled.compareAndSet(false, true)) return
+        try {
+            thumbnailer.execute {
+                try {
+                    while (!closed.get()) {
+                        val request = pendingWant.take() ?: break
+                        val activeHandle = open() ?: continue
+                        Thumbnails.want(activeHandle, request.positionMs, request.showingMs ?: -1L)
+                    }
+                } finally {
+                    wantDrainScheduled.set(false)
+                    if (pendingWant.hasPending() && !closed.get()) scheduleWantDrain()
+                }
+            }
+        } catch (_: RejectedExecutionException) {
+            wantDrainScheduled.set(false)
+            pendingWant.clear()
+        }
     }
 
     override fun prepare() {
@@ -131,6 +174,7 @@ private class NativeSeekPreviewFeed(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        pendingWant.clear()
         runCatching {
             thumbnailer.execute {
                 if (handle != 0L) Thumbnails.close(handle)
