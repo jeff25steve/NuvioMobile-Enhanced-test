@@ -41,4 +41,14 @@ class NativeReadAheadSizingTest {
         assertEquals(true, shouldReleaseReadAheadBlock(4096, 4096, 4096, readerFinished = false))
     }
 
+    @Test
+    fun fullBlockIsNotRecycledAfterProducerFinishes() {
+        assertEquals(false, shouldRecycleReadAheadBlock(4096, 4096, readerFinished = true))
+    }
+
+    @Test
+    fun fullBlockRemainsReusableWhileProducerIsActive() {
+        assertEquals(true, shouldRecycleReadAheadBlock(4096, 4096, readerFinished = false))
+    }
+
 }
