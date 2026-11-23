@@ -21,7 +21,7 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
     @Test
     fun unknownHdrCapabilitiesRemainUnknownRatherThanBecomingSdrOnly() {
         assertNull(displayHdrTypesFromCapabilities(null))
-        assertEquals(emptySet(), displayHdrTypesFromCapabilities(intArrayOf()))
+        assertEquals(emptySet<Int>(), displayHdrTypesFromCapabilities(intArrayOf()))
         assertEquals(
             setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
             displayHdrTypesFromCapabilities(intArrayOf(Display.HdrCapabilities.HDR_TYPE_HDR10)),
@@ -95,6 +95,25 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
                 hasSupportedHdrFallback = false,
             ),
         )
+    }
+
+    @Test
+    fun hdrOnlyContentRemainsSelectableWithoutSdrFallback() {
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                format = pqFormat(),
+                rendererSupportFlags = C.FORMAT_HANDLED,
+                supportedHdrTypes = emptySet(),
+                hasSdrFallback = false,
+            ),
+        )
+    }
+
+    @Test
+    fun forceLowestBitrateBypassesDisplayHdrFiltering() {
+        assertTrue(shouldApplyDisplayHdrFiltering(setOf(Display.HdrCapabilities.HDR_TYPE_HDR10), false))
+        assertFalse(shouldApplyDisplayHdrFiltering(setOf(Display.HdrCapabilities.HDR_TYPE_HDR10), true))
+        assertFalse(shouldApplyDisplayHdrFiltering(null, false))
     }
 
     @Test
