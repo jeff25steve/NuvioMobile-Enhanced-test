@@ -154,6 +154,31 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun embeddedCueWindowColorAndTextSizeArePreserved() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder()
+            .setText("Styled cue")
+            .setWindowColor(android.graphics.Color.RED)
+            .setTextSize(0.04f, Cue.TEXT_SIZE_TYPE_FRACTIONAL)
+            .build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(Color.Red, block.windowColor)
+        assertEquals(0.04f, block.textSizeValue)
+        assertEquals(SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT, block.textSizeType)
+    }
+
+    @Test
+    fun cuesWithoutEmbeddedWindowColorKeepUserBackgroundFallback() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        presenter.present(listOf(Cue.Builder().setText("Default").build()))
+
+        assertEquals(null, presenter.cues.blocks.single().windowColor)
+    }
+
+    @Test
     fun verticalWritingCuesStayOnTheNativeRenderer() {
         val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
         val cue = Cue.Builder().setText("縦書き").setVerticalType(Cue.VERTICAL_TYPE_RL).build()

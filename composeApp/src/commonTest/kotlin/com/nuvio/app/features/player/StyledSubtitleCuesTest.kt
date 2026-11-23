@@ -117,6 +117,41 @@ class StyledSubtitleCuesTest {
     }
 
     @Test
+    fun cueTextSizeResolvesAbsoluteAndFractionalMedia3Units() {
+        assertEquals(
+            24f,
+            subtitleCueTextSizePx(24f, SubtitleCueTextSizeType.ABSOLUTE_PX, 1_000f, 800f),
+        )
+        assertEquals(
+            40f,
+            subtitleCueTextSizePx(0.05f, SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT, 1_000f, 800f),
+        )
+        assertEquals(
+            50f,
+            subtitleCueTextSizePx(
+                0.05f,
+                SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT_IGNORE_PADDING,
+                1_000f,
+                800f,
+            ),
+        )
+        assertEquals(null, subtitleCueTextSizePx(null, null, 1_000f, 800f))
+    }
+
+    @Test
+    fun cuesWithDifferentWindowColorsAreNotMerged() {
+        val cues = styledSubtitleCues(
+            listOf(
+                StyledSubtitleBlock(AnnotatedString("Red"), windowColor = Color.Red),
+                StyledSubtitleBlock(AnnotatedString("Blue"), windowColor = Color.Blue),
+            ),
+        )
+
+        assertEquals(2, cues.blocks.size)
+        assertEquals(listOf(Color.Red, Color.Blue), cues.blocks.map { it.windowColor })
+    }
+
+    @Test
     fun fileColorsFollowTheTextOpacity() {
         assertEquals(Color.Yellow.copy(alpha = 0.5f), subtitleFileColor(Color.Yellow, textAlpha = 0.5f))
     }
