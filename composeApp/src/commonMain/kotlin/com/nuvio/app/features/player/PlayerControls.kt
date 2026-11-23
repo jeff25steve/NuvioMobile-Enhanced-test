@@ -218,6 +218,7 @@ internal fun PlayerControlsShell(
             onSeekForward = onSeekForward,
             onScrubChange = onScrubChange,
             onScrubFinished = onScrubFinished,
+            onScrubbingChange = onTimelineScrubbingChange,
             onSubtitleClick = onSubtitleClick ?: {},
             onAudioClick = onAudioClick ?: {},
             onSourcesClick = onSourcesClick,
