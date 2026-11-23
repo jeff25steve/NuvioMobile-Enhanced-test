@@ -23,8 +23,9 @@ data class PlayerQualityVariant(
     val isAv1: Boolean
         get() = codecs.split(',').any { codec -> codec.trim().startsWith("av01", ignoreCase = true) }
 
-    val isLikelyHardwareDecodable: Boolean
-        get() = !isAv1
+    /** AV1 support depends on the device decoder and stream profile; playlist metadata cannot prove software-only decoding. */
+    val isLikelyHardwareDecodable: Boolean?
+        get() = if (isAv1) null else true
 
     val sortHeight: Int
         get() = height ?: name.filter { it.isDigit() }.toIntOrNull() ?: 0
@@ -38,7 +39,7 @@ data class PlayerQualityVariant(
             }
             codecLabel.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
             bandwidthLabel.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
-            if (!isLikelyHardwareDecodable) append(" · Software decode")
+            if (isLikelyHardwareDecodable == false) append(" · Software decode")
         }
 
     val qualityName: String
@@ -267,8 +268,9 @@ internal object PlayerQualityResolver {
         )
     }
 
-    private fun chooseRecommendedVariant(variants: List<PlayerQualityVariant>): PlayerQualityVariant? {
-        val compatible = variants.filter { it.isLikelyHardwareDecodable }
+    internal fun chooseRecommendedVariant(variants: List<PlayerQualityVariant>): PlayerQualityVariant? {
+        // Unknown AV1 capability is not evidence of software-only decoding.
+        val compatible = variants.filter { it.isLikelyHardwareDecodable != false }
         val pool = compatible.ifEmpty { variants }
         return pool.maxWithOrNull(compareBy<PlayerQualityVariant> { it.sortHeight }.thenBy { it.bandwidth ?: 0L })
     }

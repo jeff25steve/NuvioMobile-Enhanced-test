@@ -43,6 +43,23 @@ class PlayerQualityVariantMetadataTest {
     }
 
     @Test
+    fun av1DecoderCapabilityIsUnknownInsteadOfBeingMislabelledAsSoftwareOnly() {
+        val variant = qualityVariant(codecs = "av01.0.08M.08", name = "2160p", height = 2160)
+
+        assertEquals(true, variant.isAv1)
+        assertNull(variant.isLikelyHardwareDecodable)
+        assertEquals("2160p · AV1 · 8 Mbps", variant.displayLabel)
+    }
+
+    @Test
+    fun av1VariantWithUnknownHardwareCapabilityRemainsEligibleForRecommendation() {
+        val av1 = qualityVariant(codecs = "av01.0.08M.08", name = "2160p", height = 2160, bandwidth = 18_000_000L)
+        val h264 = qualityVariant()
+
+        assertEquals(av1, PlayerQualityResolver.chooseRecommendedVariant(listOf(h264, av1)))
+    }
+
+    @Test
     fun displayLabelLeavesVariantsWithoutOptionalMetadataUnchanged() {
         assertEquals(
             "1080p · H.264 · 8 Mbps",
@@ -66,13 +83,17 @@ class PlayerQualityVariantMetadataTest {
     private fun qualityVariant(
         videoRange: String? = null,
         frameRate: Double? = null,
+        codecs: String = "avc1.640028",
+        name: String = "1080p",
+        height: Int = 1080,
+        bandwidth: Long = 8_000_000L,
     ) = PlayerQualityVariant(
-        id = "1080",
-        name = "1080p",
-        width = 1920,
-        height = 1080,
-        bandwidth = 8_000_000L,
-        codecs = "avc1.640028",
+        id = name,
+        name = name,
+        width = if (height >= 2160) 3840 else 1920,
+        height = height,
+        bandwidth = bandwidth,
+        codecs = codecs,
         audioGroupId = null,
         absoluteUri = "https://example.com/1080.m3u8",
         playbackUrl = "file:///cache/1080.m3u8",

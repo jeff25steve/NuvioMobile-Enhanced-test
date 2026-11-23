@@ -1921,3 +1921,12 @@ A separate display-quality audit found a more substantial future target in Media
 Sources: https://developer.android.com/jetpack/androidx/releases/media3 ; https://github.com/androidx/media/issues/3441 ; https://github.com/androidx/media/pull/3461 ; https://github.com/mpv-android/mpv-android/issues/1320 ; https://github.com/Riteshp2001/mpvRx
 
 This research did not change HDR track selection, renderer choice, shader policy or decoder configuration. The next high-value display project is to revisit PR #3461's design against the exact pinned Media3 API once upstream status changes, then add device-capability and adaptive-switch regression coverage before implementation.
+
+## AV1 HLS quality recommendation no longer assumes software decoding — 23 November 2026
+
+- Fixed a concrete quality-selection false negative: the HLS resolver previously classified every AV1 variant as software-decoded solely from the playlist codec string, excluded it from the recommended-quality pool, and displayed a software-decode warning. Android decoder availability depends on the actual device, AV1 profile/bit depth, resolution and frame rate; the CODECS attribute alone cannot prove that this device must use software decoding.
+- AV1 capability is now represented as unknown (null) at playlist-inspection time. Unknown AV1 variants remain eligible for the quality recommendation and are no longer labelled as software-only or shown with a confirmed software-decoding warning. No decoder is forced and no playback engine settings change.
+- Added common regression coverage for unknown AV1 capability, accurate quality labels and retaining a higher-resolution AV1 variant in the recommendation pool.
+- This is a conservative correction, not a claim that AV1 is hardware accelerated on every device. A follow-up can provide actual Android capability data by checking the selected stream's MIME/profile/level/size/rate against MediaCodec capabilities, while preserving iOS/mpv behavior.
+- Evidence: https://developer.android.com/media/optimize/performance/codec ; https://developer.android.com/reference/android/media/MediaCodecList ; https://github.com/androidx/media/blob/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
+- Verification boundary: tests were authored but not executed. No Gradle test, compilation, build, CI, benchmark or device playback was run, respecting the no-build/no-CI instruction.

@@ -203,7 +203,7 @@ internal fun PlayerQualityPanel(
                                             title = variant.qualityName,
                                             subtitle = variant.displayLabel.removePrefix(variant.qualityName).trimStart(' ', '·'),
                                             isSelected = selectedQualityId == variant.id,
-                                            hasWarning = !variant.isLikelyHardwareDecodable,
+                                            hasWarning = variant.isLikelyHardwareDecodable == false,
                                             onClick = { onQualitySelected(variant.id) },
                                         )
                                     }
