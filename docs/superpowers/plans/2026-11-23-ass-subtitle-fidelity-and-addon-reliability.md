@@ -59,7 +59,7 @@
 ### Task 5: Renderer efficiency and cross-platform recovery
 **Files:** PlayerLibassCompat.kt, PlayerEngine.android.kt, MPVPlayerBridge.swift, PlayerLibassCompatTest.kt.
 - [x] Make libass font-scale updates idempotent, preserve the full 60sp (3.33x) range, and skip redundant overlay invalidation.
-- [x] Persist and restore ASS customization/scale through iOS mpv device-loss recovery, and reset per-core applied-property caches before replay.
+- [x] Persist and restore ASS customization/scale through iOS mpv device-loss recovery, reset per-core applied-property caches, and clear stale Compose/PiP subtitle cues before replay.
 - [x] Remove `sub-ass-style-overrides` commands that mpv ignores in `force` mode; retain the already-applied generic `sub-bold` override.
 - [x] Add idempotence and non-finite-scale regression test sources.
 - [ ] Compile Android/iOS and execute host tests after authorization.

@@ -2218,6 +2218,8 @@ final class MPVPlayerViewController: UIViewController {
         appliedSubPos = nil
         styledSubtitleVisible = false
         lastSubtitleText = ""
+        subtitleTextHandler?.onTextChanged(text: "")
+        pictureInPictureController?.setSubtitleText("", bold: lastSubtitleStyle?.bold ?? false)
     }
 
     private func updateStyledSubtitle() {
