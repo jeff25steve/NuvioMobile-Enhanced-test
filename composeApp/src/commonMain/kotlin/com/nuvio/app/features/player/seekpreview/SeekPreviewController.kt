@@ -370,7 +370,7 @@ internal class SeekPreviewController(
             val started = TimeSource.Monotonic.markNow()
             val generation = connectionGeneration
             val bitmap = try {
-                withContext(decodeDispatcher) { decodeFrame(bucket) }
+                withContext(decodeDispatcher) { decodeFrame(bucket, generation) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
@@ -433,7 +433,7 @@ internal class SeekPreviewController(
             )
         }
         val activeSource = synchronized(sourceLock) {
-            if (generation == connectionGeneration) source else null
+            if (canUseSeekPreviewSource(generation, connectionGeneration, disposed)) source else null
         } ?: throw UnsupportedSeekPreviewSource
         return activeSource.frameAt(positionMs, FrameMaxWidthPx)
     }
