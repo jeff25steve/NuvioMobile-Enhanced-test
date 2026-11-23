@@ -3,6 +3,7 @@
 package com.nuvio.app.features.player
 
 import android.graphics.Typeface
+import android.text.Layout
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
@@ -36,34 +37,69 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
             cues = StyledSubtitleCues()
             return lastCues
         }
-        cues = styledSubtitleCues(
-            lastCues.filter { !it.text.isNullOrBlank() }.map { cue ->
-                StyledSubtitleBlock(
-                    text = cue.text?.toSubtitleAnnotatedString() ?: AnnotatedString(""),
-                    vertical = cue.verticalPosition(),
-                    horizontal = cue.horizontalPosition(),
-                )
-            },
-        )
-        return lastCues.filter { it.text == null }
+
+        val styled = lastCues.filter { !it.text.isNullOrBlank() && !it.requiresNativeSubtitleOutput() }
+        val native = lastCues.filter { it.text.isNullOrBlank() || it.requiresNativeSubtitleOutput() }
+        cues = styledSubtitleCues(styled.map { cue ->
+            val textAlignment = cue.subtitleTextAlignment()
+            val positionX = cue.position.takeIf(::isSubtitleCueFraction)
+            val positionXAnchor = cue.positionAnchor.toSubtitleAnchorFraction()
+            val positionY = cue.line.takeIf {
+                cue.lineType == Cue.LINE_TYPE_FRACTION && isSubtitleCueFraction(it)
+            }
+            val positionYAnchor = cue.lineAnchor.toSubtitleAnchorFraction()
+            val widthFraction = subtitleCueWidthFraction(
+                positionFraction = positionX,
+                anchorFraction = positionXAnchor,
+                requestedSize = cue.size.takeIf(::isSubtitleCueFraction),
+            )
+            StyledSubtitleBlock(
+                text = cue.text?.toSubtitleAnnotatedString() ?: AnnotatedString(""),
+                vertical = cue.verticalPosition(),
+                // Cue.position is handled by its exact fraction below. Unset positions are centred.
+                horizontal = SubtitleHorizontalPosition.CENTER,
+                positionX = positionX,
+                positionXAnchor = positionXAnchor,
+                positionY = positionY,
+                positionYAnchor = positionYAnchor,
+                widthFraction = widthFraction,
+                fillCueWidth = widthFraction != null,
+                textAlignment = textAlignment,
+            )
+        })
+        return native
     }
+}
+
+private fun Cue.requiresNativeSubtitleOutput(): Boolean =
+    bitmap != null ||
+        verticalType != Cue.TYPE_UNSET ||
+        (line != Cue.DIMEN_UNSET && lineType != Cue.LINE_TYPE_FRACTION)
+
+private fun isSubtitleCueFraction(value: Float): Boolean =
+    value.isFinite() && value in 0f..1f
+
+private fun Int.toSubtitleAnchorFraction(): Float = when (this) {
+    Cue.ANCHOR_TYPE_MIDDLE -> 0.5f
+    Cue.ANCHOR_TYPE_END -> 1f
+    // Media3's SubtitlePainter treats TYPE_UNSET like START for horizontal and fractional line anchors.
+    else -> 0f
+}
+
+private fun Cue.subtitleTextAlignment(): SubtitleHorizontalPosition = when (textAlignment) {
+    Layout.Alignment.ALIGN_NORMAL -> SubtitleHorizontalPosition.START
+    Layout.Alignment.ALIGN_OPPOSITE -> SubtitleHorizontalPosition.END
+    else -> SubtitleHorizontalPosition.CENTER
 }
 
 private fun Cue.verticalPosition(): SubtitleVerticalPosition = when {
     line == Cue.DIMEN_UNSET -> SubtitleVerticalPosition.BOTTOM
     lineType == Cue.LINE_TYPE_NUMBER ->
         if (line >= 0f) SubtitleVerticalPosition.TOP else SubtitleVerticalPosition.BOTTOM
-    lineType != Cue.LINE_TYPE_FRACTION -> SubtitleVerticalPosition.BOTTOM
+    lineType != Cue.LINE_TYPE_FRACTION || !isSubtitleCueFraction(line) -> SubtitleVerticalPosition.BOTTOM
     line < 1f / 3f -> SubtitleVerticalPosition.TOP
     line <= 2f / 3f -> SubtitleVerticalPosition.MIDDLE
     else -> SubtitleVerticalPosition.BOTTOM
-}
-
-private fun Cue.horizontalPosition(): SubtitleHorizontalPosition = when {
-    position == Cue.DIMEN_UNSET -> SubtitleHorizontalPosition.CENTER
-    position < 1f / 3f -> SubtitleHorizontalPosition.START
-    position > 2f / 3f -> SubtitleHorizontalPosition.END
-    else -> SubtitleHorizontalPosition.CENTER
 }
 
 private fun CharSequence.toSubtitleAnnotatedString(): AnnotatedString {
