@@ -757,7 +757,11 @@ private fun ExoPlayerSurface(
             centerMixLevelDbProvider = centerMixLevelDb::get,
             onFfmpegAudioRenderer = ffmpegAudioRenderer::set,
             shouldNormalizeCuePositionProvider = {
-                latestExternalSubtitleMimeType.value == MimeTypes.TEXT_VTT
+                shouldNormalizeExternalVttCuePosition(
+                    mimeType = latestExternalSubtitleMimeType.value,
+                    placeUnpositionedTextInLetterbox =
+                        currentSubtitleStyle.appearance.placeUnpositionedTextInLetterbox,
+                )
             },
             shouldStripSdhProvider = { currentSubtitleStyle.stripSdh },
             volumeBoostAudioProcessor = volumeBoostAudioProcessor,
