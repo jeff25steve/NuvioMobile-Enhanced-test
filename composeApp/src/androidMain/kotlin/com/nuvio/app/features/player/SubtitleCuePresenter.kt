@@ -18,6 +18,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.text.Cue
 
 internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState) {
@@ -25,10 +26,16 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
         private set
     private var lastCues = emptyList<Cue>()
     private var canStyle = true
+    private var allowLetterboxPlacement = false
 
-    fun present(cues: List<Cue>, canStyle: Boolean = this.canStyle): List<Cue> {
+    fun present(
+        cues: List<Cue>,
+        canStyle: Boolean = this.canStyle,
+        allowLetterboxPlacement: Boolean = this.allowLetterboxPlacement,
+    ): List<Cue> {
         this.lastCues = cues
         this.canStyle = canStyle
+        this.allowLetterboxPlacement = allowLetterboxPlacement
         return refresh()
     }
 
@@ -77,11 +84,22 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 windowColor = cue.windowColor.takeIf { cue.windowColorSet }?.let { Color(it) },
                 textSizeValue = cueTextSizeValue,
                 textSizeType = cueTextSizeType,
+                placeInLetterbox = allowLetterboxPlacement &&
+                    style().appearance.placeUnpositionedTextInLetterbox &&
+                    cue.bitmap == null &&
+                    cue.line == Cue.DIMEN_UNSET &&
+                    cue.position == Cue.DIMEN_UNSET &&
+                    cue.verticalType == Cue.TYPE_UNSET,
             )
         })
         return native
     }
 }
+
+internal fun supportsLetterboxTextSubtitleMimeType(mimeType: String?): Boolean =
+    mimeType == MimeTypes.APPLICATION_SUBRIP ||
+        mimeType == MimeTypes.TEXT_VTT ||
+        mimeType == MimeTypes.APPLICATION_MP4VTT
 
 private fun Cue.subtitleTextSizeType(): SubtitleCueTextSizeType? = when (textSizeType) {
     Cue.TEXT_SIZE_TYPE_ABSOLUTE -> SubtitleCueTextSizeType.ABSOLUTE_PX
