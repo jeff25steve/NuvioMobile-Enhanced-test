@@ -772,8 +772,10 @@ private fun ExoPlayerSurface(
                 else subtitlePresenter.present(
                     cues,
                     canStyle = format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA,
-                    allowLetterboxPlacement = supportsLetterboxTextSubtitleMimeType(
-                        format?.sampleMimeType ?: latestExternalSubtitleMimeType.value,
+                    allowLetterboxPlacement = shouldAllowLetterboxTextSubtitlePlacement(
+                        mimeType = format?.sampleMimeType ?: latestExternalSubtitleMimeType.value,
+                        placeUnpositionedTextInLetterbox =
+                            currentSubtitleStyle.appearance.placeUnpositionedTextInLetterbox,
                     ),
                 )
             },
