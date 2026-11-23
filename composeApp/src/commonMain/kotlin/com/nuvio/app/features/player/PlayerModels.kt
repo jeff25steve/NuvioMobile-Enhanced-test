@@ -169,12 +169,12 @@ enum class AndroidLibmpvVideoOutput(
     GpuNext(
         mpvValue = "gpu-next",
         label = "GPU next",
-        description = "Modern libmpv renderer with higher quality processing.",
+        description = "Modern GPU renderer with shader scaling. Android MPV tone-maps HDR to SDR; prefer ExoPlayer for native HDR output when supported.",
     ),
     Gpu(
         mpvValue = "gpu",
         label = "GPU",
-        description = "Compatibility renderer for devices that have issues with GPU next.",
+        description = "Compatibility GPU renderer for devices that have issues with GPU next. Android MPV tone-maps HDR to SDR; prefer ExoPlayer for native HDR output when supported.",
     ),
 }
 
@@ -191,7 +191,7 @@ enum class AndroidLibmpvRenderQuality(
     HighQuality(
         profileName = "high-quality",
         label = "High quality",
-        description = "Use sharper EWA Lanczos scaling and enhanced HDR peak detection. Requires more GPU power.",
+        description = "Use EWA Lanczos sharp scaling and stronger HDR tone-mapping analysis. May increase GPU load or alias on some mobile GPUs.",
     ),
     Performance(
         profileName = "fast",

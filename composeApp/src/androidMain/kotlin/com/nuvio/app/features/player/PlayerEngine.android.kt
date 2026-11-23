@@ -2796,9 +2796,11 @@ private class NuvioLibmpvView(
         if (enabled == requestedDebandEnabled) return
         requestedDebandEnabled = enabled
         executeMpv {
-            mpv.setPropertyBoolean("options/deband", enabled)
-            activeDebandEnabled = enabled
-            InAppLogger.info("MPV/Android", "deband changed enabled=$enabled")
+            if (activeDebandEnabled != enabled) {
+                mpv.setPropertyBoolean("options/deband", enabled)
+                activeDebandEnabled = enabled
+                InAppLogger.info("MPV/Android", "deband changed enabled=$enabled")
+            }
         }
     }
 

@@ -477,3 +477,25 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 
 - Re-fetched all changed files from `main-build-testing`; static checks cover default Balanced selection, preset mappings, profile restoration order, Android/iOS storage contract, sync serialization, UI exposure and live MPV application.
 - No Gradle task, test execution, compilation, build, CI, APK/AAB, benchmark, Perfetto trace or physical-device playback was run. No measured image-quality, frame-rate or battery improvement is claimed.
+
+
+### Cycle 237 — optional live debanding for gradient banding
+
+- Added an Android libmpv Debanding switch, disabled by default. It changes mpv's GPU `deband` option live through the documented `options/deband` runtime property; no playback restart is required.
+- The setting is profile-scoped, persisted on Android, implemented in the iOS storage actual for the shared contract, and included in Android settings sync.
+- Kept debanding separate from the High-quality profile. Upstream removed debanding from that profile because one fixed strength cannot improve already-clean material without risking detail loss; the community discussion recommends enabling it only when needed. The UI warns that hardware-decoder paths may limit the effect and that GPU processing can soften fine detail.
+- Updated renderer descriptions to explain the Android HDR distinction: the stock libmpv path tone-maps HDR to SDR, while ExoPlayer's Media3 PlayerView retains its recommended SurfaceView output for native HDR when the device/display supports it. This avoids implying that a sharper scaler enables HDR passthrough.
+- Added common and Android host test source for the disabled default, persistence, and settings-sync round trip. Tests were not executed.
+
+#### Additional source review
+
+- [mpv debanding option and runtime properties](https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst) and [libmpv option property API](https://github.com/mpv-player/mpv/blob/master/DOCS/man/input.rst#property-list): confirms the option and runtime `options/<name>` setter.
+- [mpv PR #13731](https://github.com/mpv-player/mpv/pull/13731): upstream discussion explains why debanding is not enabled in default quality profiles and why excessive debanding can blur details.
+- [mpv hardware-decoding quality notes](https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst): documents that some hardware-decoding output paths force RGB conversion and may prevent filters such as debanding from operating ideally.
+- [mpv-android issue #1137](https://github.com/mpv-android/mpv-android/issues/1137): a real Android TV report attributes dropped output frames to the GPU-next rendering path despite zero decoder drops; this reinforces keeping expensive processing opt-in.
+- [Emby Android TV discussion](https://emby.media/community/topic/76912-mpv-on-android-tv/): community experience highlights that refresh-rate matching can improve cadence, but this older thread does not establish a safe universal Android implementation.
+
+#### Verification boundary
+
+- Static review checked the deband option is initialized before playback, applied through the runtime option property on changes, and guarded against redundant writes. Renderer descriptions and HDR claims were rechecked against the cited sources.
+- No Gradle task, test execution, compilation, build, CI, benchmark, Perfetto trace or physical-device playback was run. No measured improvement in banding, sharpness, frame pacing or GPU cost is claimed.
