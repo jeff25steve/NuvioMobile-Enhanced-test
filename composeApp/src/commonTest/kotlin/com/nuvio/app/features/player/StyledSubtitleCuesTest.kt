@@ -102,6 +102,7 @@ class StyledSubtitleCuesTest {
         assertEquals(null, subtitleBottomDisplayTopPx(1_080, 850, 0, 100))
         assertEquals(null, subtitleBottomDisplayTopPx(1_080, -1, 80, 100))
         assertEquals(null, subtitleBottomDisplayTopPx(1_080, 850, 80, -1))
+        assertEquals(null, subtitleBottomDisplayTopPx(1_080, 1_200, 80, 2_000))
         assertEquals(1_000, subtitleBottomDisplayTopPx(1_080, 1_080, 80, 0))
         assertEquals(1_000, subtitleBottomDisplayTopPx(1_080, 1_200, 80, 0))
     }
