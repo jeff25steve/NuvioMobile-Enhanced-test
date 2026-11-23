@@ -37,9 +37,9 @@
 - Produces: playbackSurfaceFrameRate(mediaFrameRate: Float, playbackSpeed: Float): Float
 - Produces: AlwaysVideoFrameRateController.updateVideoFrameRate(frameRate: Float, playbackSpeed: Float)
 
-- [ ] Add tests for 24×1.5=36, 23.976×1.25=29.97, 60×0.5=30, invalid values and overflow.
-- [ ] Implement the pure resolver; return zero for invalid inputs or invalid products.
-- [ ] Update the controller to store the resolved playback frame rate.
+- [x] Add tests for 24×1.5=36, 23.976×1.25=29.97, 60×0.5=30, invalid values and overflow.
+- [x] Implement the pure resolver; return zero for invalid inputs or invalid products.
+- [x] Update the controller to store the resolved playback frame rate.
 
 ### Task 2: Wire speed changes into the manual controller
 
@@ -50,10 +50,10 @@
 - Consumes: playbackSurfaceFrameRate via the controller's two-argument update method.
 - Existing: updateAlwaysFrameRateState()
 
-- [ ] Refresh the controller rate in updateAlwaysFrameRateState from currentVideoFrameRate and exoPlayer.playbackParameters.speed.
-- [ ] Route format changes and controller creation through that shared update path.
-- [ ] Invoke the shared update path from onPlaybackParametersChanged.
-- [ ] Preserve the current Media3 strategy toggle ordering and existing playback eligibility gate.
+- [x] Refresh the controller rate in updateAlwaysFrameRateState from currentVideoFrameRate and exoPlayer.playbackParameters.speed.
+- [x] Route format changes and controller creation through that shared update path.
+- [x] Invoke the shared update path from onPlaybackParametersChanged.
+- [x] Preserve the current Media3 strategy toggle ordering and existing playback eligibility gate.
 
 ### Task 3: Update the existing engineering record and review the complete change
 
@@ -61,7 +61,15 @@
 - Modify: docs/engineering/codebase-improvement-notes.md
 - Create: this design and plan document.
 
-- [ ] Add one new entry to the existing active engineering notes; do not create a duplicate engineering handoff.
-- [ ] Review all call sites for the controller's changed method signature.
-- [ ] Verify tests and source statically. Gradle tests/builds/CI/device checks are prohibited until separately authorized.
-- [ ] Commit the complete change and verify the remote branch head.
+- [x] Add one new entry to the existing active engineering notes; do not create a duplicate engineering handoff.
+- [x] Review all call sites for the controller's changed method signature.
+- [x] Verify tests and source statically. Gradle tests/builds/CI/device checks are prohibited until separately authorized.
+- [x] Commit the complete change and verify the remote branch head.
+
+
+## Execution record
+
+- Implementation and static review committed on 23 November 2026.
+- The Kotlin host tests were authored but deliberately not executed because Gradle/build/CI execution was not authorized.
+- Remote source, tests, active notes and design were re-fetched; source-contract assertions verified the resolver, call-site wiring, speed callback, test cases and single active-notes entry.
+- No build, compilation, CI, benchmark or device playback was run.

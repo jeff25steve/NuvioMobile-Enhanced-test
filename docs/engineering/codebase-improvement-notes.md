@@ -1905,3 +1905,19 @@ Evidence:
 Verification boundary:
 - Source-level checks confirm the manual request uses the current playback speed and is refreshed by the playback-parameters callback.
 - Kotlin host tests were added but not executed. No Gradle task, compilation, build, CI, benchmark or device playback was run, as requested. The visual effect still needs a device check on a 24 fps source at 1.5x and a 23.976 fps source at 1.25x, with Android's system preference set to Always.
+
+
+## HDR track selection research — 23 November 2026 (deferred pending upstream)
+
+A separate display-quality audit found a more substantial future target in Media3's HDR adaptive-track selection:
+
+- The project pins AndroidX Media3 1.12.0-beta01. Its release notes include the HLS VIDEO-RANGE PQ/HLG parsing change and an earlier Dolby Vision/SDR track-selection correction.
+- AndroidX Media3 issue #3441 documents a reproducible HLS case where a PQ variant and SDR fallback share the same BANDWIDTH and the SDR variant can win the initial adaptive selection.
+- AndroidX Media3 PR #3461 (still open when checked on 23 November 2026) proposes display-HDR-capability-aware ranking, separating SDR/PQ/HLG/Dolby Vision into distinct adaptive selections, and invalidating selections when display HDR capabilities change. This is a meaningful picture-quality issue: it can avoid selecting SDR when HDR is supported and avoid selecting unsupported HDR when an SDR fallback exists.
+- The PR changes Media3's internal DefaultTrackSelector/VideoTrackInfo selection logic and display-listener lifecycle. It is not a safe one-line app-side comparator change, and it is not merged. Do not copy it blindly or replace the current player with an experimental fork. Revisit after upstream merge or after a complete app-side design with real HDR/SDR capability tests.
+- mpv-android issue #1320 reports reproducible 4K AV1 output drops on a MediaTek 8450 across gpu/gpu-next and MediaCodec modes, while 1080p AV1 and 4K HEVC behave better. This is device-specific and does not justify globally forcing gpu-next or a decoder mode.
+- The mpvRx repository advertises thermal-aware shader budgets, Anime4K throttling and automatic black-bar cropping. Those features are custom shader/rendering pipelines, not drop-in settings. No such pipeline was copied without profiling against Nuvio's existing shader path.
+
+Sources: https://developer.android.com/jetpack/androidx/releases/media3 ; https://github.com/androidx/media/issues/3441 ; https://github.com/androidx/media/pull/3461 ; https://github.com/mpv-android/mpv-android/issues/1320 ; https://github.com/Riteshp2001/mpvRx
+
+This research did not change HDR track selection, renderer choice, shader policy or decoder configuration. The next high-value display project is to revisit PR #3461's design against the exact pinned Media3 API once upstream status changes, then add device-capability and adaptive-switch regression coverage before implementation.
