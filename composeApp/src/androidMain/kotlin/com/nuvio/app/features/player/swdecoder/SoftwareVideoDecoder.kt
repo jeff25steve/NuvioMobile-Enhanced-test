@@ -39,6 +39,19 @@ internal class SoftwareVideoDecoderFlowState {
         private set
     var ended = false
         private set
+    var unmatchedInputSamples = 0
+        private set
+
+    fun onInputSampleQueued() {
+        if (unmatchedInputSamples < Int.MAX_VALUE) unmatchedInputSamples++
+    }
+
+    fun onFrameProduced() {
+        if (unmatchedInputSamples > 0) unmatchedInputSamples--
+    }
+
+    fun drainUnmatchedInputSamples(): Int =
+        unmatchedInputSamples.also { unmatchedInputSamples = 0 }
 
     fun nextAction(hasQueuedInput: Boolean, hasAvailableOutput: Boolean): SoftwareDecoderWorkAction =
         when {
@@ -110,6 +123,7 @@ internal class SoftwareVideoDecoderFlowState {
         receivePending = false
         draining = false
         ended = false
+        unmatchedInputSamples = 0
     }
 }
 
@@ -137,6 +151,9 @@ internal fun isSoftwareFrameBeforeOutputStart(timeUs: Long, outputStartTimeUs: L
 
 internal fun shouldConvertSoftwareFrame(outputMode: Int): Boolean =
     outputMode != C.VIDEO_OUTPUT_MODE_NONE
+
+internal fun addSkippedOutputBufferCount(current: Int, additional: Int): Int =
+    (current.toLong() + additional.toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
 
 /** Returns the byte capacity required by a described I420 frame, or null for invalid layouts. */
 internal fun requiredSoftwareYuv420BufferSize(width: Int, height: Int, yStride: Int, uvStride: Int): Long? {
@@ -428,6 +445,7 @@ internal class SoftwareVideoDecoder(
                         recycleInputBufferLocked(input)
                     } else {
                         pendingInputBuffer = input
+                        flow.onInputSampleQueued()
                         if (input.isFirstSample) firstSamplePending = true
                         flow.queuePacket()
                     }
@@ -461,7 +479,7 @@ internal class SoftwareVideoDecoder(
             }
             SOFTWARE_DECODER_RESULT_AGAIN -> Unit
             SOFTWARE_DECODER_RESULT_SKIP -> {
-                skippedOutputBufferCount++
+                skippedOutputBufferCount = addSkippedOutputBufferCount(skippedOutputBufferCount, 1)
                 pendingInputBuffer = null
                 synchronized(lock) { recycleInputBufferLocked(input) }
                 dispatchInputBufferAvailable()
@@ -489,6 +507,10 @@ internal class SoftwareVideoDecoder(
         }
         if (result == SOFTWARE_DECODER_RESULT_EOF) {
             flow.onFrameReceiveResult(result)
+            skippedOutputBufferCount = addSkippedOutputBufferCount(
+                skippedOutputBufferCount,
+                flow.drainUnmatchedInputSamples(),
+            )
             outputBuffer.addFlag(C.BUFFER_FLAG_END_OF_STREAM)
             queueOutputBuffer(outputBuffer)
             return
@@ -502,6 +524,7 @@ internal class SoftwareVideoDecoder(
             recycleOutputBuffer(outputBuffer)
             return
         }
+        flow.onFrameProduced()
 
         val timeUs = resolveSoftwareFrameTimestampUs(frameInfo[0], frameInfo[1], lastPacketTimestampUs)
         val startTimeUs = synchronized(lock) { outputStartTimeUs }
@@ -509,7 +532,7 @@ internal class SoftwareVideoDecoder(
             // Keep FFmpeg's reference-picture state, but avoid allocating/converting frames that
             // cannot be presented before the seek target or while no output is attached.
             nativeDiscardFrame(handle)
-            skippedOutputBufferCount++
+            skippedOutputBufferCount = addSkippedOutputBufferCount(skippedOutputBufferCount, 1)
             recycleOutputBuffer(outputBuffer)
             flow.onFrameReceiveResult(SOFTWARE_DECODER_RESULT_OK)
             return
