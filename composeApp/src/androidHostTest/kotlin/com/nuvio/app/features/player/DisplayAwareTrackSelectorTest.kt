@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackGroup
 import androidx.media3.exoplayer.RendererCapabilities
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -231,6 +232,50 @@ class DisplayAwareTrackSelectorTest {
                 C.FORMAT_UNSUPPORTED_TYPE,
                 emptySet(),
                 hasSdrFallback = true,
+            ),
+        )
+    }
+
+    @Test
+    fun sdrTrackInAnotherGroupIsNotAnHdrFallback() {
+        val hdrOnlyGroup = TrackGroup(
+            videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_ST2084),
+        )
+        val unrelatedSdrGroup = TrackGroup(
+            Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build(),
+        )
+        val hdrSupport = intArrayOf(primaryDecoderSupport)
+        val sdrSupport = intArrayOf(primaryDecoderSupport)
+
+        // Media3 TrackGroups represent alternatives for the same content. An SDR group for
+        // another feed/camera angle must not cause the HDR-only group to be masked.
+        assertFalse(hasSupportedSdrTrack(hdrOnlyGroup, hdrSupport))
+        assertTrue(hasSupportedSdrTrack(unrelatedSdrGroup, sdrSupport))
+        assertFalse(
+            shouldMaskHdrFormatForDisplay(
+                hdrOnlyGroup.getFormat(0),
+                hdrSupport[0],
+                emptySet(),
+                hasSdrFallback = hasSupportedSdrTrack(hdrOnlyGroup, hdrSupport),
+            ),
+        )
+    }
+
+    @Test
+    fun sdrVariantInTheSameTrackGroupIsAValidHdrFallback() {
+        val mixedRangeGroup = TrackGroup(
+            videoFormat(MimeTypes.VIDEO_H265, C.COLOR_TRANSFER_ST2084),
+            Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).build(),
+        )
+        val support = intArrayOf(primaryDecoderSupport, primaryDecoderSupport)
+
+        assertTrue(hasSupportedSdrTrack(mixedRangeGroup, support))
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                mixedRangeGroup.getFormat(0),
+                support[0],
+                emptySet(),
+                hasSdrFallback = hasSupportedSdrTrack(mixedRangeGroup, support),
             ),
         )
     }
