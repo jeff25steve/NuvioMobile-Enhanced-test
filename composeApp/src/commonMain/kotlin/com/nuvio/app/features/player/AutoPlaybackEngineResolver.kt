@@ -48,7 +48,11 @@ internal fun isAnimeContent(
     return genres.any { it.equals("animation", ignoreCase = true) } && isJapan(country)
 }
 
-private val HDR_OR_DOLBY_VISION_REGEX = Regex("""(?i)\b(hdr|hdr10\+?|dv|dolby\s*vision)\b""")
+// Media filenames/addon metadata commonly use standardized transfer names as well as
+// consumer labels. Match complete tokens (not DVDRip/PQ10) while accepting common separators.
+private val HDR_OR_DOLBY_VISION_REGEX = Regex(
+    """(?i)(?:^|[^A-Za-z0-9])(?:HDR(?:10(?:\+|PLUS)?)?|HLG|PQ|DV|DOVI|DOLBY[\s._-]*VISION|SMPTE[\s._-]*ST[\s._-]*2084|ST[\s._-]*2084|BT[\s._-]*2100|ARIB[\s._-]*STD[\s._-]*B67)(?=$|[^A-Za-z0-9])""",
+)
 
 // TMDB enrichment rewrites `country` as comma-joined ISO codes ("US, GB"), addon metadata as
 // full names ("Japan") — match whole comma-separated tokens.
