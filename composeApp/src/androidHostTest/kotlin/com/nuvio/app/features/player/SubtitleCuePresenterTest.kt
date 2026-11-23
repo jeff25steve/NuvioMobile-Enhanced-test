@@ -171,6 +171,33 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun absoluteAndIgnorePaddingCueTextSizesKeepTheirMedia3Modes() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val absolute = Cue.Builder()
+            .setText("Absolute")
+            .setTextSize(28f, Cue.TEXT_SIZE_TYPE_ABSOLUTE)
+            .build()
+        val ignorePadding = Cue.Builder()
+            .setText("Fractional")
+            .setTextSize(0.05f, Cue.TEXT_SIZE_TYPE_FRACTIONAL_IGNORE_PADDING)
+            .build()
+
+        presenter.present(listOf(absolute, ignorePadding))
+
+        assertEquals(
+            listOf(28f, 0.05f),
+            presenter.cues.blocks.map { it.textSizeValue },
+        )
+        assertEquals(
+            listOf(
+                SubtitleCueTextSizeType.ABSOLUTE_PX,
+                SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT_IGNORE_PADDING,
+            ),
+            presenter.cues.blocks.map { it.textSizeType },
+        )
+    }
+
+    @Test
     fun cuesWithoutEmbeddedWindowColorKeepUserBackgroundFallback() {
         val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
         presenter.present(listOf(Cue.Builder().setText("Default").build()))
