@@ -114,6 +114,34 @@ class PlaybackDiagnosticsTest {
     }
 
     @Test
+    fun loadEventsMustMatchTheMediaItemOwnedByThePrepareAttempt() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(250L, expectedMediaIdentity = "id:episode-2")
+
+        assertTrue(
+            diagnostics.isLoadForCurrentAttempt(
+                loadEventElapsedRealtimeMs = 350L,
+                loadDurationMs = 50L,
+                eventMediaIdentity = "id:episode-2",
+            ),
+        )
+        assertFalse(
+            diagnostics.isLoadForCurrentAttempt(
+                loadEventElapsedRealtimeMs = 350L,
+                loadDurationMs = 50L,
+                eventMediaIdentity = "id:episode-3",
+            ),
+        )
+        assertFalse(
+            diagnostics.isLoadForCurrentAttempt(
+                loadEventElapsedRealtimeMs = 350L,
+                loadDurationMs = 50L,
+                eventMediaIdentity = null,
+            ),
+        )
+    }
+
+    @Test
     fun droppedVideoFrameCountRemainsSourceScopedAcrossPrepareAttempts() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)

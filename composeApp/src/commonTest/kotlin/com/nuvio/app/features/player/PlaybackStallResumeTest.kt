@@ -45,6 +45,43 @@ class PlaybackStallResumeTest {
     }
 
     @Test
+    fun stuckPlayerAfterPlaybackReopensAtTheCurrentPositionOnlyOnce() {
+        val session = PlaybackReopenSession(initialPositionMs = 30_000L)
+        session.onReady()
+
+        assertTrue(
+            session.onFailure(
+                failure = PlaybackSourceFailure.StuckPlayback,
+                positionMs = 47_500L,
+                durationMs = 180_000L,
+            ),
+        )
+        assertEquals(47_500L, session.prepareStartPositionMs())
+        assertFalse(
+            session.onFailure(
+                failure = PlaybackSourceFailure.StuckPlayback,
+                positionMs = 48_000L,
+                durationMs = 180_000L,
+            ),
+        )
+        assertEquals(47_500L, session.prepareStartPositionMs())
+    }
+
+    @Test
+    fun stuckPlayerWithoutKnownVodDurationDoesNotReopen() {
+        val session = PlaybackReopenSession(initialPositionMs = 0L)
+
+        assertFalse(
+            session.onFailure(
+                failure = PlaybackSourceFailure.StuckPlayback,
+                positionMs = 12_000L,
+                durationMs = 0L,
+            ),
+        )
+        assertEquals(0L, session.resumeGeneration.toLong())
+    }
+
+    @Test
     fun startupFailureDoesNotReplaceTheInitialPosition() {
         val session = PlaybackReopenSession(initialPositionMs = 1_193_023L)
 

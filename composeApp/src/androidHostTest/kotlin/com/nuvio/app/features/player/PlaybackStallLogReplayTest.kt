@@ -1,6 +1,7 @@
 package com.nuvio.app.features.player
 
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.util.StuckPlayerException
 import androidx.media3.datasource.DataSourceException
 import java.io.EOFException
 import kotlin.test.Test
@@ -18,6 +19,31 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class PlaybackStallLogReplayTest {
+
+    @Test
+    fun media3StuckPlayerNoProgressIsClassifiedForSafeRecovery() {
+        val stuck = PlaybackException(
+            "Player stopped making progress",
+            StuckPlayerException(
+                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS,
+                10_000,
+            ),
+            PlaybackException.ERROR_CODE_UNSPECIFIED,
+        )
+
+        assertEquals(PlaybackSourceFailure.StuckPlayback, stuck.toPlaybackSourceFailure())
+    }
+
+    @Test
+    fun media3SuppressedPlayerIsNotTreatedAsARecoverableStreamStall() {
+        val stuck = PlaybackException(
+            "Playback suppressed",
+            StuckPlayerException(StuckPlayerException.STUCK_SUPPRESSED, 600_000),
+            PlaybackException.ERROR_CODE_UNSPECIFIED,
+        )
+
+        assertEquals(PlaybackSourceFailure.None, stuck.toPlaybackSourceFailure())
+    }
 
     @Test
     fun closedTorrentReopensAtTheStalledFrame() {
