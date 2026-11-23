@@ -2,6 +2,7 @@ package com.nuvio.app.features.player
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class PlaybackSnapshotPollingTest {
     @Test
@@ -10,7 +11,7 @@ class PlaybackSnapshotPollingTest {
     }
 
     @Test
-    fun pausedPlaybackUsesOneQuarterOfThePollingWakeups() {
-        assertEquals(1_000L, playbackSnapshotPollingIntervalMs(isPlaying = false))
+    fun pausedPlaybackStopsThePositionPollingLoop() {
+        assertNull(playbackSnapshotPollingIntervalMs(isPlaying = false))
     }
 }
