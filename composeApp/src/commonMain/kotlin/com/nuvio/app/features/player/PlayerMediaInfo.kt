@@ -12,6 +12,18 @@ data class PlayerMediaInfo(
     val audioProfiles: List<String> = emptyList(),
     val hdr: List<String> = emptyList(),
     val bitDepth: Int? = null,
+    val videoColorPrimaries: String? = null,
+    val videoTransferFunction: String? = null,
+    val videoColorMatrix: String? = null,
+    val videoColorRange: String? = null,
+    val videoOutputWidth: Int? = null,
+    val videoOutputHeight: Int? = null,
+    val videoOutputPixelFormat: String? = null,
+    val videoOutputBitDepth: Int? = null,
+    val videoOutputColorPrimaries: String? = null,
+    val videoOutputTransferFunction: String? = null,
+    val videoOutputColorMatrix: String? = null,
+    val videoOutputColorRange: String? = null,
 )
 
 internal fun mpvPlaybackHdrFormat(
@@ -57,6 +69,9 @@ internal fun mpvMediaInfo(property: (String) -> String?): PlayerMediaInfo {
     val codecProfile = property("current-tracks/video/codec-profile")
     val gamma = property("video-params/gamma")
     val colorMatrix = property("video-params/colormatrix")
+    val colorLevels = property("video-params/colorlevels")
+    val outputPixelFormat = property("video-out-params/pixelformat")
+    val outputColorLevels = property("video-out-params/colorlevels")
     val dynamicRange = mpvPlaybackHdrFormat(
         dvProfile = dvProfile,
         videoCodec = videoCodec,
@@ -83,6 +98,18 @@ internal fun mpvMediaInfo(property: (String) -> String?): PlayerMediaInfo {
             }
         },
         bitDepth = property("video-params/pixelformat")?.let(::mpvBitDepth),
+        videoColorPrimaries = property("video-params/primaries"),
+        videoTransferFunction = gamma,
+        videoColorMatrix = colorMatrix,
+        videoColorRange = mpvPlaybackColorRange(colorLevels),
+        videoOutputWidth = property("video-out-params/w")?.toIntOrNull()?.takeIf { it > 0 },
+        videoOutputHeight = property("video-out-params/h")?.toIntOrNull()?.takeIf { it > 0 },
+        videoOutputPixelFormat = outputPixelFormat?.takeIf { it.isNotBlank() },
+        videoOutputBitDepth = outputPixelFormat?.let(::mpvBitDepth),
+        videoOutputColorPrimaries = property("video-out-params/primaries"),
+        videoOutputTransferFunction = property("video-out-params/gamma"),
+        videoOutputColorMatrix = property("video-out-params/colormatrix"),
+        videoOutputColorRange = mpvPlaybackColorRange(outputColorLevels),
     )
 }
 

@@ -1952,3 +1952,31 @@ Sources: https://github.com/androidx/media/issues/3421 ; https://github.com/andr
 Verification boundary:
 - Repository source inspection confirmed the current fallback flag, decoder initialization logging, dropped-frame logging and missing codec-error callback.
 - No production code or tests were changed in this research-only cycle. No Gradle task, compilation, build, CI, benchmark or device playback was run, respecting the no-build/no-CI instruction.
+
+
+## Playback colour-pipeline visibility and codec-error telemetry — 23 November 2026
+
+A targeted display audit found that Nuvio already captured source colour metadata and some libmpv post-filter values in the detailed playback-info JSON, but did not expose the full source-versus-output colour path in the compact Stream Info overlay. The compact `PlayerMediaInfo` model also omitted those values. This made it unnecessarily difficult to distinguish an HDR source from the colour parameters and pixel format produced after libmpv's video filters.
+
+Implemented:
+- Extended the shared `PlayerMediaInfo` model with source primaries, transfer function, matrix and range, plus decoded/post-filter output dimensions, pixel format, bit depth, primaries, transfer, matrix and range. Values remain nullable when the engine does not expose them.
+- Populated the source and post-filter fields from libmpv's `video-params/*` and `video-out-params/*` properties. The output properties are explicitly the post-filter output parameters, not a claim about the physical panel's final scanout or measured display gamut.
+- Populated ExoPlayer source colour primaries, transfer and range from Media3 `Format.colorInfo`, and its decoded dimensions from `Player.videoSize`. Media3 does not expose an equivalent complete post-filter colour tuple here, so those fields are intentionally left unknown rather than copied from source metadata.
+- Added a separate Decoded Video Output section to Stream Info, and extended Playback Info to show decoded output dimensions and libmpv post-filter primaries, transfer function and matrix alongside the existing pixel-format, bit-depth and range details. This makes HDR-to-SDR conversion and resolution changes easier to inspect without altering playback colour transforms.
+- Added Android host regression cases for distinct source/output colour metadata and for unavailable output properties remaining unknown.
+- Added Media3 `onVideoCodecError` and `onAudioCodecError` diagnostic callbacks. Logs include decoder identity, playback position, playback attempt and the existing sanitized throwable chain. These callbacks are diagnostic only; no automatic retry or user-visible error is triggered because Media3 explicitly says codec-error callbacks may be non-fatal and playback may recover internally.
+
+Evidence and community research:
+- Android's [HDR playback guidance](https://developer.android.com/media/grow/hdr-playback) recommends SurfaceView for HDR; TextureView can force HDR-to-SDR conversion with possible clipped colours and banding on Android 13+. The existing player already uses SurfaceView, so no duplicate renderer change was made.
+- The mpv [property manual](https://mpv.io/manual/stable/#property-list) distinguishes decoded/source `video-params` from post-filter `video-out-params`. Upstream mpv's [stats.lua](https://github.com/mpv-player/mpv/blob/master/player/lua/stats.lua) reads both sets, corroborating the source/output separation used here.
+- Community reports include [Nuvio HDR colour complaints](https://github.com/MustardChef/WSABuilds/issues/716), [Wholphin's HDR-to-SDR issue](https://github.com/damontecres/Wholphin/issues/545), [Findroid's MPV colour-shift reports](https://github.com/jarnedemeulemeester/findroid/issues/645), and [mpv-android's hardware-decoding colour issue](https://github.com/mpv-android/mpv-android/issues/1074). These reports vary by device, renderer and decoder; they support better source/output diagnostics, not a universal shader, forced tone-map or decoder policy.
+- AndroidX Media3's [AnalyticsListener source](https://github.com/androidx/media/blob/release/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/analytics/AnalyticsListener.java) documents the codec-error callbacks as diagnostic, with fatal playback errors handled through `Player.Listener.onPlayerError`.
+
+Safety/compatibility decisions:
+- No global tone mapping, shader, scaling kernel, decoder ordering, SurfaceView/TextureView switch, or Media3 internal fork was introduced. Community evidence shows these paths are device-specific and can trade image quality for dropped frames or unsupported output.
+- The output metadata is descriptive only. It must not be presented as proof of panel HDR support, successful HDR passthrough, or visually correct tone mapping.
+- Runtime decoder exclusion/retry remains deferred while upstream Media3 PR [#3422](https://github.com/androidx/media/pull/3422) is open. The new codec callbacks only record evidence.
+
+Verification boundary:
+- Source files and existing property semantics were reviewed against Media3 Context7 documentation, Android HDR guidance, the mpv property manual and upstream mpv stats.lua.
+- Regression tests were authored but not executed at the user's request. No test task, compilation, build, CI, benchmark or physical-device playback was run. The UI labels and actual output values still require manual playback review later, especially HDR10/PQ input converted to SDR output and a resolution-changing mpv filter chain.

@@ -1713,6 +1713,32 @@ private fun ExoPlayerSurface(
                 updateAlwaysFrameRateState()
             }
 
+            // Codec-error callbacks are diagnostic only: Media3 may recover internally, so
+            // they must never trigger an application-level retry or user-visible failure.
+            override fun onVideoCodecError(
+                eventTime: AnalyticsListener.EventTime,
+                videoCodecError: Exception,
+            ) {
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "videoCodecError decoder=${initializedVideoDecoderName ?: "unknown"} " +
+                        "positionMs=${eventTime.eventPlaybackPositionMs} " +
+                        "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(videoCodecError)}",
+                )
+            }
+
+            override fun onAudioCodecError(
+                eventTime: AnalyticsListener.EventTime,
+                audioCodecError: Exception,
+            ) {
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "audioCodecError decoder=${initializedAudioDecoderName ?: "unknown"} " +
+                        "positionMs=${eventTime.eventPlaybackPositionMs} " +
+                        "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(audioCodecError)}",
+                )
+            }
+
             override fun onVideoDecoderInitialized(
                 eventTime: AnalyticsListener.EventTime,
                 decoderName: String,
@@ -1992,6 +2018,11 @@ private fun ExoPlayerSurface(
                         audioProfiles = exoAudioProfiles(audio),
                         hdr = video?.hdrFormats().orEmpty(),
                         bitDepth = video?.exoBitDepth(),
+                        videoColorPrimaries = video?.colorPrimariesForPlaybackInfo()?.takeIf { it.isNotBlank() },
+                        videoTransferFunction = video?.transferFunctionForPlaybackInfo()?.takeIf { it.isNotBlank() },
+                        videoColorRange = video?.colorRangeForPlaybackInfo()?.takeIf { it.isNotBlank() },
+                        videoOutputWidth = exoPlayer.videoSize.width.takeIf { it > 0 },
+                        videoOutputHeight = exoPlayer.videoSize.height.takeIf { it > 0 },
                     )
                 }
 
@@ -3244,6 +3275,11 @@ private class NuvioLibmpvView(
             val colorRange = mpvPlaybackColorRange(colorLevels).orEmpty()
             val outputColorLevels = mpv.getPropertyString("video-out-params/colorlevels").orEmpty()
             val outputColorRange = mpvPlaybackColorRange(outputColorLevels).orEmpty()
+            val outputPrimaries = mpv.getPropertyString("video-out-params/primaries").orEmpty()
+            val outputGamma = mpv.getPropertyString("video-out-params/gamma").orEmpty()
+            val outputColorMatrix = mpv.getPropertyString("video-out-params/colormatrix").orEmpty()
+            val outputVideoWidth = mpv.getPropertyInt("video-out-params/w") ?: 0
+            val outputVideoHeight = mpv.getPropertyInt("video-out-params/h") ?: 0
             val pixelFormat = mpv.getPropertyString("video-out-params/pixelformat").orEmpty()
             val sourcePixelFormat = mpv.getPropertyString("video-params/pixelformat").orEmpty()
             val bitDepth = mpvBitDepth(sourcePixelFormat) ?: 0
@@ -3322,14 +3358,24 @@ private class NuvioLibmpvView(
                 append(',')
                 appendJsonString("colorRange", colorRange)
                 append(',')
+                appendJsonString("colorMatrix", colorMatrix)
+                append(',')
                 appendJsonString("sourcePixelFormat", sourcePixelFormat)
                 append(',')
                 appendJsonString("pixelFormat", pixelFormat)
                 append(',')
                 appendJsonString("outputColorRange", outputColorRange)
                 append(',')
+                appendJsonString("outputPrimaries", outputPrimaries)
+                append(',')
+                appendJsonString("outputGamma", outputGamma)
+                append(',')
+                appendJsonString("outputColorMatrix", outputColorMatrix)
+                append(',')
                 append("\"videoWidth\":").append(videoWidth).append(',')
                 append("\"videoHeight\":").append(videoHeight).append(',')
+                append("\"outputVideoWidth\":").append(outputVideoWidth).append(',')
+                append("\"outputVideoHeight\":").append(outputVideoHeight).append(',')
                 append("\"bitDepth\":").append(bitDepth).append(',')
                 append("\"outputBitDepth\":").append(outputBitDepth).append(',')
                 append("\"fps\":").append(if (fps.isFinite()) fps else 0.0).append(',')
@@ -4123,6 +4169,7 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
     return try {
         val videoFormat = selectedPlaybackInfoFormat(C.TRACK_TYPE_VIDEO)
         val audioFormat = selectedPlaybackInfoFormat(C.TRACK_TYPE_AUDIO)
+        val decodedVideoSize = videoSize
         val filename = currentMediaItem
             ?.localConfiguration
             ?.uri
@@ -4144,6 +4191,8 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
                 append(',')
                 append("\"videoWidth\":").append(videoFormat.width.coerceAtLeast(0)).append(',')
                 append("\"videoHeight\":").append(videoFormat.height.coerceAtLeast(0)).append(',')
+                append("\"outputVideoWidth\":").append(decodedVideoSize.width.coerceAtLeast(0)).append(',')
+                append("\"outputVideoHeight\":").append(decodedVideoSize.height.coerceAtLeast(0)).append(',')
                 append("\"fps\":").append(if (videoFormat.frameRate > 0f) videoFormat.frameRate else 0f).append(',')
                 append("\"videoBitrateKbps\":").append(if (videoFormat.bitrate > 0) videoFormat.bitrate / 1000 else 0).append(',')
                 appendJsonString("videoDecoder", videoDecoder.orEmpty())
@@ -4168,7 +4217,7 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
             } else {
                 appendJsonString("videoCodec", "")
                 append(',')
-                append("\"videoWidth\":0,\"videoHeight\":0,\"fps\":0,\"videoBitrateKbps\":0,")
+                append("\"videoWidth\":0,\"videoHeight\":0,\"outputVideoWidth\":0,\"outputVideoHeight\":0,\"fps\":0,\"videoBitrateKbps\":0,")
                 appendJsonString("videoDecoder", "")
                 append(',')
                 appendJsonString("hwdecCurrent", "")

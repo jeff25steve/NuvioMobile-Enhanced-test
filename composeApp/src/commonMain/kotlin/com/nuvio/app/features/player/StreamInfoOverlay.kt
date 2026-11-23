@@ -94,7 +94,13 @@ internal fun StreamInfoOverlay(
                 }
             }
 
-            if (mediaInfo.videoCodec != null || mediaInfo.videoWidth != null || mediaInfo.videoFrameRate != null) {
+            if (
+                mediaInfo.videoCodec != null ||
+                mediaInfo.videoWidth != null ||
+                mediaInfo.videoFrameRate != null ||
+                mediaInfo.videoOutputWidth != null ||
+                mediaInfo.videoOutputHeight != null
+            ) {
                 StreamInfoSection(stringResource(Res.string.stream_info_section_video)) {
                     StreamInfoRow {
                         StreamInfoItem(stringResource(Res.string.stream_info_codec), mediaInfo.videoCodec)
@@ -112,6 +118,40 @@ internal fun StreamInfoOverlay(
                             stringResource(Res.string.stream_info_bitrate),
                             mediaInfo.videoBitrate?.let(::formatBitrate),
                         )
+                    }
+                    StreamInfoRow {
+                        StreamInfoItem("Primaries", mediaInfo.videoColorPrimaries)
+                        StreamInfoItem("Transfer", mediaInfo.videoTransferFunction)
+                        StreamInfoItem("Matrix", mediaInfo.videoColorMatrix)
+                        StreamInfoItem("Range", mediaInfo.videoColorRange)
+                    }
+                }
+            }
+
+            if (
+                mediaInfo.videoOutputWidth != null ||
+                mediaInfo.videoOutputHeight != null ||
+                mediaInfo.videoOutputPixelFormat != null ||
+                mediaInfo.videoOutputBitDepth != null ||
+                mediaInfo.videoOutputColorPrimaries != null ||
+                mediaInfo.videoOutputTransferFunction != null ||
+                mediaInfo.videoOutputColorMatrix != null ||
+                mediaInfo.videoOutputColorRange != null
+            ) {
+                StreamInfoSection("Decoded Video Output") {
+                    StreamInfoRow {
+                        StreamInfoItem(
+                            "Resolution",
+                            if (mediaInfo.videoOutputWidth != null && mediaInfo.videoOutputHeight != null) {
+                                formatResolution(mediaInfo.videoOutputWidth, mediaInfo.videoOutputHeight)
+                            } else null,
+                        )
+                        StreamInfoItem("Pixel Format", mediaInfo.videoOutputPixelFormat)
+                        StreamInfoItem("Bit Depth", mediaInfo.videoOutputBitDepth?.let { "$it-bit" })
+                        StreamInfoItem("Primaries", mediaInfo.videoOutputColorPrimaries)
+                        StreamInfoItem("Transfer", mediaInfo.videoOutputTransferFunction)
+                        StreamInfoItem("Matrix", mediaInfo.videoOutputColorMatrix)
+                        StreamInfoItem("Range", mediaInfo.videoOutputColorRange)
                     }
                 }
             }

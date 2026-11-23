@@ -97,6 +97,52 @@ class PlaybackFormatMetadataTest {
     }
 
     @Test
+    fun mpvMediaInfoSeparatesSourceAndPostFilterColorPipelineMetadata() {
+        val properties = mapOf(
+            "current-tracks/video/codec" to "hevc",
+            "current-tracks/video/decoder-desc" to "MediaCodec",
+            "video-params/primaries" to "bt.2020",
+            "video-params/gamma" to "pq",
+            "video-params/colormatrix" to "bt.2020-ncl",
+            "video-params/colorlevels" to "limited",
+            "video-params/pixelformat" to "yuv420p10le",
+            "video-out-params/w" to "1920",
+            "video-out-params/h" to "1080",
+            "video-out-params/primaries" to "bt.709",
+            "video-out-params/gamma" to "bt.1886",
+            "video-out-params/colormatrix" to "bt.709",
+            "video-out-params/colorlevels" to "limited",
+            "video-out-params/pixelformat" to "yuv420p",
+        )
+        val info = mpvMediaInfo(properties::get)
+        assertEquals("bt.2020", info.videoColorPrimaries)
+        assertEquals("pq", info.videoTransferFunction)
+        assertEquals("bt.2020-ncl", info.videoColorMatrix)
+        assertEquals("Limited", info.videoColorRange)
+        assertEquals(1920, info.videoOutputWidth)
+        assertEquals(1080, info.videoOutputHeight)
+        assertEquals("yuv420p", info.videoOutputPixelFormat)
+        assertEquals(8, info.videoOutputBitDepth)
+        assertEquals("bt.709", info.videoOutputColorPrimaries)
+        assertEquals("bt.1886", info.videoOutputTransferFunction)
+        assertEquals("bt.709", info.videoOutputColorMatrix)
+        assertEquals("Limited", info.videoOutputColorRange)
+    }
+
+    @Test
+    fun mpvMediaInfoLeavesUnknownPostFilterMetadataUnset() {
+        val info = mpvMediaInfo { null }
+        assertEquals(null, info.videoOutputWidth)
+        assertEquals(null, info.videoOutputHeight)
+        assertEquals(null, info.videoOutputPixelFormat)
+        assertEquals(null, info.videoOutputBitDepth)
+        assertEquals(null, info.videoOutputColorPrimaries)
+        assertEquals(null, info.videoOutputTransferFunction)
+        assertEquals(null, info.videoOutputColorMatrix)
+        assertEquals(null, info.videoOutputColorRange)
+    }
+
+    @Test
     fun colorRangeAndBitDepthAreOnlyReportedWhenKnown() {
         assertEquals("Full", exoPlaybackColorRange(C.COLOR_RANGE_FULL))
         assertEquals("Limited", exoPlaybackColorRange(C.COLOR_RANGE_LIMITED))

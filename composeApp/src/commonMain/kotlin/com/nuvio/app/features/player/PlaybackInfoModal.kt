@@ -247,6 +247,14 @@ private fun PlaybackInfoContent(
             if (width > 0 && height > 0) {
                 InfoRow(label = "Resolution", value = "${width}x${height}")
             }
+            val outputWidth = playbackInfo.intValue("outputVideoWidth")
+            val outputHeight = playbackInfo.intValue("outputVideoHeight")
+            if (
+                outputWidth > 0 && outputHeight > 0 &&
+                (outputWidth != width || outputHeight != height)
+            ) {
+                InfoRow(label = "Decoded Output Resolution", value = "${outputWidth}x${outputHeight}")
+            }
 
             val fps = playbackInfo.doubleValue("fps")
             if (fps > 0.0) {
@@ -313,6 +321,10 @@ private fun PlaybackInfoContent(
             if (gamma.isNotBlank()) {
                 InfoRow(label = "Transfer Function", value = gamma)
             }
+            val colorMatrix = playbackInfo.stringValue("colorMatrix")
+            if (colorMatrix.isNotBlank()) {
+                InfoRow(label = "Source Color Matrix", value = colorMatrix)
+            }
 
             val sourcePixelFormat = playbackInfo.stringValue("sourcePixelFormat")
             if (sourcePixelFormat.isNotBlank()) {
@@ -332,6 +344,18 @@ private fun PlaybackInfoContent(
             val outputColorRange = playbackInfo.stringValue("outputColorRange")
             if (outputColorRange.isNotBlank()) {
                 InfoRow(label = "Post-filter Color Range", value = outputColorRange)
+            }
+            val outputPrimaries = playbackInfo.stringValue("outputPrimaries")
+            if (outputPrimaries.isNotBlank()) {
+                InfoRow(label = "Post-filter Color Primaries", value = outputPrimaries)
+            }
+            val outputGamma = playbackInfo.stringValue("outputGamma")
+            if (outputGamma.isNotBlank()) {
+                InfoRow(label = "Post-filter Transfer Function", value = outputGamma)
+            }
+            val outputColorMatrix = playbackInfo.stringValue("outputColorMatrix")
+            if (outputColorMatrix.isNotBlank()) {
+                InfoRow(label = "Post-filter Color Matrix", value = outputColorMatrix)
             }
 
             val videoBitrateKbps = playbackInfo.intValue("videoBitrateKbps")
