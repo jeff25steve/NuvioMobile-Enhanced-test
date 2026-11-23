@@ -2723,6 +2723,9 @@ private fun LibmpvPlayerSurface(
                     context = viewContext,
                     videoOutput = videoOutput,
                     initialRenderQuality = renderQuality,
+                    initialUpscaler = playerSettings.androidLibmpvUpscaler,
+                    initialDownscaler = playerSettings.androidLibmpvDownscaler,
+                    initialChromaScaler = playerSettings.androidLibmpvChromaScaler,
                     initialDebandEnabled = debandEnabled,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
@@ -2749,6 +2752,11 @@ private fun LibmpvPlayerSurface(
             update = { view ->
                 playerViewRef = view
                 view.setRenderQuality(renderQuality)
+                view.setScalingFilters(
+                    playerSettings.androidLibmpvUpscaler,
+                    playerSettings.androidLibmpvDownscaler,
+                    playerSettings.androidLibmpvChromaScaler,
+                )
                 view.setDebandEnabled(debandEnabled)
                 view.applyResizeMode(resizeMode)
             },
@@ -2779,6 +2787,9 @@ private class NuvioLibmpvView(
     context: Context,
     private val videoOutput: AndroidLibmpvVideoOutput,
     initialRenderQuality: AndroidLibmpvRenderQuality,
+    initialUpscaler: AndroidLibmpvScalingFilter,
+    initialDownscaler: AndroidLibmpvScalingFilter,
+    initialChromaScaler: AndroidLibmpvScalingFilter,
     initialDebandEnabled: Boolean,
     private val hardwareDecodingEnabled: Boolean,
     private val yuv420pEnabled: Boolean,
@@ -2791,9 +2802,49 @@ private class NuvioLibmpvView(
     @Volatile
     private var requestedRenderQuality = initialRenderQuality
     @Volatile
+    private var requestedUpscaler = initialUpscaler
+    @Volatile
+    private var requestedDownscaler = initialDownscaler
+    @Volatile
+    private var requestedChromaScaler = initialChromaScaler
+    @Volatile
     private var activeDebandEnabled = initialDebandEnabled
     @Volatile
     private var requestedDebandEnabled = initialDebandEnabled
+
+    fun setScalingFilters(
+        upscaler: AndroidLibmpvScalingFilter,
+        downscaler: AndroidLibmpvScalingFilter,
+        chromaScaler: AndroidLibmpvScalingFilter,
+    ) {
+        if (
+            upscaler == requestedUpscaler &&
+            downscaler == requestedDownscaler &&
+            chromaScaler == requestedChromaScaler
+        ) return
+        requestedUpscaler = upscaler
+        requestedDownscaler = downscaler
+        requestedChromaScaler = chromaScaler
+        executeMpv {
+            applyScalingFilters(activeRenderQuality, upscaler, downscaler, chromaScaler)
+            InAppLogger.info(
+                "MPV/Android",
+                "scaling filters changed up=" + upscaler.name +
+                    " down=" + downscaler.name + " chroma=" + chromaScaler.name,
+            )
+        }
+    }
+
+    private fun applyScalingFilters(
+        quality: AndroidLibmpvRenderQuality,
+        upscaler: AndroidLibmpvScalingFilter,
+        downscaler: AndroidLibmpvScalingFilter,
+        chromaScaler: AndroidLibmpvScalingFilter,
+    ) {
+        mpvScalingOptionValues(quality, upscaler, downscaler, chromaScaler).forEach { (option, value) ->
+            mpv.setPropertyString("options/$option", value)
+        }
+    }
 
     fun setDebandEnabled(enabled: Boolean) {
         if (enabled == requestedDebandEnabled) return
@@ -2822,6 +2873,7 @@ private class NuvioLibmpvView(
             val debandAfterProfile = requestedDebandEnabled
             mpv.setPropertyBoolean("options/deband", debandAfterProfile)
             activeDebandEnabled = debandAfterProfile
+            applyScalingFilters(quality, requestedUpscaler, requestedDownscaler, requestedChromaScaler)
             activeRenderQuality = quality
             InAppLogger.info("MPV/Android", "render quality changed to=${quality.name}")
         }
@@ -2924,6 +2976,8 @@ private class NuvioLibmpvView(
         mpv.setOptionString("profile-restore", "copy").logIfMpvError("profile-restore")
         initialRenderQuality.profileName?.let { mpv.command("apply-profile", it) }
         mpv.setOptionString("deband", if (initialDebandEnabled) "yes" else "no").logIfMpvError("deband")
+        mpvScalingOptionValues(initialRenderQuality, initialUpscaler, initialDownscaler, initialChromaScaler)
+            .forEach { (option, value) -> mpv.setOptionString(option, value).logIfMpvError(option) }
         mpv.setOptionString("hwdec", if (hardwareDecodingEnabled) "auto" else "no")
         if (yuv420pEnabled) {
             mpv.setOptionString("vf", "format=yuv420p")
