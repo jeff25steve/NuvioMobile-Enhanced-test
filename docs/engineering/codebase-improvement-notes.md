@@ -1390,3 +1390,29 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The software surface path now removes a per-frame Java YUV allocation and an intermediate full-frame surface copy by construction. The real-world frame-time, dropped-frame, CPU, memory and thermal impact remains unmeasured; no measured smoothness or performance percentage is claimed.
 - Added host regression tests for the playback and decoder changes (cycles 202–211) but did not execute them. No Gradle task, Kotlin compilation, CMake/NDK build, CI, APK, device playback, HDR validation or benchmark was run, as requested.
 - The output-count reconciliation is aggregate: it accounts for input samples that produce no frame once draining completes. Media3's renderer itself tracks buffers per input sample, so codec-specific cases where a single compressed sample expands into multiple independent video frames remain a renderer-contract edge case to validate with real media before claiming universal coverage.
+
+
+**Cycle 212 — reuse native AVFrame owners across Media3 output-buffer reuse**
+- Added a bounded six-entry native frame-handle pool, matching the decoder's six output buffers. A released surface output returns its AVFrame owner struct to the pool; the next surface frame reuses it with av_frame_unref() before av_frame_ref() attaches the newly decoded frame's reference-counted pixel buffers.
+- The native transfer consumes a reused handle on both success and failure. Decoder shutdown drains pooled handles; output frames released after shutdown are freed directly. The GL/YUV output mode remains unchanged.
+- Added host coverage for FIFO reuse, empty acquisition, capacity bounds and shutdown draining. The tests were added but not executed.
+
+**Cycle 213 — cache swscale color-matrix configuration between metadata changes**
+- Both the direct YV12 surface path and the legacy GL/YUV conversion path now cache swscale matrix/range configuration by source dimensions, pixel format, colorspace and full/limited range.
+- FFmpeg's coefficient lookup and sws_setColorspaceDetails() are now performed only when one of those inputs changes, rather than for every decoded frame. The actual matrix/range values and pixel conversion path are unchanged.
+
+**Cycle 214 — recover the missing attempt-safe playback diagnostics integration from PR #31**
+- The current branch already contained PR #31's separate-audio buffering/source-selection work, but its load diagnostics still used one boolean per data type. The missing task correlation was ported without replacing the newer source-selection implementation.
+- Initial manifest loads and audio/video media loads are now tracked by loadTaskId and track type. Completion events must match the exact task that started in the current prepare attempt; stale completions from an earlier attempt are rejected using LoadEventInfo.elapsedRealtimeMs minus loadDurationMs.
+- Rebuffer starts/completions are independently tracked per media track and task, including completion callbacks that arrive after the player has returned to READY. Added host coverage for stale completions, task mismatches, separate audio/video tracks and rebuffer completion ordering.
+
+**Cycle 215 — honor Android's explicit Match content frame rate = Always preference**
+- On Android 12/API 31+, the Always preference now uses the displayed PlayerView SurfaceView's Surface.setFrameRate() with the exact input Format.frameRate, FRAME_RATE_COMPATIBILITY_FIXED_SOURCE and CHANGE_FRAME_RATE_ALWAYS. Media3's seamless-only strategy is disabled for this preference so the two request paths cannot compete.
+- Surface requests are cleared when playback is paused, idle or ended, and re-applied after Surface creation/reconfiguration. Buffering retains the request. Live playback and VOD with a known duration of at least five minutes are eligible; short VOD clips are kept on seamless/default matching to avoid disruptive non-seamless switches for brief content.
+- Never still disables frame-rate matching. Seamless-only and unknown preferences continue using Media3's seamless-only strategy. Added host coverage for preference routing, playback-state gating and the long-content boundary.
+
+### Follow-up evidence and validation boundary (cycles 212–215)
+- Context7 was used for AndroidX Media3 1.11.1 and FFmpeg 8.0. The FFmpeg documentation supports reusing AVFrame structs by unreferencing before taking a new frame reference. Android platform SDK documentation was not indexed by Context7, so the Surface.setFrameRate overload, strategy constants, clear-with-zero behavior and long-running-video guidance were checked against the official Android Developers Surface API reference and media frame-rate guide. AndroidX Media3 source was inspected for PlayerView's default SurfaceView and AnalyticsListener.onVideoInputFormatChanged().
+- AndroidX Media3 LoadEventInfo source confirms elapsedRealtimeMs is the timestamp of each load event, loadDurationMs is the duration up to that event, and loadTaskId identifies the load task. This supports rejecting stale completion events by subtracting duration from the completion event timestamp.
+- The software-decoder changes remove per-frame AVFrame struct allocation/free and repeated swscale matrix configuration by construction; the Always path adds the system-requested refresh-rate mode switch where supported. No CPU/frame-time, dropped-frame, thermal or visual improvement is claimed as measured.
+- Host regression tests were added first, but not executed. No Gradle tests, Kotlin compilation, CMake/NDK build, CI, APK, device playback, or benchmarks were run. Static source inspection only; runtime/device validation remains required before treating these changes as release-verified.
