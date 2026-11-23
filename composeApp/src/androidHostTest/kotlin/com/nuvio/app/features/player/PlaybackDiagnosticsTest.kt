@@ -134,13 +134,9 @@ class PlaybackDiagnosticsTest {
 
     @Test
     fun droppedVideoFrameCountSaturatesInsteadOfOverflowing() {
-        val diagnostics = PlaybackDiagnostics()
-        diagnostics.beginAttempt(100L)
-
-        assertEquals(Long.MAX_VALUE, diagnostics.recordDroppedVideoFrames(Int.MAX_VALUE))
-        repeat(4) {
-            diagnostics.recordDroppedVideoFrames(Int.MAX_VALUE)
-        }
-        assertEquals(Long.MAX_VALUE, diagnostics.droppedVideoFrameCount)
+        assertEquals(Long.MAX_VALUE, addDroppedVideoFrameCount(Long.MAX_VALUE - 1L, 2))
+        assertEquals(Long.MAX_VALUE, addDroppedVideoFrameCount(Long.MAX_VALUE, Int.MAX_VALUE))
+        assertEquals(4L, addDroppedVideoFrameCount(4L, -1))
+        assertEquals(0L, addDroppedVideoFrameCount(0L, 0))
     }
 }
