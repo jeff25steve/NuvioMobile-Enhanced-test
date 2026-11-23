@@ -306,3 +306,12 @@ The native read-ahead queue previously counted queued bytes against the configur
 The wrapper also now clears its cached URI and response headers when closed. On a failed upstream open it preserves the attempted-open metadata until close, as required by Media3's DataSource contract. This prevents stale resource metadata from surviving a completed close.
 
 The exact Android SharedMemory API documents that `create(name, size)` allocates the requested region and `mapReadWrite()` maps it. Media3 1.11.1 DataSource API/release notes document URI/header lifecycle, including failed opens. Host tests were added for block sizing; they were not run. No Kotlin compilation, Gradle task, build, CI, device playback or memory benchmark was performed. Memory reduction and playback impact remain unmeasured.
+
+
+## Read-ahead EOF reclamation and close-error handling (Cycles 168–169, 22 November 2026)
+
+The read-ahead consumer now releases a partially filled final native-memory block as soon as all its written bytes have been consumed and the producer has reached EOF or exited. It does not release a partial block while the producer can still append; full blocks remain reusable within the active session.
+
+The DataSource close path no longer suppresses upstream close failures. It still waits for the read-ahead thread, propagates cleanup errors, and attaches an upstream-close error as suppressed if waiting itself fails. Source URI and response-header metadata are cleared regardless of cleanup outcome.
+
+Host regression tests were added for partial-block reclamation and close-failure propagation. They were not run. Context7 checked the exact Media3 1.11.1 DataSource contract; Exa checked the corresponding OkHttp-backed implementation and response-body cleanup behavior. No Gradle task, Kotlin compilation, build, CI, device playback, network fault injection or memory benchmark was run. These changes improve native-memory lifetime and cleanup observability; no playback-speed improvement is claimed.
