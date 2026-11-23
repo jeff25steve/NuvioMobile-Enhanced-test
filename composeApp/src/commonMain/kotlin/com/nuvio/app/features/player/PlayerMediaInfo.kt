@@ -86,11 +86,36 @@ internal fun mpvMediaInfo(property: (String) -> String?): PlayerMediaInfo {
     )
 }
 
-internal fun mpvBitDepth(pixelFormat: String): Int? = when {
-    pixelFormat.contains("12", ignoreCase = true) -> 12
-    pixelFormat.contains("10", ignoreCase = true) -> 10
-    else -> null
+private val MPV_PIXEL_FORMAT_DEPTH_SUFFIX = Regex("""(?:p|gray|xyz)0?(8|9|10|12|14|16)(?:le|be)?$""")
+
+private val MPV_8_BIT_PIXEL_FORMATS = setOf(
+    "yuv410p", "yuv411p", "yuv420p", "yuv422p", "yuv440p", "yuv444p",
+    "yuvj420p", "yuvj422p", "yuvj440p", "yuvj444p",
+    "nv12", "nv21", "yuyv422", "uyvy422",
+    "rgb24", "bgr24", "rgba", "bgra", "argb", "abgr",
+    "rgb0", "bgr0", "0rgb", "0bgr", "gbrp", "gray", "gray8",
+)
+
+private val MPV_16_BIT_PACKED_RGB_PIXEL_FORMATS = setOf(
+    "rgb48le", "rgb48be", "bgr48le", "bgr48be",
+    "rgba64le", "rgba64be", "bgra64le", "bgra64be",
+    "argb64le", "argb64be", "abgr64le", "abgr64be",
+)
+
+internal fun mpvBitDepth(pixelFormat: String): Int? {
+    val normalized = pixelFormat.trim().lowercase()
+    MPV_PIXEL_FORMAT_DEPTH_SUFFIX.find(normalized)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let {
+        return it
+    }
+    return when {
+        normalized in MPV_8_BIT_PIXEL_FORMATS -> 8
+        normalized in MPV_16_BIT_PACKED_RGB_PIXEL_FORMATS -> 16
+        else -> null
+    }
 }
+
+internal fun mpvPlaybackEstimatedFps(value: Double?): Double? =
+    value?.takeIf { it.isFinite() && it > 0.0 }
 
 private fun mpvCodecLabel(codec: String): String? =
     when (val c = codec.trim().lowercase()) {
