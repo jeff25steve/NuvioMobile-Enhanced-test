@@ -162,6 +162,7 @@ internal class PlaybackDiagnostics {
     var attempt: Int = 0
         private set
 
+    private var expectedMediaIdentity: String? = null
     private var firstManifestLoadTaskId: Long? = null
     private var firstManifestCompleted = false
     private val firstMediaLoadTaskIds = mutableMapOf<Int, Long>()
@@ -172,9 +173,10 @@ internal class PlaybackDiagnostics {
     var droppedVideoFrameCount: Long = 0L
         private set
 
-    fun beginAttempt(startedAtMs: Long) {
+    fun beginAttempt(startedAtMs: Long, expectedMediaIdentity: String? = null) {
         attempt += 1
         prepareStartedAtMs = startedAtMs
+        this.expectedMediaIdentity = expectedMediaIdentity
         firstManifestLoadTaskId = null
         firstManifestCompleted = false
         firstMediaLoadTaskIds.clear()
@@ -194,12 +196,17 @@ internal class PlaybackDiagnostics {
      * duration up to that event. Subtracting the duration rejects old work that completes
      * after a newer prepare attempt has already begun.
      */
-    fun isLoadForCurrentAttempt(loadEventElapsedRealtimeMs: Long, loadDurationMs: Long): Boolean {
+    fun isLoadForCurrentAttempt(
+        loadEventElapsedRealtimeMs: Long,
+        loadDurationMs: Long,
+        eventMediaIdentity: String? = null,
+    ): Boolean {
         if (
             prepareStartedAtMs <= 0L ||
             loadEventElapsedRealtimeMs < 0L ||
             loadDurationMs < 0L ||
-            loadDurationMs > loadEventElapsedRealtimeMs
+            loadDurationMs > loadEventElapsedRealtimeMs ||
+            (expectedMediaIdentity != null && eventMediaIdentity != expectedMediaIdentity)
         ) return false
         return loadEventElapsedRealtimeMs - loadDurationMs >= prepareStartedAtMs
     }
@@ -1248,7 +1255,8 @@ private fun ExoPlayerSurface(
                     PLAYER_DIAGNOSTIC_TAG,
                     "error attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)} " +
-                        "code=${error.errorCodeName} cause=${error.cause?.javaClass?.simpleName ?: "none"} " +
+                        "code=${error.errorCodeName} sourceFailure=${error.toPlaybackSourceFailure()} " +
+                        "cause=${error.cause?.javaClass?.simpleName ?: "none"} " +
                         "positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} " +
                         "bufferedAheadMs=${bufferedAheadDurationMs(exoPlayer.currentPosition, exoPlayer.bufferedPosition)} " +
                         "durationMs=${exoPlayer.duration.coerceAtLeast(0L)} " +
@@ -1590,6 +1598,7 @@ private fun ExoPlayerSurface(
                     !playbackDiagnostics.isLoadForCurrentAttempt(
                         loadEventInfo.elapsedRealtimeMs,
                         loadEventInfo.loadDurationMs,
+                        playbackDiagnosticEventMediaIdentity(eventTime),
                     )
                 ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
