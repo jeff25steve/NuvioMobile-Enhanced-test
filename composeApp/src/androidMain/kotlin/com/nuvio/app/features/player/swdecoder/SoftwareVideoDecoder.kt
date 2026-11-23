@@ -580,6 +580,11 @@ internal class SoftwareVideoDecoder(
             // Keep the reference-counted FFmpeg frame alive until Media3 renders or drops it.
             // JNI converts directly into ANativeWindow's YV12 buffer, avoiding an intermediate
             // direct ByteBuffer allocation and a second full-frame copy.
+            // A reused decoder output may still retain the previous GL/YUV direct buffer.
+            // Drop all views before switching to the native-owned surface frame.
+            outputBuffer.data = null
+            outputBuffer.yuvPlanes = null
+            outputBuffer.yuvStrides = null
             outputBuffer.initForPrivateFrame(width, height)
             val frameHandle = nativeTakeFrame(handle)
             if (frameHandle == 0L) {
