@@ -78,9 +78,13 @@ internal class AlwaysVideoFrameRateController(
         }
     }
 
+    val hasRequestedFrameRate: Boolean
+        get() = requestedFrameRate > 0f
+
     fun updateVideoFrameRate(frameRate: Float) {
+        // PlayerEngine first disables Media3's seamless request when manual Always mode
+        // becomes eligible, then calls updatePlaybackState() to apply this stored rate.
         requestedFrameRate = frameRate.takeIf { it.isFinite() && it > 0f } ?: 0f
-        applyFrameRate()
     }
 
     fun updatePlaybackState(
