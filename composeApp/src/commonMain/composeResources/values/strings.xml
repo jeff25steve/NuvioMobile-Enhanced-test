@@ -1449,6 +1449,8 @@
     <string name="settings_playback_auto_switch_engine_blocked_by_fallback">Turn off fallback to next matching source to use this.</string>
     <string name="settings_playback_libmpv_video_output">libmpv Renderer</string>
     <string name="settings_playback_libmpv_video_output_dialog">libmpv Renderer</string>
+    <string name="settings_playback_libmpv_render_quality">libmpv Render Quality</string>
+    <string name="settings_playback_libmpv_render_quality_dialog">libmpv Render Quality</string>
     <string name="settings_playback_libmpv_hardware_decoding">libmpv Hardware Decoding</string>
     <string name="settings_playback_libmpv_hardware_decoding_description">Use mpv hardware decoding when available.</string>
     <string name="settings_playback_libmpv_yuv420p">libmpv YUV420P Compatibility</string>

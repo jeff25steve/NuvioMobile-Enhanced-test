@@ -178,6 +178,44 @@ enum class AndroidLibmpvVideoOutput(
     ),
 }
 
+enum class AndroidLibmpvRenderQuality(
+    val profileName: String?,
+    val label: String,
+    val description: String,
+) {
+    Balanced(
+        profileName = null,
+        label = "Balanced",
+        description = "Use mpv's built-in quality and performance defaults. Recommended for most devices.",
+    ),
+    HighQuality(
+        profileName = "high-quality",
+        label = "High quality",
+        description = "Use sharper EWA Lanczos scaling and enhanced HDR peak detection. Requires more GPU power.",
+    ),
+    Performance(
+        profileName = "fast",
+        label = "Performance",
+        description = "Use bilinear scaling and reduced GPU work for lower-powered devices.",
+    ),
+}
+
+internal data class MpvRenderProfileAction(
+    val profileName: String,
+    val restore: Boolean,
+)
+
+internal fun mpvRenderProfileTransition(
+    current: AndroidLibmpvRenderQuality,
+    next: AndroidLibmpvRenderQuality,
+): List<MpvRenderProfileAction> {
+    if (current == next) return emptyList()
+    return buildList {
+        current.profileName?.let { add(MpvRenderProfileAction(profileName = it, restore = true)) }
+        next.profileName?.let { add(MpvRenderProfileAction(profileName = it, restore = false)) }
+    }
+}
+
 enum class IosVideoOutputPreset(
     val label: String,
     val description: String,

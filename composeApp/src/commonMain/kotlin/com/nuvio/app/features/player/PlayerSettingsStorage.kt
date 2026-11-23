@@ -109,6 +109,8 @@ internal expect object PlayerSettingsStorage {
     fun saveAndroidPlaybackEngine(engine: String)
     fun loadAndroidLibmpvVideoOutput(): String?
     fun saveAndroidLibmpvVideoOutput(output: String)
+    fun loadAndroidLibmpvRenderQuality(): String?
+    fun saveAndroidLibmpvRenderQuality(quality: String)
     fun loadAndroidLibmpvHardwareDecodingEnabled(): Boolean?
     fun saveAndroidLibmpvHardwareDecodingEnabled(enabled: Boolean)
     fun loadAndroidLibmpvYuv420pEnabled(): Boolean?

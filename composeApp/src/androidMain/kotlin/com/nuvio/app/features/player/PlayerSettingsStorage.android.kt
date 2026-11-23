@@ -66,6 +66,7 @@ actual object PlayerSettingsStorage {
     private const val androidExoChaptersEnabledKey = "android_exo_chapters_enabled"
     private const val androidLibmpvHardwareDecodingEnabledKey = "android_libmpv_hardware_decoding_enabled"
     private const val androidLibmpvVideoOutputKey = "android_libmpv_video_output"
+    private const val androidLibmpvRenderQualityKey = "android_libmpv_render_quality"
     private const val androidLibmpvYuv420pEnabledKey = "android_libmpv_yuv420p_enabled"
     private const val androidAnimeUpscaleEnabledKey = "android_anime_upscale_enabled"
     private const val androidAnimeLineSharpenEnabledKey = "android_anime_line_sharpen_enabled"
@@ -182,6 +183,7 @@ actual object PlayerSettingsStorage {
         streamAutoPlayFallbackMaxSourcesKey,
         streamAutoPlayFallbackStartupTimeoutSecondsKey,
         androidLibmpvVideoOutputKey,
+        androidLibmpvRenderQualityKey,
         androidLibmpvHardwareDecodingEnabledKey,
         androidLibmpvYuv420pEnabledKey,
         androidExoChaptersEnabledKey,
@@ -975,6 +977,16 @@ actual object PlayerSettingsStorage {
         preferences
             ?.edit()
             ?.putString(ProfileScopedKey.of(androidLibmpvVideoOutputKey), output)
+            ?.apply()
+    }
+
+    actual fun loadAndroidLibmpvRenderQuality(): String? =
+        preferences?.getString(ProfileScopedKey.of(androidLibmpvRenderQualityKey), null)
+
+    actual fun saveAndroidLibmpvRenderQuality(quality: String) {
+        preferences
+            ?.edit()
+            ?.putString(ProfileScopedKey.of(androidLibmpvRenderQualityKey), quality)
             ?.apply()
     }
 
@@ -2081,6 +2093,7 @@ actual object PlayerSettingsStorage {
             put(streamAutoPlayFallbackStartupTimeoutSecondsKey, encodeSyncInt(it))
         }
         loadAndroidLibmpvVideoOutput()?.let { put(androidLibmpvVideoOutputKey, encodeSyncString(it)) }
+        loadAndroidLibmpvRenderQuality()?.let { put(androidLibmpvRenderQualityKey, encodeSyncString(it)) }
         loadAndroidLibmpvHardwareDecodingEnabled()?.let {
             put(androidLibmpvHardwareDecodingEnabledKey, encodeSyncBoolean(it))
         }
@@ -2173,6 +2186,7 @@ actual object PlayerSettingsStorage {
         payload.decodeSyncInt(streamAutoPlayFallbackStartupTimeoutSecondsKey)
             ?.let(::saveStreamAutoPlayFallbackStartupTimeoutSeconds)
         payload.decodeSyncString(androidLibmpvVideoOutputKey)?.let(::saveAndroidLibmpvVideoOutput)
+        payload.decodeSyncString(androidLibmpvRenderQualityKey)?.let(::saveAndroidLibmpvRenderQuality)
         payload.decodeSyncBoolean(androidLibmpvHardwareDecodingEnabledKey)
             ?.let(::saveAndroidLibmpvHardwareDecodingEnabled)
         payload.decodeSyncBoolean(androidLibmpvYuv420pEnabledKey)?.let(::saveAndroidLibmpvYuv420pEnabled)

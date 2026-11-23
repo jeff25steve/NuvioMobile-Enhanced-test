@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.features.player.AndroidLibmpvVideoOutput
+import com.nuvio.app.features.player.AndroidLibmpvRenderQuality
 import com.nuvio.app.features.player.AndroidPlaybackEngine
 import com.nuvio.app.features.player.IosHardwareDecoderMode
 import com.nuvio.app.features.player.localizedLabel
@@ -35,6 +36,7 @@ internal fun PlaybackVideoSettings(
     highlightedSearchAnchorKey: String? = null,
 ) {
     var showLibmpvVideoOutputDialog by remember { mutableStateOf(false) }
+    var showLibmpvRenderQualityDialog by remember { mutableStateOf(false) }
     var showDecoderPriorityDialog by remember { mutableStateOf(false) }
     var showIosHardwareDecoderDialog by remember { mutableStateOf(false) }
     var showIosTargetPrimariesDialog by remember { mutableStateOf(false) }
@@ -59,6 +61,16 @@ internal fun PlaybackVideoSettings(
                             enabled = libmpvOptionsEnabled,
                             isTablet = isTablet,
                             onClick = { showLibmpvVideoOutputDialog = true },
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsNavigationRow(
+                            title = stringResource(Res.string.settings_playback_libmpv_render_quality),
+                            searchAnchorKey = "playback-libmpv-render-quality",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            description = settings.androidLibmpvRenderQuality.label,
+                            enabled = libmpvOptionsEnabled,
+                            isTablet = isTablet,
+                            onClick = { showLibmpvRenderQualityDialog = true },
                         )
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
@@ -211,6 +223,21 @@ internal fun PlaybackVideoSettings(
                 showDecoderPriorityDialog = false
             },
             onDismiss = { showDecoderPriorityDialog = false },
+        )
+    }
+
+    if (showLibmpvRenderQualityDialog) {
+        SettingsChoiceDialog(
+            title = stringResource(Res.string.settings_playback_libmpv_render_quality_dialog),
+            options = AndroidLibmpvRenderQuality.entries,
+            selected = settings.androidLibmpvRenderQuality,
+            label = { it.label },
+            description = { it.description },
+            onSelect = {
+                PlayerSettingsRepository.setAndroidLibmpvRenderQuality(it)
+                showLibmpvRenderQualityDialog = false
+            },
+            onDismiss = { showLibmpvRenderQualityDialog = false },
         )
     }
 

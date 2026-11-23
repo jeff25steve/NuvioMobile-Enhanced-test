@@ -383,6 +383,7 @@ actual fun PlatformPlayerSurface(
                 playWhenReady = playWhenReady && castBridge?.isCasting != true,
                 resizeMode = resizeMode,
                 videoOutput = playerSettings.androidLibmpvVideoOutput,
+                renderQuality = playerSettings.androidLibmpvRenderQuality,
                 hardwareDecodingEnabled = playerSettings.androidLibmpvHardwareDecodingEnabled,
                 yuv420pEnabled = playerSettings.androidLibmpvYuv420pEnabled,
                 animeUpscaleEnabled = animeContent && playerSettings.androidAnimeUpscaleEnabled,
@@ -2341,6 +2342,7 @@ private fun LibmpvPlayerSurface(
     playWhenReady: Boolean,
     resizeMode: PlayerResizeMode,
     videoOutput: AndroidLibmpvVideoOutput,
+    renderQuality: AndroidLibmpvRenderQuality,
     hardwareDecodingEnabled: Boolean,
     yuv420pEnabled: Boolean,
     animeUpscaleEnabled: Boolean,
@@ -2715,6 +2717,7 @@ private fun LibmpvPlayerSurface(
                 NuvioLibmpvView(
                     context = viewContext,
                     videoOutput = videoOutput,
+                    renderQuality = renderQuality,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
@@ -2739,6 +2742,7 @@ private fun LibmpvPlayerSurface(
             },
             update = { view ->
                 playerViewRef = view
+                view.setRenderQuality(renderQuality)
                 view.applyResizeMode(resizeMode)
             },
             onRelease = { view ->
@@ -2767,12 +2771,33 @@ private tailrec fun Context.findActivity(): Activity? =
 private class NuvioLibmpvView(
     context: Context,
     private val videoOutput: AndroidLibmpvVideoOutput,
+    initialRenderQuality: AndroidLibmpvRenderQuality,
     private val hardwareDecodingEnabled: Boolean,
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,
 ) : MpvSurfaceView(context, videoOutput.mpvValue) {
     @Volatile
     private var activeAnimeShaderPaths = animeShaderPaths
+    @Volatile
+    private var activeRenderQuality = initialRenderQuality
+    @Volatile
+    private var requestedRenderQuality = initialRenderQuality
+
+    fun setRenderQuality(quality: AndroidLibmpvRenderQuality) {
+        if (quality == requestedRenderQuality) return
+        requestedRenderQuality = quality
+        executeMpv {
+            mpvRenderProfileTransition(activeRenderQuality, quality).forEach { action ->
+                if (action.restore) {
+                    mpv.command("apply-profile", action.profileName, "restore")
+                } else {
+                    mpv.command("apply-profile", action.profileName)
+                }
+            }
+            activeRenderQuality = quality
+            InAppLogger.info("MPV/Android", "render quality changed to=${quality.name}")
+        }
+    }
 
     fun setAnimeShaderPaths(paths: List<String>) {
         if (paths == activeAnimeShaderPaths) return
@@ -2848,9 +2873,12 @@ private class NuvioLibmpvView(
         InAppLogger.info(
             "MPV/Android",
             "Initializing libmpv vo=${videoOutput.mpvValue} hwdec=${if (hardwareDecodingEnabled) "auto" else "no"} yuv420p=$yuv420pEnabled " +
+                "renderQuality=${initialRenderQuality.name} " +
                 "animeShaders=${animeShaderPaths.joinToString(",") { it.substringAfterLast('/') }.ifEmpty { "none" }}",
         )
-        mpv.command("apply-profile", "fast")
+        // Runtime profiles are destructive; save their previous values so quality changes can restore them.
+        mpv.setOptionString("profile-restore", "copy").logIfMpvError("profile-restore")
+        initialRenderQuality.profileName?.let { mpv.command("apply-profile", it) }
         mpv.setOptionString("hwdec", if (hardwareDecodingEnabled) "auto" else "no")
         if (yuv420pEnabled) {
             mpv.setOptionString("vf", "format=yuv420p")
