@@ -106,6 +106,11 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
     }
 }
 
+internal fun shouldNormalizeExternalVttCuePosition(
+    mimeType: String?,
+    placeUnpositionedTextInLetterbox: Boolean,
+): Boolean = mimeType == MimeTypes.TEXT_VTT && !placeUnpositionedTextInLetterbox
+
 internal fun supportsLetterboxTextSubtitleMimeType(mimeType: String?): Boolean =
     mimeType == MimeTypes.APPLICATION_SUBRIP ||
         mimeType == MimeTypes.TEXT_VTT ||
