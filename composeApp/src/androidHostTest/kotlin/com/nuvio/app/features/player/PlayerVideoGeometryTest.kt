@@ -74,6 +74,7 @@ class PlayerVideoGeometryTest {
         assertNull(displayedVideoHeightPx(0f, 1080f, 2.35f, PlayerResizeMode.Fit))
         assertNull(displayedVideoHeightPx(1920f, 1080f, Float.NaN, PlayerResizeMode.Fit))
     }
+
     @Test
     fun zoomUsesViewportHeightWhenTheSourceIsNarrowerThanTheDisplay() {
         assertEquals(1080f, displayedVideoHeightPx(1920f, 1080f, 4f / 3f, PlayerResizeMode.Zoom))
