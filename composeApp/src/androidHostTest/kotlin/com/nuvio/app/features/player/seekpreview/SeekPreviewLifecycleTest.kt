@@ -112,6 +112,13 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
+    fun previewFrameReadbackRunsOnlyForAnActiveRequest() {
+        assertTrue(shouldReadSeekPreviewFrame(hasPendingRequest = true, isReleased = false))
+        assertFalse(shouldReadSeekPreviewFrame(hasPendingRequest = false, isReleased = false))
+        assertFalse(shouldReadSeekPreviewFrame(hasPendingRequest = true, isReleased = true))
+    }
+
+    @Test
     fun cancellingPendingFrameUnblocksWaiterAndClearsPendingReference() {
         val future = CompletableFuture<String>()
         val pending = AtomicReference<CompletableFuture<String>?>(future)
