@@ -2025,3 +2025,21 @@ The app-side display filter now bypasses itself when Media3's `forceLowestBitrat
 ### Follow-up: handle Android's forced-SDR capability response
 
 The source review identified that `Display.getHdrCapabilities()` may return `null` when the default display is forced to SDR. The selector now normalizes a present display with null HDR capabilities to an empty supported-type set, while still treating a missing display service/display or a capability-query exception as unknown. This distinction is necessary for the SDR fallback to activate when HDR has been disabled in Android display settings. Added regression coverage for null capabilities mapping to SDR-only and for retaining reported HDR types.
+
+
+### Follow-up: only count genuinely supported SDR alternatives
+
+A source review against the pinned Media3 1.12.0-beta01 RendererCapabilities contract found an edge case in the display-aware selector: isFormatSupported(flags, true) treats FORMAT_EXCEEDS_CAPABILITIES as supported. That value is explicitly a last-resort format outside the renderer's declared capabilities, not proof that the decoder can reliably play the track. The selector could therefore treat an unsupported SDR rendition as a usable fallback and mask an HDR rendition that was actually supported, potentially turning a stream with no playable SDR alternative into an avoidable playback failure.
+
+Correction:
+- The selector now uses strict renderer support (allowExceedsCapabilities = false) both when deciding whether an SDR fallback exists and when deciding whether to mask an HDR format.
+- Added focused regression coverage for SDR/HDR formats marked FORMAT_EXCEEDS_CAPABILITIES, supported SDR fallback recognition, positive HLG display support, and Dolby Vision fallback-MIME codec strings using their PQ base layer.
+- This preserves Media3's own final fallback policy; it only prevents the display filter from treating a marginal/unsupported SDR format as a safe replacement.
+
+Evidence:
+- Pinned source: [Media3 1.12.0-beta01 RendererCapabilities.java](https://github.com/androidx/media/blob/1.12.0-beta01/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/RendererCapabilities.java). Its isFormatSupported implementation explicitly allows FORMAT_EXCEEDS_CAPABILITIES only when the caller passes true.
+- Context7 confirms that allowExceedsCapabilities = true includes FORMAT_EXCEEDS_CAPABILITIES; strict support uses false.
+- Upstream [Media3 PR #3461](https://github.com/androidx/media/pull/3461) remains open as of this review. Its HDR/SDR adaptive separation work is not present in the app-side selector and is not being approximated by masking an entire range, because that would remove bitrate adaptation and could cause avoidable stalls.
+
+Verification boundary:
+- Regression tests were added but not executed, as requested. No tests, compilation, build, CI or device playback were run.
