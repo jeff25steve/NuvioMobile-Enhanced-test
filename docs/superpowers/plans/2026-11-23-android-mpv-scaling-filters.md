@@ -54,7 +54,7 @@
 - [x] Load invalid or missing values as Default.
 - [x] Add setters that publish and persist only on change.
 - [x] Add Android profile-scoped preference keys and include them in profile key lists.
-- [x] Include all three settings in exportToSyncPayload and replaceFromSyncPayload on both platform actuals.
+- [x] Include all three settings in Android exportToSyncPayload and replaceFromSyncPayload; keep iOS storage contract parity without exposing Android-only controls there.
 - [x] Keep iOS settings storage parity, but do not expose the controls on iOS.
 
 ### Task 3: Apply filter settings at initialization and live
