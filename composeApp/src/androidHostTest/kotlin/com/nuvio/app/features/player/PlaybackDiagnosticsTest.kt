@@ -112,4 +112,33 @@ class PlaybackDiagnosticsTest {
         assertTrue(diagnostics.isLoadForCurrentAttempt(loadEventElapsedRealtimeMs = 300L, loadDurationMs = 50L))
         assertFalse(diagnostics.isLoadForCurrentAttempt(loadEventElapsedRealtimeMs = 240L, loadDurationMs = 0L))
     }
+
+    @Test
+    fun droppedVideoFrameCountAccumulatesAndResetsForEachAttempt() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+
+        assertEquals(3L, diagnostics.recordDroppedVideoFrames(3))
+        assertEquals(3L, diagnostics.recordDroppedVideoFrames(0))
+        assertEquals(3L, diagnostics.recordDroppedVideoFrames(-1))
+        assertEquals(8L, diagnostics.recordDroppedVideoFrames(5))
+        assertEquals(8L, diagnostics.droppedVideoFrameCount)
+
+        diagnostics.beginAttempt(250L)
+
+        assertEquals(0L, diagnostics.droppedVideoFrameCount)
+        assertEquals(2L, diagnostics.recordDroppedVideoFrames(2))
+    }
+
+    @Test
+    fun droppedVideoFrameCountSaturatesInsteadOfOverflowing() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(100L)
+
+        assertEquals(Long.MAX_VALUE, diagnostics.recordDroppedVideoFrames(Int.MAX_VALUE))
+        repeat(4) {
+            diagnostics.recordDroppedVideoFrames(Int.MAX_VALUE)
+        }
+        assertEquals(Long.MAX_VALUE, diagnostics.droppedVideoFrameCount)
+    }
 }
