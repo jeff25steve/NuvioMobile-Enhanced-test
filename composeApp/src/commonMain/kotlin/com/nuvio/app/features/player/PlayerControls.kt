@@ -187,7 +187,7 @@ internal fun PlayerControlsShell(
     modifier: Modifier = Modifier,
     seekPreview: SeekPreviewController? = null,
     onTimelineTouchChange: (Boolean) -> Unit = {},
-    onTimelineScrubbingChange: (Boolean) -> Unit = {},
+    onTimelineScrubbingChange: (Boolean, Double?) -> Unit = {},
     foldLayout: Boolean = false,
     gestureController: PlayerGestureController? = null,
     onWake: () -> Unit = {},
@@ -1260,7 +1260,7 @@ internal fun PlayerSeekBar(
     seekPreview: SeekPreviewController? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onTouchChange: (Boolean) -> Unit = {},
-    onScrubbingChange: (Boolean) -> Unit = {},
+    onScrubbingChange: (Boolean, Double?) -> Unit = {},
     /** The legacy layout draws the time pills beside its action pill instead. */
     showTimeRow: Boolean = true,
 ) {
@@ -1273,9 +1273,15 @@ internal fun PlayerSeekBar(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
+    var trackWidthPx by remember { mutableStateOf(0) }
+    val fractionalSeekTolerance = fractionalSeekToleranceForTrack(
+        trackWidthPx,
+        LocalDensity.current.density,
+    )
     ReportTimelineTouch(durationMs > 0L && (isPressed || isDragged), onTouchChange)
     ReportTimelineScrubbing(
         scrubbing = shouldEnablePlayerScrubbing(isDragged, durationMs > 0L, durationMs),
+        fractionalSeekTolerance = fractionalSeekTolerance,
         onScrubbingChange = onScrubbingChange,
     )
     Column(modifier = modifier) {
@@ -1298,6 +1304,7 @@ internal fun PlayerSeekBar(
                 Slider(
                     modifier = Modifier
                         .fillMaxSize()
+                        .onSizeChanged { trackWidthPx = it.width }
                         .semantics { contentDescription = seekDescription },
                     state = seekState,
                     onValueChange = { value -> onScrubChange(value.toLong()) },
