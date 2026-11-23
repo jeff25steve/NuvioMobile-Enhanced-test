@@ -19,6 +19,16 @@ class SoftwareVideoDecoderProfileDetectionTest {
     }
 
     @Test
+    fun softwareFallbackReasonIdentifiesAvcColorBitDepth() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setColorInfo(ColorInfo.Builder().setLumaBitdepth(10).setChromaBitdepth(10).build())
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.softwareDecodingReason(format) == "avc-color-info-bit-depth")
+    }
+
+    @Test
     fun explicitEightBitAvcColorInfoDoesNotSelectSoftwareFallback() {
         val format = Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H264)
@@ -38,6 +48,16 @@ class SoftwareVideoDecoderProfileDetectionTest {
             .build()
 
         assertTrue(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
+    fun softwareFallbackReasonIdentifiesTwelveBitHevc() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setColorInfo(ColorInfo.Builder().setLumaBitdepth(12).setChromaBitdepth(12).build())
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.softwareDecodingReason(format) == "hevc-12-bit")
     }
 
     @Test
