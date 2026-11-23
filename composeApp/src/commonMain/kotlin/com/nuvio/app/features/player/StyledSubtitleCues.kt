@@ -99,10 +99,11 @@ internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtit
     )
 
 /**
- * Returns a display-relative top coordinate only when the complete text cue fits in the
- * bottom letterbox. Otherwise the caller keeps the cue inside the video frame.
+ * Returns a display-relative bottom position when the complete cue fits on screen and, if a
+ * bottom letterbox exists, fits entirely inside it. If the bar is too short, the caller keeps
+ * the cue inside the video frame instead.
  */
-internal fun subtitleBottomLetterboxTopPx(
+internal fun subtitleBottomDisplayTopPx(
     viewportHeightPx: Int,
     videoBottomPx: Int,
     contentHeightPx: Int,
@@ -110,14 +111,17 @@ internal fun subtitleBottomLetterboxTopPx(
 ): Int? {
     if (
         viewportHeightPx <= 0 ||
-        videoBottomPx !in 0 until viewportHeightPx ||
+        videoBottomPx < 0 ||
         contentHeightPx <= 0 ||
         bottomInsetPx < 0
     ) return null
 
     val top = viewportHeightPx.toLong() - contentHeightPx.toLong() - bottomInsetPx.toLong()
     val bottom = top + contentHeightPx.toLong()
-    if (top < videoBottomPx.toLong() || bottom > viewportHeightPx.toLong()) return null
+    if (
+        bottom > viewportHeightPx.toLong() ||
+        (videoBottomPx < viewportHeightPx && top < videoBottomPx.toLong())
+    ) return null
     return top.toInt()
 }
 
