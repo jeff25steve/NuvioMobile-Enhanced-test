@@ -83,6 +83,28 @@ class SoftwareVideoDecoderFlowTest {
     }
 
     @Test
+    fun reconcilesSamplesThatProduceNoFramesOnlyAfterDrainCompletes() {
+        val flow = SoftwareVideoDecoderFlowState()
+        flow.onInputSampleQueued()
+        flow.onInputSampleQueued()
+        flow.onFrameProduced()
+
+        assertEquals(1, flow.drainUnmatchedInputSamples())
+        assertEquals(0, flow.drainUnmatchedInputSamples())
+    }
+
+    @Test
+    fun multipleFramesFromOnePacketDoNotCreateFalseMissingSampleSkips() {
+        val flow = SoftwareVideoDecoderFlowState()
+        flow.onInputSampleQueued()
+        flow.onFrameProduced()
+        flow.onFrameProduced()
+        flow.onInputSampleQueued()
+
+        assertEquals(0, flow.drainUnmatchedInputSamples())
+    }
+
+    @Test
     fun flushResetsPacketAndDrainState() {
         val flow = SoftwareVideoDecoderFlowState()
         flow.queuePacket()
