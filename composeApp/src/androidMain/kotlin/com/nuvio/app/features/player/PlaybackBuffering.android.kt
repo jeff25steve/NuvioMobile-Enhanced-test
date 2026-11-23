@@ -56,6 +56,27 @@ internal fun shouldReleaseReadAheadBlock(
         (writtenBytes == capacityBytes || readerFinished)
 }
 
+internal fun closePlaybackDataSource(
+    closeUpstream: () -> Unit,
+    awaitReader: () -> Unit,
+) {
+    var closeFailure: Throwable? = null
+    try {
+        closeUpstream()
+    } catch (error: Throwable) {
+        closeFailure = error
+    }
+
+    try {
+        awaitReader()
+    } catch (error: Throwable) {
+        closeFailure?.let(error::addSuppressed)
+        throw error
+    }
+
+    closeFailure?.let { throw it }
+}
+
 internal fun isProgressivePlaybackSource(
     url: String,
     responseHeaders: Map<String, String>,
@@ -616,8 +637,12 @@ private class NativeReadAheadDataSource(
             }
         }
         try {
-            runCatching { upstream.close() }
-            reader?.let { if (it.isAlive) it.join(READER_CLOSE_WAIT_MS) }
+            closePlaybackDataSource(
+                closeUpstream = { upstream.close() },
+                awaitReader = {
+                    reader?.let { if (it.isAlive) it.join(READER_CLOSE_WAIT_MS) }
+                },
+            )
         } finally {
             openedUri = null
             openedHeaders = emptyMap()
