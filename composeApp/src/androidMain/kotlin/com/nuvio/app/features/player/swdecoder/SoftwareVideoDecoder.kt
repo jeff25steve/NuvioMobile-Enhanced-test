@@ -913,12 +913,12 @@ internal class SoftwareVideoDecoder(
         internal fun softwareDecodingReason(format: Format): String? =
             when (format.sampleMimeType) {
                 MimeTypes.VIDEO_H264 -> when {
-                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES -> "avc-high-bit-depth-profile"
+                    avcProfiles(format).any { it in HIGH_BIT_DEPTH_AVC_PROFILES } -> "avc-high-bit-depth-profile"
                     format.hasBitDepthAbove(8) -> "avc-color-info-bit-depth"
                     else -> null
                 }
                 MimeTypes.VIDEO_H265 -> when {
-                    hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS -> "hevc-range-extensions"
+                    hevcProfiles(format).any { it == HEVC_PROFILE_RANGE_EXTENSIONS } -> "hevc-range-extensions"
                     format.hasBitDepthAbove(10) -> "hevc-12-bit"
                     else -> null
                 }
@@ -926,20 +926,17 @@ internal class SoftwareVideoDecoder(
                 else -> null
             }
 
-        private fun avcProfile(format: Format): Int? {
+        private fun avcProfiles(format: Format): List<Int> = buildList {
             format.codecs
                 ?.split(',')
-                ?.asSequence()
                 ?.map(String::trim)
                 ?.filter { it.startsWith("avc1.") || it.startsWith("avc3.") }
-                ?.mapNotNull { it.substringAfter('.').take(2).toIntOrNull(16) }
-                ?.firstOrNull()
-                ?.let { return it }
-
-            return format.initializationData
-                .asSequence()
-                .mapNotNull(::avcProfileFromSps)
-                .firstOrNull()
+                ?.forEach { codec ->
+                    codec.substringAfter('.').take(2).toIntOrNull(16)?.let(::add)
+                }
+            format.initializationData.forEach { data ->
+                avcProfileFromSps(data)?.let(::add)
+            }
         }
 
         private fun avcProfileFromSps(data: ByteArray): Int? {
@@ -951,19 +948,19 @@ internal class SoftwareVideoDecoder(
             return data[header + 1].toInt() and 0xFF
         }
 
-        private fun hevcProfile(format: Format): Int? =
+        private fun hevcProfiles(format: Format): List<Int> = buildList {
             format.codecs
                 ?.split(',')
-                ?.asSequence()
                 ?.map(String::trim)
                 ?.filter { it.startsWith("hvc1.") || it.startsWith("hev1.") }
-                ?.mapNotNull { codec ->
+                ?.forEach { codec ->
                     codec.split('.')
                         .getOrNull(1)
                         ?.trimStart('A', 'B', 'C')
                         ?.toIntOrNull()
+                        ?.let(::add)
                 }
-                ?.firstOrNull()
+        }
 
         private fun Format.hasBitDepthAbove(bitDepth: Int): Boolean =
             colorInfo?.let { it.lumaBitdepth > bitDepth || it.chromaBitdepth > bitDepth } == true
