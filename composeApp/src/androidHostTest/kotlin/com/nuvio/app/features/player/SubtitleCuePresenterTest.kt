@@ -81,6 +81,28 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun explicitWebVttPositionsAreNotNormalizedWhenLetterboxModeIsEnabled() {
+        assertTrue(
+            shouldNormalizeExternalVttCuePosition(
+                androidx.media3.common.MimeTypes.TEXT_VTT,
+                placeUnpositionedTextInLetterbox = false,
+            ),
+        )
+        assertFalse(
+            shouldNormalizeExternalVttCuePosition(
+                androidx.media3.common.MimeTypes.TEXT_VTT,
+                placeUnpositionedTextInLetterbox = true,
+            ),
+        )
+        assertFalse(
+            shouldNormalizeExternalVttCuePosition(
+                androidx.media3.common.MimeTypes.APPLICATION_SUBRIP,
+                placeUnpositionedTextInLetterbox = true,
+            ),
+        )
+    }
+
+    @Test
     fun letterboxPlacementRequiresAnEnabledPreferenceAndSupportedTextMimeType() {
         assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_SUBRIP))
         assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.TEXT_VTT))
