@@ -70,7 +70,7 @@ internal fun closePlaybackDataSource(
     try {
         awaitReader()
     } catch (error: Throwable) {
-        closeFailure?.let(error::addSuppressed)
+        closeFailure?.takeIf { it !== error }?.let(error::addSuppressed)
         throw error
     }
 
