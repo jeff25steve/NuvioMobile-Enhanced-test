@@ -4147,20 +4147,31 @@ private fun ExoPlayer.selectedPlaybackInfoFormat(trackType: Int): Format? {
     return null
 }
 
+internal fun exoPlaybackHdrBadges(
+    sampleMimeType: String?,
+    codecs: String?,
+    colorTransfer: Int,
+): List<String> = buildList {
+    if (sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION || isDolbyVisionCodecString(codecs)) {
+        add("DV")
+    }
+    when (colorTransfer) {
+        C.COLOR_TRANSFER_ST2084 -> add("HDR (PQ)")
+        C.COLOR_TRANSFER_HLG -> add("HLG")
+    }
+}
+
 internal fun exoPlaybackHdrFormat(
     sampleMimeType: String?,
     codecs: String?,
     colorTransfer: Int,
 ): String {
-    if (
-        sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION ||
-        isDolbyVisionCodecString(codecs)
-    ) return "dolby_vision"
-
-    return when (colorTransfer) {
-        C.COLOR_TRANSFER_ST2084 -> "hdr"
-        C.COLOR_TRANSFER_HLG -> "hlg"
-        C.COLOR_TRANSFER_SDR -> "sdr"
+    val badges = exoPlaybackHdrBadges(sampleMimeType, codecs, colorTransfer)
+    return when {
+        "DV" in badges -> "dolby_vision"
+        "HDR (PQ)" in badges -> "hdr"
+        "HLG" in badges -> "hlg"
+        colorTransfer == C.COLOR_TRANSFER_SDR -> "sdr"
         else -> ""
     }
 }
@@ -5419,20 +5430,12 @@ private fun exoVideoCodec(video: Format?): String? {
     return CustomDefaultTrackNameProvider.resolveCodecName(mime, video.codecs)
 }
 
-private fun Format.hdrFormats(): List<String> = buildList {
-    val lowerCodecs = codecs.orEmpty().lowercase()
-    if (sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
-        || lowerCodecs.contains("dvhe") || lowerCodecs.contains("dvh1")
-        || lowerCodecs.contains("dvav")
-        || lowerCodecs.contains("dav1") || lowerCodecs.contains("dva1")
-    ) {
-        add("DV")
-    }
-    when (colorInfo?.colorTransfer) {
-        C.COLOR_TRANSFER_ST2084 -> add("HDR10")
-        C.COLOR_TRANSFER_HLG -> add("HLG")
-    }
-}
+private fun Format.hdrFormats(): List<String> =
+    exoPlaybackHdrBadges(
+        sampleMimeType = sampleMimeType,
+        codecs = codecs,
+        colorTransfer = colorInfo?.colorTransfer ?: Format.NO_VALUE,
+    )
 
 private val DTS_HD_MA_LABEL = Regex("""\b(ma|master audio)\b""")
 

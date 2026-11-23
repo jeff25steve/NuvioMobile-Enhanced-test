@@ -78,7 +78,7 @@ internal fun mpvMediaInfo(property: (String) -> String?): PlayerMediaInfo {
         hdr = buildList {
             if (dynamicRange == "dolby_vision") add("DV")
             when (gamma?.trim()?.lowercase()) {
-                "pq" -> add("HDR10")
+                "pq" -> add("HDR (PQ)")
                 "hlg" -> add("HLG")
             }
         },

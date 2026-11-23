@@ -35,6 +35,11 @@ class PlaybackFormatMetadataTest {
     @Test
     fun exoPlayerMapsTransferFunctionsWithoutOverstatingPqAsHdr10() {
         assertEquals("hdr", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.2.4.L153.B0", C.COLOR_TRANSFER_ST2084))
+        assertEquals(listOf("HDR (PQ)"), exoPlaybackHdrBadges(MimeTypes.VIDEO_H265, "hvc1.2.4.L153.B0", C.COLOR_TRANSFER_ST2084))
+        assertEquals(
+            listOf("DV", "HDR (PQ)"),
+            exoPlaybackHdrBadges(MimeTypes.VIDEO_DOLBY_VISION, "dvhe.08.06", C.COLOR_TRANSFER_ST2084),
+        )
         assertEquals("hlg", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.2.4.L153.B0", C.COLOR_TRANSFER_HLG))
         assertEquals("sdr", exoPlaybackHdrFormat(MimeTypes.VIDEO_H264, "avc1.640028", C.COLOR_TRANSFER_SDR))
         assertEquals("", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.1.6.L120.B0", Format.NO_VALUE))
