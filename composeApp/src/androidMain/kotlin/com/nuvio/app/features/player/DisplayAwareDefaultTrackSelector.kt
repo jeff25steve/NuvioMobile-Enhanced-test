@@ -113,6 +113,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
                             rendererSupportFlags = supportFlags,
                             supportedHdrTypes = displayHdrTypes,
                             hasSdrFallback = hasSdrFallback,
+                            hasSupportedHdrFallback = hasSupportedHdrFallback,
                         )
                     }
                     if (shouldMask) {
@@ -164,9 +165,10 @@ internal fun shouldMaskHdrFormatForDisplay(
     rendererSupportFlags: Int,
     supportedHdrTypes: Set<Int>?,
     hasSdrFallback: Boolean,
+    hasSupportedHdrFallback: Boolean = false,
 ): Boolean {
     if (
-        !hasSdrFallback ||
+        (!hasSdrFallback && !hasSupportedHdrFallback) ||
         supportedHdrTypes == null ||
         !isRendererFormatSupported(rendererSupportFlags)
     ) return false
@@ -233,8 +235,17 @@ internal fun isRendererFormatSupported(rendererSupportFlags: Int): Boolean =
 internal fun isSupportedSdrFallback(format: Format, rendererSupportFlags: Int): Boolean =
     isRendererFormatSupported(rendererSupportFlags) && isSdrFallbackFormat(format)
 
-private fun isSdrFallbackFormat(format: Format): Boolean =
-    !ColorInfo.isTransferHdr(format.colorInfo) && !isDolbyVisionFormat(format)
+private fun isSdrFallbackFormat(format: Format): Boolean {
+    if (isDolbyVisionFormat(format)) return false
+    val colorInfo = format.colorInfo
+    val transfer = colorInfo?.colorTransfer
+    val explicitlySdrTransfer =
+        colorInfo?.hdrStaticInfo == null &&
+            (transfer == C.COLOR_TRANSFER_GAMMA_2_2 || transfer == C.COLOR_TRANSFER_SRGB)
+    // isTransferHdr(false) is not proof of SDR: BT.2020/10-bit content with an unset
+    // transfer characteristic is ambiguous. Use Media3's stricter assumed-SDR predicate.
+    return ColorInfo.isEquivalentToAssumedSdrDefault(colorInfo) || explicitlySdrTransfer
+}
 
 private fun isDolbyVisionFormat(format: Format): Boolean {
     if (format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION) return true
