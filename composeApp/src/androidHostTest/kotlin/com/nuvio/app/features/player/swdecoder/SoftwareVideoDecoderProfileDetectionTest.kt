@@ -110,6 +110,26 @@ class SoftwareVideoDecoderProfileDetectionTest {
     }
 
     @Test
+    fun laterHighBitDepthAvcCodecEntryIsNotHiddenByAnEarlierEightBitEntry() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H264)
+            .setCodecs("avc1.640028,avc3.6E0032")
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
+    fun laterHevcRangeExtensionCodecEntryIsNotHiddenByMain10() {
+        val format = Format.Builder()
+            .setSampleMimeType(MimeTypes.VIDEO_H265)
+            .setCodecs("hvc1.2.4.L120.B0,hev1.4.4.L120.B0")
+            .build()
+
+        assertTrue(SoftwareVideoDecoder.needsSoftwareDecoding(format))
+    }
+
+    @Test
     fun malformedFirstHevcCodecEntryDoesNotHideRangeExtensionProfile() {
         val format = Format.Builder()
             .setSampleMimeType(MimeTypes.VIDEO_H265)
