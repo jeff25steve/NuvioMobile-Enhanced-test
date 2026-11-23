@@ -37,17 +37,17 @@
 - Consumes: `playerVideoRangeLabel(value: String?): String?`, `parsePlayerFrameRate(value: String?): Double?`, and `PlayerQualityVariant.displayLabel`.
 - Produces: executable common test cases pinning the expected labels and validation behavior.
 
-- [ ] **Step 1: Write tests first**
+- [x] **Step 1: Write tests first**
   - `PQ`, `HLG`, and `SDR` normalize case-insensitively to `HDR (PQ)`, `HDR (HLG)`, and `SDR`.
   - Unknown and null range values return null.
   - `23.976` and `59.94` parse and display as `23.98 fps` and `59.94 fps`.
   - null, malformed, zero, negative, NaN and infinite frame rates return null.
   - A combined variant label includes range and frame rate; a variant without metadata keeps its old label.
 - [ ] **Step 2: Run the focused common test**
-  - Run: `./gradlew :composeApp:allTests --tests 'com.nuvio.app.features.player.PlayerQualityVariantMetadataTest'`
+  - Run: `./gradlew :composeApp:allTests`
   - Expected: fail because the helpers and metadata fields do not exist yet.
-  - Authorization gate: do not run this command until the user explicitly authorizes Gradle test/build execution.
-- [ ] **Step 3: Implement the minimal common metadata model and parser**
+  - Status: not executed; Gradle test/build execution has not been authorized, so the TDD red result is unverified.
+- [x] **Step 3: Implement the minimal common metadata model and parser**
   - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerQualitySelector.kt`
   - Add optional `videoRange: String? = null` and `frameRate: Double? = null` to `PlayerQualityVariant`.
   - Add `playerVideoRangeLabel(value: String?): String?` and `parsePlayerFrameRate(value: String?): Double?`.
@@ -56,12 +56,12 @@
 - [ ] **Step 4: Run focused and full common tests**
   - Run: `./gradlew :composeApp:allTests`
   - Expected: pass with no regressions.
-  - Authorization gate: do not run until explicitly authorized.
-- [ ] **Step 5: Review source and update the engineering notes**
+  - Status: not executed; Gradle test/build execution has not been authorized, so the green result is unverified.
+- [x] **Step 5: Review source and update the engineering notes**
   - Modify: `docs/engineering/codebase-improvement-notes.md` with the canonical implementation/research record.
   - Modify: `docs/engineering/player-stream-startup-optimization-2026-11-19.md` with a short pointer, not duplicated research.
   - Re-fetch every changed remote file and inspect the final diff.
 
 ## Verification boundary
 
-Source-level checks and GitHub remote diff review are permitted. Gradle tests, compilation, builds, CI, APK/AAB generation, benchmarks and device playback remain unexecuted until separately authorized.
+Source-level review and GitHub remote diff inspection were performed. The test source was written before production code, but neither RED nor GREEN was observed because Gradle execution was not authorized. Compilation, Gradle tests, builds, CI, APK/AAB generation, benchmarks and device playback remain unexecuted until separately authorized.
