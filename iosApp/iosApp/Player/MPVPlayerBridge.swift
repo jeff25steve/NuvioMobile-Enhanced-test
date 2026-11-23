@@ -267,9 +267,7 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
             subPos: Int(subPos),
             stripSdh: stripSdh,
             styledOverlay: styledOverlay,
-            outlineBlur: Int(outlineBlur),
-            customizeAss: customizeAss,
-            assScale: assScale
+            outlineBlur: Int(outlineBlur)
         )
     }
 
@@ -2177,7 +2175,9 @@ final class MPVPlayerViewController: UIViewController {
             subPos: subPos,
             stripSdh: stripSdh,
             styledOverlay: styledOverlay,
-            outlineBlur: outlineBlur
+            outlineBlur: outlineBlur,
+            customizeAss: customizeAss,
+            assScale: assScale
         )
         guard mpv != nil else { return }
 

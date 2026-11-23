@@ -45,8 +45,8 @@ import kotlin.math.roundToInt
 internal fun SubtitleAppearanceControls(
     style: SubtitleStyleState,
     spacing: Dp,
-    supportsAssStyleCustomization: Boolean = false,
     onStyleChanged: (SubtitleStyleState) -> Unit,
+    supportsAssStyleCustomization: Boolean = false,
 ) {
     var showFonts by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(spacing)) {

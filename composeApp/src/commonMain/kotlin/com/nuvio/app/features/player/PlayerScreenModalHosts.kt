@@ -44,7 +44,6 @@ internal fun PlayerScreenModalHosts(
     selectedAddonSubtitleId: String?,
     isLoadingAddonSubtitles: Boolean,
     subtitleStyle: SubtitleStyleState,
-    supportsAssStyleCustomization: Boolean,
     subtitleDelayMs: Int,
     selectedAddonSubtitle: AddonSubtitle?,
     subtitleAutoSyncState: SubtitleAutoSyncUiState,
@@ -120,6 +119,7 @@ internal fun PlayerScreenModalHosts(
     showStreamInfoModal: Boolean,
     mediaInfoJson: String,
     onStreamInfoModalDismissed: () -> Unit,
+    supportsAssStyleCustomization: Boolean = false,
 ) {
     if (pendingP2pSwitch != null) {
         P2pConsentDialog(
