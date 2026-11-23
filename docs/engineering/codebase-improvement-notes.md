@@ -1814,6 +1814,31 @@ Verification boundary:
 - Gradle tests, compilation, builds, CI, benchmarks and physical-device playback were not run. The new regression sources remain unexecuted; no rendering or performance improvement is claimed.
 
 
+### Android libmpv independent scaling filters — 23 November 2026
+
+Research and implementation:
+- Reviewed the current upstream mpv stable manual and mpv 0.42.0 built-in profile definitions. The `high-quality` profile sets `scale=ewa_lanczossharp`, anti-ringing and stronger HDR analysis; `fast` sets bilinear scaling, disables dithering and removes several quality corrections. The default downscaler is Hermite. These profile values are mirrored only when the user's corresponding filter selection is Default.
+- Reviewed official [mpv-android MPVView.kt](https://github.com/mpv-android/mpv-android/blob/master/app/src/main/java/is/xyz/mpv/MPVView.kt), which exposes separate upscaling and downscaling filter preferences and passes them to libmpv. Nuvio now exposes the additional chroma filter independently as well.
+- Added three Android libmpv settings: Upscaling Filter (`scale`), Downscaling Filter (`dscale`) and Chroma Scaling Filter (`cscale`). Choices include Bilinear, Mitchell, Spline36, Lanczos, EWA Lanczos, EWA Lanczos Sharp, Hermite and Catmull-Rom.
+- The Default choice follows the selected Balanced / High Quality / Performance profile. Chroma Default follows the resolved upscaler. Explicit user choices override only their own axis.
+- Filter values are applied after the initial mpv render-quality profile and are reapplied after a profile change, so selecting a new profile does not erase explicit scaling preferences. Runtime changes use libmpv's writable `options/<name>` properties on the existing serialized mpv dispatcher; media is not reloaded.
+- Added profile-scoped persistence, Android settings-sync fields, iOS storage contract parity, settings rows and existing choice dialogs. Existing installs remain on Default and retain their current profile behavior.
+
+Evidence and cautions:
+- [mpv GPU renderer manual](https://mpv.io/manual/stable/#gpu-renderer-options) documents `scale`, `dscale` and `cscale` for gpu/gpu-next/libmpv, and states that cscale defaults to the selected upscaler.
+- [mpv builtin.conf](https://github.com/mpv-player/mpv/blob/master/etc/builtin.conf) is the source of the built-in fast/high-quality profile values used by the resolver.
+- [mpv-android issue #13886](https://github.com/mpv-player/mpv/issues/13886) records polar-scaler artifacts on some Android legacy-GPU GLES drivers; gpu-next did not reproduce the same artifact in that report. EWA filters remain user-selectable, never forced as a global default, and the settings descriptions explain their higher GPU cost and ringing risk.
+- Checked current Maven metadata and upstream library tags: 0.2.2 is newer than Nuvio's 0.2.1 dependency, but its tagged changes are Vulkan symbol-loading compatibility and estimated-frame-number tick notifications, not a demonstrated scaler-quality improvement. No dependency upgrade was made without build/device verification.
+
+Regression coverage authored:
+- Common tests cover Balanced, High Quality and Performance profile defaults, independent per-axis overrides, chroma following the upscaler and profile changes retaining explicit selections.
+- Android host tests cover profile-scoped persistence, settings-sync round-trip and invalid stored values falling back to Default.
+
+Verification boundary:
+- Re-fetched the changed production, settings, storage and test sources from `main-build-testing` for static review.
+- No Gradle tests, compilation, builds, CI, benchmarks or device playback were run. The new tests remain unexecuted and visual quality gains have not been measured on hardware.
+
+
 ## Playback subtitle fidelity and late add-on recovery — 23 November 2026
 
 ### Research basis
