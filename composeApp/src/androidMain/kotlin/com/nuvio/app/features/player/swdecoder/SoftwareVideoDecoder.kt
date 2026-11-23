@@ -338,6 +338,8 @@ internal class SoftwareVideoDecoder(
         synchronized(lock) {
             if (released) return
             released = true
+            callback = null
+            callbackExecutor = null
             lock.notifyAll()
         }
         var interrupted = false
