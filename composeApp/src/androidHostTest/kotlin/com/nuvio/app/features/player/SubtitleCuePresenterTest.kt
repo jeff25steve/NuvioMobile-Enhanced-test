@@ -154,6 +154,41 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun unsetCueAnchorsUseMedia3StartDefaults() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder()
+            .setText("Default anchors")
+            .setPosition(0.25f)
+            .setLine(0.75f, Cue.LINE_TYPE_FRACTION)
+            .build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(0f, block.positionXAnchor)
+        assertEquals(0f, block.positionYAnchor)
+    }
+
+    @Test
+    fun invalidCueFractionsAreIgnoredWithoutInvalidLayoutValues() {
+        val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
+        val cue = Cue.Builder()
+            .setText("Invalid")
+            .setPosition(Float.NaN)
+            .setLine(Float.NaN, Cue.LINE_TYPE_FRACTION)
+            .setSize(Float.NaN)
+            .build()
+
+        presenter.present(listOf(cue))
+
+        val block = presenter.cues.blocks.single()
+        assertEquals(null, block.positionX)
+        assertEquals(null, block.positionY)
+        assertEquals(null, block.widthFraction)
+        assertFalse(block.fillCueWidth)
+    }
+
+    @Test
     fun embeddedCueWindowColorAndTextSizeArePreserved() {
         val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
         val cue = Cue.Builder()
