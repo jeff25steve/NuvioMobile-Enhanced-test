@@ -419,21 +419,52 @@ private class NativeBlock(val buffer: ByteBuffer, private val onFree: () -> Unit
     fun free() = onFree()
 }
 
+internal fun <T> createWithCleanupOnFailure(
+    cleanup: () -> Unit,
+    create: () -> T,
+): T = try {
+    create()
+} catch (error: Throwable) {
+    runCatching(cleanup)
+    throw error
+}
+
 private fun allocateNativeBlock(directory: File, sizeBytes: Int): NativeBlock {
     require(sizeBytes in 1..READ_AHEAD_BLOCK_BYTES)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
         val memory = SharedMemory.create("nuvio_read_ahead", sizeBytes)
-        val mapped = memory.mapReadWrite()
-        return NativeBlock(mapped) {
-            SharedMemory.unmap(mapped)
-            memory.close()
-        }
+        var mapped: ByteBuffer? = null
+        return createWithCleanupOnFailure(
+            cleanup = {
+                mapped?.let(SharedMemory::unmap)
+                memory.close()
+            },
+            create = {
+                val region = memory.mapReadWrite()
+                mapped = region
+                NativeBlock(region) {
+                    SharedMemory.unmap(region)
+                    memory.close()
+                }
+            },
+        )
     }
     val file = File.createTempFile("read_ahead", ".bin", directory)
     val randomAccessFile = RandomAccessFile(file, "rw")
-    val mapped = randomAccessFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, sizeBytes.toLong())
-    file.delete()
-    return NativeBlock(mapped) { runCatching { randomAccessFile.close() } }
+    return createWithCleanupOnFailure(
+        cleanup = {
+            runCatching { randomAccessFile.close() }
+            file.delete()
+        },
+        create = {
+            val mapped = randomAccessFile.channel.map(FileChannel.MapMode.READ_WRITE, 0, sizeBytes.toLong())
+            file.delete()
+            NativeBlock(mapped) {
+                runCatching { randomAccessFile.close() }
+                file.delete()
+            }
+        },
+    )
 }
 
 private class NativeReadAheadDataSource(
