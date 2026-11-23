@@ -278,17 +278,6 @@ internal fun selectedSubtitleFormat(tracks: Tracks): Format? {
     return null
 }
 
-internal fun isSsaSubtitleFormat(format: Format?): Boolean {
-    if (format == null) return false
-    if (format.sampleMimeType == MimeTypes.TEXT_SSA) return true
-    return format.codecs.orEmpty()
-        .split(',')
-        .any { codec -> codec.trim().equals(MimeTypes.TEXT_SSA, ignoreCase = true) }
-}
-
-internal fun shouldNormalizeSubtitleCuePosition(format: Format?): Boolean =
-    format == null || !isSsaSubtitleFormat(format)
-
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 actual fun PlatformPlayerSurface(
@@ -770,7 +759,7 @@ private fun ExoPlayerSurface(
             presentCues = { cues ->
                 val format = playerViewRef?.player?.currentTracks?.let(::selectedSubtitleFormat)
                 if (sidecarControllerRef?.isSidecarActive() == true) emptyList()
-                else subtitlePresenter.present(cues, shouldNormalizeSubtitleCuePosition(format))
+                else subtitlePresenter.present(cues, format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA)
             },
             videoBoundsFractionProvider = {
                 playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value)
