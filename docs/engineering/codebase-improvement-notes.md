@@ -2050,7 +2050,7 @@ Verification boundary:
 The Auto engine resolver previously recognized only the consumer labels `HDR`, `HDR10`, `HDR10+`, `DV`, and `Dolby Vision`. This left real-world metadata forms such as `HLG`, `PQ`, `ST 2084`, `SMPTE ST 2084`, `BT.2100`, `ARIB STD-B67`, `HDR10Plus`, `DOVI`, and separator variants of Dolby Vision undetected. When an anime identifier/genre was also present, the resolver could consequently choose libmpv instead of the ExoPlayer path that Nuvio already uses for HDR-tagged streams.
 
 Changes:
-- Expanded whole-token detection for HDR10/HDR10+, HLG, PQ, Dolby Vision/DOVI and standardized PQ/HLG transfer identifiers.
+- Expanded whole-token detection for HDR10/HDR10+, HLG/HLG10, PQ, Dolby Vision/DOVI and standardized PQ/HLG transfer identifiers.
 - Accepted common punctuation/spacing variants while preserving boundaries, so strings such as `DVDRip`, `PQ10`, and suffixed unrelated words do not trigger HDR routing.
 - Kept the existing priority order: an explicit engine choice is never overridden; in Auto mode recognized HDR/Dolby Vision metadata takes precedence over anime routing; non-HDR anime selection is unchanged.
 - Updated the Android playback-engine setting descriptions to explain that Auto routes tagged HDR/Dolby Vision to ExoPlayer and that ExoPlayer provides native HDR output when the device/stream support it. libmpv's Android GPU path tone-maps HDR to SDR rather than providing native HDR passthrough.
@@ -2062,5 +2062,5 @@ Evidence:
 - Android's [HDR format guidance](https://developer.android.com/media/grow/hdr) identifies HLG/PQ transfer standards and SMPTE ST 2084; these are valid HDR identifiers beyond the consumer "HDR10" label.
 
 Verification boundary:
-- Expanded common-test regression cases cover HLG, PQ, HDR10Plus, DOVI, Dolby Vision punctuation, SMPTE ST 2084, BT.2100, ARIB STD-B67 and false-positive token boundaries. Tests were authored but not run, as requested.
+- Expanded common-test regression cases cover HLG/HLG10, PQ, HDR10Plus, DOVI, Dolby Vision punctuation, SMPTE ST 2084, BT.2100, ARIB STD-B67 and false-positive token boundaries. Tests were authored but not run, as requested.
 - No Gradle tests, compilation, build, CI, benchmark or physical-device playback was run. Auto routing remains metadata-driven: if an addon supplies no HDR/Dolby Vision signal in filename, name, description or title, this resolver cannot infer the bitstream's actual transfer characteristics before playback.
