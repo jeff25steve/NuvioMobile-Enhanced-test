@@ -122,6 +122,7 @@ internal fun FoldControls(
     onSeekForward: () -> Unit,
     onScrubChange: (Long) -> Unit,
     onScrubFinished: (Long) -> Unit,
+    onScrubbingChange: (Boolean, Double?) -> Unit,
     onSubtitleClick: () -> Unit,
     onAudioClick: () -> Unit,
     onSourcesClick: (() -> Unit)?,
@@ -319,6 +320,7 @@ internal fun FoldControls(
                         onInteraction()
                         onScrubFinished(it)
                     },
+                    onScrubbingChange = onScrubbingChange,
                     onRuntimeClick = interact(onRuntimeClick),
                 )
             }
@@ -492,6 +494,7 @@ private fun TimelineRow(
     showRemainingTime: Boolean,
     onScrubChange: (Long) -> Unit,
     onScrubFinished: (Long) -> Unit,
+    onScrubbingChange: (Boolean, Double?) -> Unit,
     onRuntimeClick: () -> Unit,
 ) {
     Row(
@@ -505,6 +508,7 @@ private fun TimelineRow(
             displayedPositionMs = displayedPositionMs,
             onScrubChange = onScrubChange,
             onScrubFinished = onScrubFinished,
+            onScrubbingChange = onScrubbingChange,
             modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
         )
         TimeLabel(
