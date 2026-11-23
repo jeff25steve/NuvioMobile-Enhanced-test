@@ -77,10 +77,12 @@ internal class SeekPreviewController(
     private var consecutiveFailures = 0
     private var hasSucceeded = false
 
+    private val sourceLock = Any()
     @Volatile
     private var source: SeekPreviewFrameSource? = null
     private var sourceOpened = false
 
+    @Volatile
     private var connectionGeneration = 0
 
     private var feed: SeekPreviewFeed? = null
@@ -332,16 +334,23 @@ internal class SeekPreviewController(
         }
     }
 
-    private fun releaseConnection() {
+    private fun detachSource(): SeekPreviewFrameSource? = synchronized(sourceLock) {
         connectionGeneration++
-        source?.cancel()
+        sourceOpened = false
+        source.also { source = null }
+    }
+
+    private fun closeDetachedSource(activeSource: SeekPreviewFrameSource?) {
+        if (activeSource == null) return
+        runCatching { activeSource.cancel() }
         CoroutineScope(decodeDispatcher).launch {
-            val activeSource = source ?: return@launch
-            source = null
-            sourceOpened = false
             runCatching { activeSource.close() }
             InAppLogger.debug(LogTag, "connection released")
         }
+    }
+
+    private fun releaseConnection() {
+        closeDetachedSource(detachSource())
     }
 
     fun dispose() {
@@ -349,11 +358,7 @@ internal class SeekPreviewController(
         feed?.close()
         feed = null
         scope.cancel()
-        source?.cancel()
-        CoroutineScope(decodeDispatcher).launch {
-            runCatching { source?.close() }
-            source = null
-        }
+        closeDetachedSource(detachSource())
     }
 
     private suspend fun decodeRequests() {
@@ -394,17 +399,38 @@ internal class SeekPreviewController(
         }
     }
 
-    private fun decodeFrame(positionMs: Long): ImageBitmap? {
-        if (!sourceOpened) {
-            sourceOpened = true
-            source = openSeekPreviewFrameSource(url, headers)
+    private fun decodeFrame(positionMs: Long, generation: Int): ImageBitmap? {
+        val needsOpen = synchronized(sourceLock) {
+            if (generation != connectionGeneration) return null
+            !sourceOpened
+        }
+        if (needsOpen) {
+            val openedSource = openSeekPreviewFrameSource(url, headers)
+            val accepted = synchronized(sourceLock) {
+                if (generation == connectionGeneration && !disposed) {
+                    source = openedSource
+                    sourceOpened = true
+                    true
+                } else {
+                    false
+                }
+            }
+            if (!accepted) {
+                openedSource?.let {
+                    runCatching { it.cancel() }
+                    runCatching { it.close() }
+                }
+                return null
+            }
             InAppLogger.info(
                 LogTag,
-                "source=${source?.let { it::class.simpleName } ?: "none"} headers=${headers.size} " +
+                "source=${openedSource?.let { it::class.simpleName } ?: "none"} headers=${headers.size} " +
                     "url=${InAppLogger.redactUrl(url)}",
             )
         }
-        val activeSource = source ?: throw UnsupportedSeekPreviewSource
+        val activeSource = synchronized(sourceLock) {
+            if (generation == connectionGeneration) source else null
+        } ?: throw UnsupportedSeekPreviewSource
         return activeSource.frameAt(positionMs, FrameMaxWidthPx)
     }
 
