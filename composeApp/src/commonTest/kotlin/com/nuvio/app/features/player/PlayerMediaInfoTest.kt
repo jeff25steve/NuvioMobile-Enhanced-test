@@ -75,6 +75,23 @@ class PlayerMediaInfoTest {
     }
 
     @Test
+    fun mpvUsesMeasuredOutputFpsInsteadOfUnreliableContainerFps() {
+        val properties = mapOf(
+            "container-fps" to "59.94",
+            "estimated-vf-fps" to "23.976",
+        )
+
+        assertEquals(23.976f, mpvMediaInfo { properties[it] }.videoFrameRate!!, 0.001f)
+    }
+
+    @Test
+    fun mpvDoesNotPresentContainerFpsWhenMeasuredOutputFpsIsUnavailable() {
+        val properties = mapOf("container-fps" to "59.94")
+
+        assertEquals(null, mpvMediaInfo { properties[it] }.videoFrameRate)
+    }
+
+    @Test
     fun estimatedOutputFpsMustBeFiniteAndPositive() {
         assertEquals(23.976, mpvPlaybackEstimatedFps(23.976))
         assertEquals(null, mpvPlaybackEstimatedFps(null))
