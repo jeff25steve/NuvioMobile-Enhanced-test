@@ -1637,7 +1637,16 @@ private fun ExoPlayerSurface(
                     exoPlayer.seekTo(targetMs)
                 }
 
-                override fun setScrubbingMode(enabled: Boolean) {
+                override fun setScrubbingMode(enabled: Boolean, fractionalSeekTolerance: Double?) {
+                    val currentParameters = exoPlayer.scrubbingModeParameters
+                    exoPlayer.setScrubbingModeParameters(
+                        currentParameters.buildUpon()
+                            .setFractionalSeekTolerance(
+                                fractionalSeekTolerance.takeIf { enabled },
+                                fractionalSeekTolerance.takeIf { enabled },
+                            )
+                            .build(),
+                    )
                     exoPlayer.setScrubbingModeEnabled(enabled)
                 }
 
