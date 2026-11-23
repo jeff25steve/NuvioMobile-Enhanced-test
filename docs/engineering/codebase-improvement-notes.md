@@ -2241,3 +2241,47 @@ Evidence:
 Verification boundary:
 - Regression tests were authored but not run. No compilation, Gradle tests, build, CI, benchmark, or device playback was started.
 - The changed selector and test sources were fetched back from the remote branch for source-level review. Runtime selection still needs an authorised HLS test using equal-bandwidth PQ/SDR variants on HDR10 and SDR displays, including a low initial bandwidth estimate.
+
+
+## Compose video surface synchronization and ASS source-geometry reset — 23 November 2026
+
+A source-level audit found two separate display defects in the Android playback path.
+
+### Android 14 SurfaceView sizing inside Compose
+
+Nuvio creates Media3 `PlayerView` directly inside Compose `AndroidView` using `PlayerView(viewContext)`. Media3's default surface is `SurfaceView`, which is the correct choice for HDR fidelity, frame timing, power efficiency, and secure video output. However, Android 14 has a platform SurfaceControl transaction issue where a `SurfaceView` hosted in Compose `AndroidView` can retain stale bounds after resize and appear stretched, cropped, or at the wrong aspect ratio.
+
+Changed:
+- Added `shouldEnableComposeSurfaceSyncWorkaround(sdkInt)`, which returns true only for API 34.
+- Enabled Media3's `PlayerView.setEnableComposeSurfaceSyncWorkaround(true)` in the PlayerView factory before attaching the player, and only when the helper says API 34.
+- Left API 35+ untouched. Media3's workaround is itself explicitly API-34-only; Android 15 platform changes are the expected fix path, and forcing the API-34 workaround there would be a no-op.
+- Kept SurfaceView as the video output. Switching to TextureView is not an acceptable workaround because Android documents HDR output limitations and reduced frame-timing/power characteristics for TextureView.
+- Added a policy regression test proving the workaround is enabled for API 34 and disabled for API 33, 35 and 36.
+
+Trade-off:
+- Media3 documents that this workaround can affect XML-based shared-element transitions. The player is created inside Compose `AndroidView`, not an XML PlayerView transition. The opt-in is scoped to API 34 only, matching Media3's own implementation and documented limitation.
+
+Evidence:
+- AndroidX Media3 issue [#1237](https://github.com/androidx/media/issues/1237) identifies the dropped SurfaceView bounds transaction and confirms the PlayerView workaround.
+- AndroidX Media3 issue [#1594](https://github.com/androidx/media/issues/1594) explains why the workaround became opt-in.
+- AndroidX Media3 issue [#2158](https://github.com/androidx/media/issues/2158) and [#2811](https://github.com/androidx/media/issues/2811) document later API 35 / API 34 edge cases; the Media3 maintainers distinguish the Android 14 workaround from Android 15 platform fixes.
+- The exact `PlayerView.java` source at the app's pinned Media3 1.12.0-beta01 branch was inspected. The setter is annotated `@UnstableApi` and its implementation checks `SDK_INT == 34` and SurfaceView.
+
+### Clear stale ASS geometry on unknown video size
+
+The separate AIOStreams/libmpv ASS renderer retained its previous source `videoWidth` and `videoHeight` when Media3 reported `VideoSize.UNKNOWN` or invalid dimensions. This can occur while a player is rebuilt for a new source before its new video format is known. Because the ASS engine is remembered across player rebuilds, an early subtitle track could otherwise be laid out using the previous source's coordinate space.
+
+Changed:
+- Added `assVideoDimensionsFromSize(VideoSize)` to return dimensions only when both are positive.
+- `AiostreamsAssEngine.onVideoSizeChanged` now writes zero dimensions for unknown/invalid video sizes instead of returning and retaining stale dimensions.
+- The valid-size path is unchanged and still passes encoded source dimensions to libass, preserving the subtitle script's source coordinate system.
+- Added tests for valid 1920×1080 geometry and unknown, zero, and negative dimensions.
+
+Additional upstream research:
+- The separate bundled `nuvio-libass-release.aar` is a binary artifact. Its GitHub content metadata provides a blob SHA but not the embedded source revision, so its exact upstream commit could not be established from the checked-in binary alone.
+- The public [NuvioMedia/nuvio-libass](https://github.com/NuvioMedia/nuvio-libass) repository has newer source commits worth carrying into a future AAR refresh: [#3bada55](https://github.com/NuvioMedia/nuvio-libass/commit/3bada555ca12e9c1ed7628c54e8ecbdfc5ff44be) adds atomic ASS track replacement so AutoSync can avoid blanking the old track while parsing a retimed copy; [#34b11d6](https://github.com/NuvioMedia/nuvio-libass/commit/34b11d620336f5d0007a3936a3a7bf30dc351f09) fixes sans-serif fallback ordering for missing glyphs; [#c9879b8](https://github.com/NuvioMedia/nuvio-libass/commit/c9879b843c76b14c353e0d75d239ea50ef31d468) fixes native library load ordering for frame timestamps.
+- These upstream changes were not transplanted into app code or represented as already included in the AAR. Updating the binary requires rebuilding the library and validating ABI/native packaging, which was not authorised in this task.
+
+Verification boundary:
+- Added tests were not run. No Gradle build, tests, CI, benchmark, AAR rebuild, or physical-device playback was started.
+- Final remote source review and branch comparison were performed after the changes. The API-34 surface correction still needs visual validation on a real Android 14 device after a resize/orientation transition; the ASS reset needs validation during a source switch where the next player initially reports `VideoSize.UNKNOWN`.
