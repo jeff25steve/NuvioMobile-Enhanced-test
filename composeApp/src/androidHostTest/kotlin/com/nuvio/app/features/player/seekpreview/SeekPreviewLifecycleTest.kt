@@ -89,6 +89,29 @@ class SeekPreviewLifecycleTest {
     }
 
     @Test
+    fun seekPreviewShortSideScalesFromTheRequestedLandscapeWidth() {
+        assertEquals(180, seekPreviewTargetShortSidePx(320))
+        assertEquals(90, seekPreviewTargetShortSidePx(160))
+        assertEquals(16, seekPreviewTargetShortSidePx(1))
+    }
+
+    @Test
+    fun seekPreviewAspectRatioKeepsPortraitFramesInsideTheBubbleWithoutCropping() {
+        assertEquals(1f, seekPreviewDisplayAspectRatio(180, 320))
+    }
+
+    @Test
+    fun seekPreviewAspectRatioRetainsWideLandscapeBounds() {
+        assertEquals(16f / 9f, seekPreviewDisplayAspectRatio(320, 180))
+        assertEquals(2.4f, seekPreviewDisplayAspectRatio(480, 180))
+    }
+
+    @Test
+    fun invalidSeekPreviewDimensionsUseTheLandscapeFallback() {
+        assertEquals(16f / 9f, seekPreviewDisplayAspectRatio(0, 180))
+    }
+
+    @Test
     fun cancellingPendingFrameUnblocksWaiterAndClearsPendingReference() {
         val future = CompletableFuture<String>()
         val pending = AtomicReference<CompletableFuture<String>?>(future)
