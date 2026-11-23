@@ -49,4 +49,36 @@ class NativeReadAheadAllocationCleanupTest {
         assertEquals("mapped", value)
         assertEquals(false, cleaned)
     }
+    @Test
+    fun sharedMemoryDescriptorClosesEvenWhenUnmappingFails() {
+        var closed = false
+        val unmapFailure = IllegalStateException("unmap failed")
+
+        val thrown = assertFailsWith<IllegalStateException> {
+            closeMappedSharedMemory(
+                unmap = { throw unmapFailure },
+                close = { closed = true },
+            )
+        }
+
+        assertSame(unmapFailure, thrown)
+        assertEquals(true, closed)
+    }
+
+    @Test
+    fun sharedMemoryCloseFailureRetainsUnmapFailure() {
+        val unmapFailure = IllegalStateException("unmap failed")
+        val closeFailure = IllegalArgumentException("descriptor close failed")
+
+        val thrown = assertFailsWith<IllegalArgumentException> {
+            closeMappedSharedMemory(
+                unmap = { throw unmapFailure },
+                close = { throw closeFailure },
+            )
+        }
+
+        assertSame(closeFailure, thrown)
+        assertSame(unmapFailure, thrown.suppressed.single())
+    }
+
 }
