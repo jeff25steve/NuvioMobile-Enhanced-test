@@ -361,7 +361,8 @@ private fun PlayerScreenRuntime.tryAutoSelectPreferredSubtitleFromAvailableTrack
         }
     } else if (!preferredSubtitleSelectionApplied) {
         disableAutomaticSubtitleSelection()
-        preferredSubtitleSelectionApplied = true
+        // Slow subtitle add-ons may still return a preferred-language match.
+        preferredSubtitleSelectionApplied = !isLoadingAddonSubtitles
     }
 }
 

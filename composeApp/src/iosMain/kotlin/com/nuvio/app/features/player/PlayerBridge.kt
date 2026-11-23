@@ -94,6 +94,8 @@ interface NuvioPlayerBridge {
         stripSdh: Boolean,
         styledOverlay: Boolean,
         outlineBlur: Int,
+        customizeAss: Boolean,
+        assScale: Double,
     )
     fun getIsLoading(): Boolean
     /** mpv has not loaded the current file yet. */

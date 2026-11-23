@@ -1161,6 +1161,7 @@ private fun PlayerScreenRuntime.RenderPlayerModals() {
         },
         onAudioModalDismissed = { showAudioModal = false },
         showAudioDelay = playerController?.supportsAudioDelay == true,
+        supportsAssStyleCustomization = playerController?.supportsAssStyleCustomization == true,
         audioDelayMs = audioDelayMs,
         onAudioDelayChanged = { delayMs -> setAudioDelay(delayMs) },
         showAudioAmplification = playerController?.supportsAudioAmplification == true,

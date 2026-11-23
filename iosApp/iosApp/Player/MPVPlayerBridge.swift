@@ -253,7 +253,9 @@ final class MPVPlayerBridgeImpl: NSObject, NuvioPlayerBridge {
         subPos: Int32,
         stripSdh: Bool,
         styledOverlay: Bool,
-        outlineBlur: Int32
+        outlineBlur: Int32,
+        customizeAss: Bool,
+        assScale: Double
     ) {
         playerVC?.applySubtitleStyle(
             textColor: textColor,
@@ -500,6 +502,14 @@ final class MPVPlayerViewController: UIViewController {
     private var usesStyledSubtitles = false
     private var styledSubtitleVisible = false
     private var lastSubtitleText = ""
+    private var currentCustomizeAss = false
+    private var currentAssScale = 1.0
+    private var currentSubtitleBold = false
+    private var currentSubtitlePos = 100
+    private var appliedAssOverride: String?
+    private var appliedAssScale = 1.0
+    private var appliedAssBold: Bool?
+    private var appliedSubPos: Int?
     private var pictureInPictureController: PlayerPictureInPictureController?
     var systemControlHandler: PlayerSystemControlHandler?
     var keepsPlaybackInBackground: Bool { pictureInPictureController?.keepsPlaybackAlive == true }
@@ -984,6 +994,7 @@ final class MPVPlayerViewController: UIViewController {
         setSetupOption("video-rotate", "no")
         setSetupOption("subs-match-os-language", "yes")
         setSetupOption("subs-fallback", "yes")
+        setSetupOption("sub-ass-override", "no")
         configureBundledSubtitleFont()
         setSetupOption("keep-open", "yes")
         setSetupOption("target-colorspace-hint", "yes")
@@ -2150,7 +2161,9 @@ final class MPVPlayerViewController: UIViewController {
         subPos: Int,
         stripSdh: Bool,
         styledOverlay: Bool,
-        outlineBlur: Int
+        outlineBlur: Int,
+        customizeAss: Bool,
+        assScale: Double
     ) {
         lastSubtitleStyle = SubtitleStyleSettings(
             textColor: textColor,
@@ -2162,7 +2175,9 @@ final class MPVPlayerViewController: UIViewController {
             subPos: subPos,
             stripSdh: stripSdh,
             styledOverlay: styledOverlay,
-            outlineBlur: outlineBlur
+            outlineBlur: outlineBlur,
+            customizeAss: customizeAss,
+            assScale: assScale
         )
         guard mpv != nil else { return }
 
@@ -2173,7 +2188,6 @@ final class MPVPlayerViewController: UIViewController {
             ? max(Double(outlineSize), 1.0)
             : Double(outlineSize)
 
-        setStringProperty("sub-ass-override", "no")
         setStringProperty("sub-color", textColor)
         setStringProperty("sub-back-color", backgroundColor)
         setStringProperty("sub-outline-color", effectiveOutlineColor)
@@ -2182,16 +2196,47 @@ final class MPVPlayerViewController: UIViewController {
         setDoubleProperty("sub-outline-size", effectiveOutlineSize)
         setDoubleProperty("sub-blur", Double(outlineBlur))
         setDoubleProperty("sub-font-size", Double(fontSize))
-        setIntProperty("sub-pos", Int64(subPos))
         setStringProperty("sub-filter-sdh", stripSdh ? "yes" : "no")
         setStringProperty("sub-filter-sdh-harder", stripSdh ? "yes" : "no")
         usesStyledSubtitles = styledOverlay
+        currentCustomizeAss = customizeAss
+        currentAssScale = assScale
+        currentSubtitleBold = bold
+        currentSubtitlePos = subPos
         updateStyledSubtitle()
     }
 
     private func updateStyledSubtitle() {
         guard mpv != nil else { return }
         let codec = getString("current-tracks/sub/codec") ?? ""
+        let assOverride = SubtitleRendering.shared.assOverride(
+            codec: codec,
+            customizeAss: currentCustomizeAss,
+            assScale: currentAssScale
+        )
+        if appliedAssOverride != assOverride {
+            setStringProperty("sub-ass-override", assOverride)
+            appliedAssOverride = assOverride
+        }
+        let scale = assOverride == "scale" ? currentAssScale : 1.0
+        if appliedAssScale != scale {
+            setDoubleProperty("sub-scale", scale)
+            appliedAssScale = scale
+        }
+        let targetSubPos = assOverride == "scale" ? 100 : currentSubtitlePos
+        if appliedSubPos != targetSubPos {
+            setIntProperty("sub-pos", Int64(targetSubPos))
+            appliedSubPos = targetSubPos
+        }
+        let assBold: Bool? = assOverride == "force" ? currentSubtitleBold : nil
+        if appliedAssBold != assBold {
+            if let assBold {
+                command("change-list", args: ["sub-ass-style-overrides", "set", assBold ? "Bold=1" : "Bold=0"])
+            } else {
+                command("change-list", args: ["sub-ass-style-overrides", "clr", ""])
+            }
+            appliedAssBold = assBold
+        }
         let styled = usesStyledSubtitles && SubtitleRendering.shared.supportsTextOverlay(codec: codec)
         if styled != styledSubtitleVisible {
             setStringProperty("sub-visibility", styled ? "no" : "yes")

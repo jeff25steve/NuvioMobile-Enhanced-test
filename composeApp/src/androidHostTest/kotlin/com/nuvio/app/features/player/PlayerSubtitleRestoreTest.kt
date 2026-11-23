@@ -177,6 +177,26 @@ class PlayerSubtitleRestoreTest {
         assertTrue(runtime.isUserExplicitSubtitleSelection)
     }
 
+    @Test
+    fun preferredAddonSubtitleIsPickedWhenAddonsAnswerAfterTheFirstTrackScan() {
+        val runtime = runtime()
+        val controller = RecordingController()
+        runtime.playerController = controller
+        runtime.playerControllerSourceUrl = runtime.activeSourceUrl
+        runtime.playbackSnapshot = PlayerPlaybackSnapshot(isLoading = false)
+        runtime.addonSubtitles = emptyList()
+        runtime.isLoadingAddonSubtitles = true
+
+        runtime.refreshTracks()
+        assertFalse(runtime.preferredSubtitleSelectionApplied)
+
+        runtime.addonSubtitles = listOf(episodeOneSubtitle)
+        runtime.isLoadingAddonSubtitles = false
+        runtime.refreshTracks()
+
+        assertEquals(listOf(episodeOneSubtitle.url), controller.subtitleUrls)
+    }
+
     private fun advanceToEpisodeTwo(runtime: PlayerScreenRuntime): RecordingController {
         runtime.switchToEpisodeStream(
             StreamItem(url = "https://example.com/episode-2.mp4", addonName = "Test", addonId = "test"),

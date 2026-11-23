@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player
 
+import kotlin.math.abs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,7 +13,17 @@ data class SubtitleAppearance(
     val shadowOpacity: Int = 75,
     val shadowSize: Int = 2,
     val outlineBlur: Int = 0,
+    val customizeAss: Boolean = false,
 ) {
+    // Preserve the five-argument constructor used by Swift callers.
+    constructor(
+        fontId: String,
+        backgroundRadius: Int,
+        shadowEnabled: Boolean,
+        shadowOpacity: Int,
+        shadowSize: Int,
+    ) : this(fontId, backgroundRadius, shadowEnabled, shadowOpacity, shadowSize, outlineBlur = 0, customizeAss = false)
+
     fun normalized(): SubtitleAppearance = copy(
         fontId = fontId.takeIf { it in BuiltInSubtitleFonts || it.matches(Regex("custom-[a-f0-9-]{36}")) } ?: "default",
         backgroundRadius = backgroundRadius.coerceIn(0, 24),
@@ -131,6 +142,9 @@ internal val SubtitleStyleState.requiresComposeStyledOverlay: Boolean
         appearance.shadowEnabled ||
         (outlineEnabled && outlineWidth != SUBTITLE_OUTLINE_WIDTH_DEFAULT)
 
+internal val SubtitleStyleState.assScale: Double
+    get() = fontSizeSp.toDouble() / SubtitleStyleState.DEFAULT.fontSizeSp
+
 internal val SubtitleStyleState.usesStyledOverlay: Boolean
     get() = requiresComposeStyledOverlay ||
         (outlineEnabled && outlineWidth > 0 && appearance.outlineBlur > SUBTITLE_OUTLINE_BLUR_MIN)
@@ -153,6 +167,17 @@ internal val SubtitleStyleState.mpvNativeOutlineBlurAmount: Float
 internal expect fun supportsNativeSubtitleBlur(): Boolean
 
 object SubtitleRendering {
+    private fun isAss(codec: String): Boolean =
+        codec.equals("ass", ignoreCase = true) || codec.equals("ssa", ignoreCase = true)
+
+    /** Preserve authored ASS styles unless the user opts in; font resizing uses mpv's scale-only mode. */
+    fun assOverride(codec: String, customizeAss: Boolean, assScale: Double = 1.0): String = when {
+        !isAss(codec) -> "no"
+        customizeAss -> "force"
+        abs(assScale - 1.0) > 0.001 -> "scale"
+        else -> "no"
+    }
+
     fun supportsTextOverlay(codec: String): Boolean = codec.lowercase() in setOf(
         "subrip", "srt", "webvtt", "text", "mov_text", "microdvd", "mpl2", "subviewer", "subviewer1", "sami", "realtext",
     )

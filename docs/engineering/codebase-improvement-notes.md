@@ -1791,3 +1791,30 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 - Added four common HLS resolver metadata tests, three common `PlayerMediaInfo` tests and five Android host playback-format tests (including all five Dolby Vision codec families, transfer-function classification, BT.2020-only SDR, color range, bit depth and consistent PQ/DV badges).
 - Source files, test sources, the Media3 catalog and compatibility guard were re-fetched and reviewed. No Gradle test, compilation, build, CI, benchmark or device playback was run because authorization has not been given. No runtime playback improvement is claimed until those checks and representative device tests pass.
+
+
+## Playback subtitle fidelity and late add-on recovery — 23 November 2026
+
+### Research basis
+- Reviewed upstream Nuvio Mobile PR #2698 (open at research time, updated 21 November): restore ASS/SSA font sizing while preserving authored styling by default, with an explicit opt-in for full ASS customization across Android libass, Android libmpv and iOS mpv.
+- Reviewed upstream Nuvio Mobile PR #2734 (open at research time, updated 22 November): addon subtitles were incorrectly blocked when Nuvio's own backend was unreachable, asynchronous subtitle state did not invalidate Compose while paused/loading, and preferred-language selection could finish before slow addons responded.
+- Checked mpv's current manual: `sub-ass-override=no` preserves authored scripts; `scale` applies `sub-scale` without forcing all style overrides; `force` applies user overrides and can disrupt authored layout. Therefore default styling remains untouched and the full override is explicitly opt-in.
+- Community discovery also surfaced Nuvio issue #2739 requesting pinch-to-zoom. It remains an open proposal without an upstream implementation; it was not copied speculatively. Existing resize/zoom behavior was left unchanged.
+
+### Integrated on `main-build-testing`
+- Added ASS/SSA override classification: preserve authored styles at the default size, use mpv's scale-only mode when the user changes subtitle size, and use full ASS override only after enabling **Customize ASS/SSA styling**.
+- Added an opt-in control only for mpv engines. ExoPlayer's libass path receives the same font-scale setting, but does not advertise unsupported full ASS styling.
+- Applied font scaling to ExoPlayer libass both when the player is created and when the user changes subtitle size; invalidate the overlay for immediate preview updates.
+- Applied the same scale/override/position/bold-reset behavior to Android libmpv and iOS mpv. The scale-only path restores original ASS vertical positioning instead of moving authored dialogue when font size changes.
+- Fixed Android ExoPlayer libass lifecycle cleanup by routing release through `releaseWithAssSupportCompat()`, which removes the handler's scale callback state and releases the handler.
+- Changed mpv overlay selection to use `usesStyledOverlay`, so non-default outline blur is not silently ignored.
+- Made addon subtitle collections/loading flags observable Compose state; distinguish no internet from an unreachable Nuvio backend; keep preferred-language auto-selection pending until addon subtitle loading has completed.
+
+### Regression coverage authored
+- Added pure ASS mode/default tests for authored-style preservation, scale-only resizing, explicit full override, non-ASS isolation and backward-compatible default preference.
+- Added a Compose-state regression test for addon subtitles arriving while playback is paused/loading.
+- Added a host regression test for preferred-language addon subtitles arriving after the first track scan.
+
+### Verification boundary
+- Source files, upstream PR patches and mpv manual semantics were inspected. Remote branch source changes and the final commit are checked after integration.
+- No Gradle tests, compilation, build, CI, benchmark or device playback were run, respecting the instruction not to start builds or CI without authorization. Test sources are authored but remain unexecuted; runtime visual parity is not claimed until authorized Android/iOS device checks.
