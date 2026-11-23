@@ -95,8 +95,8 @@ class StyledSubtitleCuesTest {
     }
 
     @Test
-    fun bottomLetterboxPlacementUsesTheDisplayOnlyWhenTheWholeCueFits() {
-        assertEquals(900, subtitleBottomLetterboxTopPx(1_080, 850, 80, 100))
+    fun bottomDisplayPlacementUsesLetterboxOnlyWhenTheWholeCueFits() {
+        assertEquals(900, subtitleBottomDisplayTopPx(1_080, 850, 80, 100))
         assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 950, 80, 60))
         assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 1_080, 80, 40))
         assertEquals(null, subtitleBottomLetterboxTopPx(1_080, 850, 0, 100))
