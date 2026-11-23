@@ -2210,7 +2210,7 @@ Research and implementation constraints:
 
 Verification boundary:
 - Regression tests were authored but not run. No compilation, Gradle test, build, CI, benchmark, or physical-device playback was started, per the user's instruction.
-- Source review and remote GitHub verification are still required after the documentation update. Visual validation is still needed for source switches between video and audio-only media and for streams with missing or malformed frame-rate metadata.
+- Remote source review and branch comparison were completed after the documentation update. Visual validation is still needed for source switches between video and audio-only media and for streams with missing or malformed frame-rate metadata.
 - No measured improvement in playback smoothness or display refresh switching is claimed until device playback is authorised and measured.
 
 
