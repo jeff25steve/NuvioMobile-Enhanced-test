@@ -138,9 +138,11 @@ private fun PositionedSubtitleBlock(
         val videoHeight = videoBounds.height.roundToInt()
         val videoLeft = videoBounds.left.roundToInt()
         val videoTop = videoBounds.top.roundToInt()
+        val cueWidth = if (block.placeInLetterbox) viewportWidth else videoWidth
+        val cueLeft = if (block.placeInLetterbox) 0 else videoLeft
         val requestedWidth = block.widthFraction
-            ?.let { (videoWidth * it.coerceIn(0f, 1f)).roundToInt() }
-            ?: (videoWidth - horizontalInsetPx * 2)
+            ?.let { (cueWidth * it.coerceIn(0f, 1f)).roundToInt() }
+            ?: (cueWidth - horizontalInsetPx * 2)
         if (requestedWidth <= 0 || videoWidth <= 0 || videoHeight <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
             layout(viewportWidth, viewportHeight) {}
         } else {
@@ -152,16 +154,16 @@ private fun PositionedSubtitleBlock(
                 ),
             )
             val x = block.positionX?.let { position ->
-                videoLeft + subtitleCueAxisOffset(
-                    viewportSize = videoWidth,
+                cueLeft + subtitleCueAxisOffset(
+                    viewportSize = cueWidth,
                     contentSize = placeable.width,
                     positionFraction = position,
                     anchorFraction = block.positionXAnchor,
                 )
             } ?: when (block.horizontal) {
-                SubtitleHorizontalPosition.START -> videoLeft + horizontalInsetPx
-                SubtitleHorizontalPosition.CENTER -> videoLeft + (videoWidth - placeable.width) / 2
-                SubtitleHorizontalPosition.END -> videoLeft + videoWidth - placeable.width - horizontalInsetPx
+                SubtitleHorizontalPosition.START -> cueLeft + horizontalInsetPx
+                SubtitleHorizontalPosition.CENTER -> cueLeft + (cueWidth - placeable.width) / 2
+                SubtitleHorizontalPosition.END -> cueLeft + cueWidth - placeable.width - horizontalInsetPx
             }
             val letterboxBottomY = if (
                 block.placeInLetterbox &&
