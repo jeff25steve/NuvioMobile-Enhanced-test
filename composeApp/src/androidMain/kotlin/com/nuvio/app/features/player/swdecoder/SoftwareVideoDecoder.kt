@@ -693,7 +693,6 @@ internal class SoftwareVideoDecoder(
         private const val TAG = "SoftwareVideoDecoder"
         private const val INPUT_BUFFERS = 6
         private const val OUTPUT_BUFFERS = 6
-        private const val DEFAULT_INPUT_BUFFER_SIZE = 768 * 1024
         private const val STRIDE_ALIGNMENT = 64
 
         private val HIGH_BIT_DEPTH_AVC_PROFILES = setOf(44, 110, 122, 244)
