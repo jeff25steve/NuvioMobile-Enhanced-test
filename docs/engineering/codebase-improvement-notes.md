@@ -2118,3 +2118,37 @@ Verification boundary:
 - Regression tests were authored before the production edit but were not executed because no Gradle test/build or CI run was authorised. No build, CI, benchmark or device playback was run.
 - The displayed value is now a measured output estimate. It can fluctuate with frame dropping and may be unavailable before enough frames have been observed; those are documented mpv property semantics, not a source-FPS guarantee.
 
+## Playback research: native subtitle timing and HDR extractor follow-up — 23 November 2026
+
+This follow-up reviewed newer Media3 work and recent Jellyfin-family playback reports against the current Android playback implementation. It records actionable leads without transplanting code whose integration boundary has not yet been proven.
+
+### Native sideloaded-subtitle timing
+
+The project pins AndroidX Media3 `1.12.0-beta01`. AndroidX Media3 PR [#3370](https://github.com/androidx/media/pull/3370) added `MediaItem.SubtitleConfiguration.timeOffsetUs` (available from Media3 1.12.0-alpha01 onward) for sideloaded subtitle tracks. Its implementation updates cue timestamps in the media-source/period layer and supports in-place `replaceMediaItem` updates when only subtitle offsets change. The PR deliberately avoids a generic renderer-position workaround and includes tests for positive/negative offsets and changing the offset during playback without rebuffering.
+
+The current Nuvio Android backend instead wraps text renderers in `SubtitleOffsetRenderer`, shifting the renderer's input position for every text track using the live subtitle and audio delay providers. That behavior also covers embedded tracks and is coupled to the app's ASS handler and sidecar path. Therefore, replacing the wrapper wholesale with the new sideloaded-only API would regress embedded subtitle delay and could double-apply offsets if both paths were active.
+
+A safe follow-up must first classify the selected source as embedded, MediaItem-sideloaded, or sidecar/libass; then route each path to exactly one timing mechanism. For sideloaded tracks, test whether updating only `timeOffsetUs` through `replaceMediaItem` preserves the current period and playback position in this app's actual MediaSource setup. Preserve audio-delay compensation and the current behavior for embedded/ASS/sidecar tracks. Do not add a fixed HLS correction: Media3 already corrects HLS video timestamps, and separately fetched SRT/ASS subtitles may not carry the same transport-stream padding.
+
+Evidence:
+- AndroidX [PR #3370](https://github.com/androidx/media/pull/3370) documents the native API, its sideloaded-only scope, the in-place media-item update contract, and why renderer-time shifting is not the general solution.
+- Moonfin [PR #1578](https://github.com/Moonfin-Client/Moonfin-Core/pull/1578) and [issue #1624](https://github.com/Moonfin-Client/Moonfin-Core/issues/1624) document a reproducible roughly ten-second early-subtitle regression caused by applying an HLS video timestamp correction again to separately extracted subtitles. Their fix removed only the duplicate automatic correction and retained Media3's own HLS handling.
+- The project's Android code currently creates subtitle configurations and applies manual timing in `SubtitleOffsetRenderer`; the implementation must keep those distinct paths from being double-shifted.
+
+### External subtitle loading and transcode stalls
+
+Moonfin 2.7.0 release notes describe a separate issue where eagerly attached external subtitle sources could hold a transcoded video behind a subtitle source that was still extracting, and where attaching multiple subtitle tracks caused repeated playback restarts. This is a useful regression target for Nuvio, but it is not yet established as a Nuvio defect: the helper that creates startup subtitle configurations and the exact source loading behavior must be traced before changing the startup selection strategy.
+
+Evidence:
+- [Moonfin 2.7.0 release notes](https://newreleases.io/project/github/Moonfin-Client/Moonfin-Core/release/2.7.0) summarize the fix.
+- [Moonfin issue #1849](https://github.com/Moonfin-Client/Moonfin-Core/issues/1849) is a report of subtitle drift without diagnostic logs; it is not proof of the eager-source stall itself.
+
+### HLG alternative-transfer SEI
+
+The NuvioTV [HevcAlternativeTransferSei implementation](https://github.com/NuvioMedia/NuvioTV/blob/b70adbb8357e5c5042c35824ed1f060cd9fa973a/app/src/main/java/com/nuvio/tv/core/player/dvmkv/HevcAlternativeTransferSei.java) reads HEVC prefix SEI payload type 147 and uses the preferred transfer characteristic to recover HLG signaling that may be absent from Matroska/container colour metadata. It peeks the sample's length-prefixed NAL units and uses SPS metadata as fallback for colour space/range/bit depth.
+
+This is still not a drop-in utility: it requires access to sample-level Matroska extractor reads and safe propagation of corrected `Format.colorInfo` before decoder configuration. The app currently builds its extractor chain from `DefaultExtractorsFactory` and composes AutoSync/ASS extractor wrappers. Before implementation, map the exact Media3 1.12.0-beta01 Matroska sample pipeline and define a narrowly scoped extractor decorator with tests for malformed SEI, absent SEI, existing PQ/HLG metadata, and non-HEVC tracks. Do not rewrite all Matroska extraction or change HDR defaults.
+
+### Verification boundary
+
+This section is research and implementation guidance only. No player code, dependencies, playback settings, tests, or build configuration were changed by this research pass. No Gradle tests, compilation, build, CI, benchmark, or device playback was run. The next implementation should be limited to a path with a testable source-level contract and should be playback-validated before any claim of improved visual output.
