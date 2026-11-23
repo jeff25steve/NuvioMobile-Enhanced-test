@@ -31,6 +31,18 @@ internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dat
 internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
     outputBuffer.decoderPrivate.toInt()
 
+/** Returns the byte capacity required by a tightly described I420 frame, or null for invalid layouts. */
+internal fun requiredSoftwareYuv420BufferSize(width: Int, height: Int, yStride: Int, uvStride: Int): Long? {
+    if (width <= 0 || height <= 0 || yStride < width || uvStride < (width + 1) / 2) return null
+    val yBytes = yStride.toLong() * height.toLong()
+    val chromaBytes = uvStride.toLong() * ((height.toLong() + 1L) / 2L)
+    if (chromaBytes > Long.MAX_VALUE / 2L) return null
+    val bothChromaPlanes = chromaBytes * 2L
+    if (yBytes > Long.MAX_VALUE - bothChromaPlanes) return null
+    val requiredBytes = yBytes + bothChromaPlanes
+    return requiredBytes.takeIf { it <= Int.MAX_VALUE.toLong() }
+}
+
 /** Ensures FFmpeg's required zeroed overread padding without copying the compressed sample. */
 internal fun prepareFfmpegPacketData(data: ByteBuffer): Int {
     require(data.isDirect) { "FFmpeg packet input must be a direct buffer" }
@@ -126,6 +138,11 @@ internal class SoftwareVideoDecoder(
         }
         val frameData = outputBuffer.data
             ?: return SoftwareVideoDecoderException("Missing $codecName frame buffer")
+        val requiredBytes = requiredSoftwareYuv420BufferSize(width, height, yStride, uvStride)
+            ?: return SoftwareVideoDecoderException("Invalid $codecName YUV buffer layout")
+        if (!frameData.isDirect || frameData.capacity().toLong() < requiredBytes) {
+            return SoftwareVideoDecoderException("Insufficient $codecName YUV frame buffer capacity")
+        }
         if (!nativeConvertFrame(handle, frameData, yStride, uvStride)) {
             return SoftwareVideoDecoderException("Failed to convert $codecName frame")
         }
@@ -138,6 +155,15 @@ internal class SoftwareVideoDecoder(
         val data = outputBuffer.data
         if (outputBuffer.mode != C.VIDEO_OUTPUT_MODE_SURFACE_YUV || data == null) {
             throw SoftwareVideoDecoderException("Invalid output buffer")
+        }
+        val requiredBytes = requiredSoftwareYuv420BufferSize(
+            outputBuffer.width,
+            outputBuffer.height,
+            outputBuffer.yStride,
+            outputBuffer.uvStride,
+        ) ?: throw SoftwareVideoDecoderException("Invalid output frame layout")
+        if (!data.isDirect || data.capacity().toLong() < requiredBytes) {
+            throw SoftwareVideoDecoderException("Insufficient output frame buffer capacity")
         }
         val result = nativeRender(
             handle,
