@@ -315,3 +315,15 @@ The read-ahead consumer now releases a partially filled final native-memory bloc
 The DataSource close path no longer suppresses upstream close failures. It still waits for the read-ahead thread, propagates cleanup errors, and attaches an upstream-close error as suppressed if waiting itself fails. Source URI and response-header metadata are cleared regardless of cleanup outcome.
 
 Host regression tests were added for partial-block reclamation and close-failure propagation. They were not run. Context7 checked the exact Media3 1.11.1 DataSource contract; Exa checked the corresponding OkHttp-backed implementation and response-body cleanup behavior. No Gradle task, Kotlin compilation, build, CI, device playback, network fault injection or memory benchmark was run. These changes improve native-memory lifetime and cleanup observability; no playback-speed improvement is claimed.
+
+
+## Further read-ahead, source-wrapper and MIME-header lifecycle fixes (Cycles 170–173, 23 November 2026)
+
+Four additional source-level corrections were integrated:
+
+- The native read-ahead producer now frees its reusable mapped-block pool when it finishes, and terminal full blocks are freed instead of recycled. This complements the prior partial-final-block reclamation.
+- `SelectiveBufferedDataSource` clears its active reference even when delegate close fails and discards only the failed delegate, so a later open can obtain a fresh instance without sacrificing reuse after successful closes.
+- Response-header overrides now match HTTP's case-insensitive field-name semantics. Case variants from the upstream response are removed before the override is inserted, avoiding conflicting MIME metadata.
+- Failed native block creation now cleans up acquired SharedMemory mappings/descriptors and file-backed fallback resources, preserving the allocation error and retaining cleanup failures as suppressed exceptions.
+
+Host regression tests were added for these cases but were not run. Context7 checked the exact Media3 1.11.1 dependency and DataSource lifecycle; Exa checked the Android SharedMemory API and RFC 9110 §5.1. No Gradle tasks, compilation, builds, CI, device playback, fault injection or performance benchmarks were run. These are resource-lifecycle and source-classification correctness improvements; no measurable playback-speed improvement is claimed.
