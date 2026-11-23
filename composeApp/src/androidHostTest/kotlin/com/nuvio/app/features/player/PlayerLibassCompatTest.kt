@@ -30,7 +30,7 @@ class PlayerLibassCompatTest {
     }
 
     @Test
-    fun libassFontScaleOnlyInvalidatesWhenTheScaleActuallyChanges() {
+    fun libassFontScaleOnlyReportsChangesWhenTheScaleActuallyChanges() {
         val context = RuntimeEnvironment.getApplication()
         val player = ExoPlayer.Builder(context).buildWithAssSupportCompat(context = context)
         try {
@@ -43,6 +43,14 @@ class PlayerLibassCompatTest {
         } finally {
             player.releaseWithAssSupportCompat()
         }
+    }
+
+    @Test
+    fun exoLibassFontScalePreservesTheFullSixtySpRange() {
+        val sixtySpScale = SubtitleStyleState(fontSizeSp = 60).assScale.toFloat()
+        assertEquals(60f / 18f, normalizedAssFontScale(sixtySpScale), 0.0001f)
+        assertEquals(4f, normalizedAssFontScale(5f))
+        assertEquals(1f, normalizedAssFontScale(Float.NaN))
     }
 
     @Test

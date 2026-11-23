@@ -18,7 +18,7 @@ Make authored ASS/SSA subtitles resize correctly without losing their original s
 7. Only `NetworkCondition.NoInternet` blocks addon fetching; Nuvio backend unavailability does not.
 8. Preferred-language subtitle selection remains pending until addon loading completes.
 9. Android subtitle font size is 12–60sp; iOS remains 6–40sp. Android libmpv maps 60sp to 183 native units so the engine does not clamp the UI maximum.
-10. ExoPlayer libass scale updates are idempotent: unchanged scales do not increment renderer generation or invalidate the overlay again; non-finite scale inputs fall back to 1.0.
+10. ExoPlayer libass scale updates are idempotent: unchanged scales do not increment renderer generation or invalidate the overlay again; non-finite scale inputs fall back to 1.0; valid 60sp scales are preserved up to 4.0x.
 11. iOS device-loss recovery stores and reapplies both `customizeAss` and `assScale`.
 12. In mpv `sub-ass-override=force`, use the generic `sub-bold` option; do not rely on `sub-ass-style-overrides`, which mpv does not apply in force mode.
 

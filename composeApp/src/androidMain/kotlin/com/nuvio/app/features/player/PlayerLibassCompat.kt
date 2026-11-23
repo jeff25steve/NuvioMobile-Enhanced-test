@@ -66,8 +66,11 @@ internal fun ExoPlayer.Builder.buildWithAssSupportCompat(
 
 internal fun ExoPlayer.getAssHandlerCompat(): AssHandler? = assHandlersByPlayer[this]
 
+internal fun normalizedAssFontScale(scale: Float): Float =
+    if (scale.isFinite()) scale.coerceIn(0.25f, 4.0f) else 1.0f
+
 internal fun AssHandler.applyAssFontScaleCompat(scale: Float): Boolean {
-    val clamped = if (scale.isFinite()) scale.coerceIn(0.25f, 3.0f) else 1.0f
+    val clamped = normalizedAssFontScale(scale)
     val changed = synchronized(assFontScaleByHandler) {
         val previous = assFontScaleByHandler[this]
         if (previous == clamped) {
