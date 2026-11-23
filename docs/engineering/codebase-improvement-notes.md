@@ -1464,3 +1464,18 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 **Correction to the closed-PR audit above**
 - The earlier statement that strong-validator resume handling from PR #24/#28 was already present was incorrect. At baseline commit 66e1142, AndroidDownloadTransfer still fell back to Last-Modified and could issue Range without a strong validator. Cycle 219 closes that gap by requiring a strong ETag before resuming.
+
+
+**Cycle 220 — preserve FFmpeg software-video colorimetry through both output paths**
+- Expanded the native decoded-frame metadata contract to return FFmpeg 8.0 color_primaries, color_trc, and color_range independently from the YUV matrix classification. Android display standard is now derived from source primaries when specified; the matrix is used only as a fallback for unspecified primaries. This corrects cases where BT.2020 primaries were labelled BT.709 because the YUV matrix differed.
+- Added explicit Android dataspace mappings for BT.709, BT.470M, BT.601 625/525, BT.2020, Film, DCI-P3 and the exact Display-P3/sRGB/full-range combination. Transfer mapping now distinguishes linear, sRGB, gamma 2.2, 2.6 and 2.8, SMPTE 170M-family transfer, PQ and HLG instead of collapsing all non-PQ/HLG transfers into SDR. Full versus limited range is retained.
+- Both the direct ANativeWindow YV12 path and the Media3 YUV output path now receive the same per-frame dataspace. In direct-surface mode the dataspace is carried in the output buffer's otherwise-unused colorspace field while decoderPrivate continues to own the native AVFrame handle; this avoids losing color metadata when using the zero-intermediate-copy surface path.
+- Added host regression coverage for matrix/primaries independence, explicit PAL/NTSC primaries, Film/DCI-P3/Display-P3, transfer-function mappings, full/limited range, unknown-metadata fallback and per-frame output-buffer ownership.
+- Sources checked: FFmpeg 8.0 libavutil/pixfmt.h (the exact enum values used by JNI), Android NDK ADataSpace definitions and ANativeWindow buffer API, and the exact Media3 1.11.1 VideoDecoderOutputBuffer contract. No Media3 dependency bump was made; 1.11.1 remains the stable release, while 1.12.0-beta01 was reviewed but not adopted without a full compile/regression pass.
+- Validation boundary: regression tests were added but not executed. No Kotlin compilation, native C/C++ compilation, Gradle task, build, CI, APK generation or device playback run was started. This is source-reviewed only; actual device colour output still needs verification on SDR, HDR10/PQ and HLG material.
+
+**Cycle 221 — avoid duplicate native seek-preview work for exact cached frames**
+- Native thumbnail scrubbing now reuses an exact-position cached frame without issuing another feed decode request. Any delayed, not-yet-issued request is cancelled when the exact cached frame is already available. Nearby cached frames still act as visual placeholders but do not suppress a request for the exact requested position.
+- Background warm-up now checks for an exact cached anchor frame before requesting another decode. When a prior feed frame is already available, it reuses that frame and continues the normal prefetch schedule rather than restarting decode work.
+- Added host regression coverage for exact cached positions, nearby-but-not-exact positions, and cache misses.
+- Validation boundary: tests were added but not run; no build or CI was started. The expected benefit is fewer redundant thumbnail decode/feed requests during repeated scrubbing; no frame-time or network reduction is claimed as measured.
