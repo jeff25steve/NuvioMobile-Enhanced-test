@@ -860,7 +860,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
                 // Media3 scrubbing mode is designed for seekTo calls throughout a drag.
                 // Keep mpv and party-locked playback on the existing single-seek path.
                 if (isExoPlayerScrubbing && !isPartyControlLocked &&
-                    playerController?.playbackEngine == AndroidPlaybackEngine.ExoPlayer
+                    playerController?.supportsInteractiveScrubbing == true
                 ) {
                     playerController?.seekTo(positionMs)
                 }
