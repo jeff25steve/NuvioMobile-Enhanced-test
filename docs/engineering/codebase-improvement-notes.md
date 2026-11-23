@@ -1479,3 +1479,22 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Background warm-up now checks for an exact cached anchor frame before requesting another decode. When a prior feed frame is already available, it reuses that frame and continues the normal prefetch schedule rather than restarting decode work.
 - Added host regression coverage for exact cached positions, nearby-but-not-exact positions, and cache misses.
 - Validation boundary: tests were added but not run; no build or CI was started. The expected benefit is fewer redundant thumbnail decode/feed requests during repeated scrubbing; no frame-time or network reduction is claimed as measured.
+
+
+**Cycle 222 — keep seek-preview scrubbing requests latest-wins**
+- The Android native thumbnail adapter previously submitted every scrub position to a single-thread executor's unbounded work queue. When native thumbnail work took longer than the scrub event cadence, obsolete positions could accumulate ahead of the current thumb position.
+- Replaced per-position executor submissions with a single atomic latest-request slot and one scheduled drain. A burst of positions now retains only the newest pending target while a native request is in flight; the drain consumes the latest request and loops only if another target arrived. The close path clears pending work, and late requests are ignored once closed.
+- Added host regression coverage for latest-position retention, empty-after-take behavior and clearing pending work during close.
+- This bounds queued scrub work to one pending target plus the currently executing native call. It is a queue/backlog guarantee, not a measured thumbnail latency or frame-rate improvement.
+
+**Cycle 223 — preserve the complete seek-preview frame across orientations**
+- The ExoPlayer preview grabber previously used `Presentation.createForHeight` with a height derived from a 16:9 assumption. Portrait sources therefore received a very narrow decode target, and the preview bubble then used `ContentScale.Crop`, cutting off substantial parts of portrait frames and ultrawide edges.
+- Switched the Media3 1.11.1 preview effect to `Presentation.createForShortSide`, which sizes from the shorter side regardless of orientation. The overlay now uses `ContentScale.Fit` so the complete decoded frame remains visible inside its existing bounded preview bubble; black letterboxing is preferred over silently cropping source content. The bubble's existing 1.0–2.4 aspect-ratio bounds remain unchanged.
+- Extracted the short-side sizing and display-aspect-ratio calculations into pure helpers and added host test source for landscape scaling, portrait bounds, ultrawide bounds and invalid dimensions.
+- Context7 confirmed `Presentation.createForShortSide` is present in Media3 1.11.1 (introduced in 1.8.0). This does not change the player renderer or the main playback output path.
+
+**Verification boundary — cycles 222–223**
+- Source changes and regression-test source were committed on `feature/seek-preview-quality-responsiveness`; the feature branch is intended for fast-forward integration into `main-build-testing` only after remote source review.
+- No Gradle test task, Kotlin compilation, Android build, CI, APK generation or device playback was run, in accordance with the no-build/no-CI instruction. Tests are added but unexecuted; this is source-level review, not a passing test or visual-device validation.
+- The queue design was reviewed for offer/take/close races, including the handoff between clearing the scheduled flag and rescheduling a newly arrived request. Device-level scrubbing responsiveness still needs measurement under slow native thumbnail extraction.
+- The portrait/ultrawide framing change is grounded in the Media3 1.11.1 Presentation API, but preview appearance still needs visual verification on real portrait, 16:9 and ultrawide samples. The preview should not be described as device-verified.
