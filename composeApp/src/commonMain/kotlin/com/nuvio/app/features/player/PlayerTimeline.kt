@@ -35,6 +35,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -129,12 +131,23 @@ internal fun shouldEnablePlayerScrubbing(
     durationMs: Long,
 ): Boolean = isDragged && enabled && durationMs > 0L
 
+internal fun fractionalSeekToleranceForTrack(widthPx: Int, density: Float): Double? {
+    if (widthPx <= 0 || !density.isFinite() || density <= 0f) return null
+    return (2f * density / widthPx).coerceIn(0f, 1f).toDouble()
+}
+
 @Composable
-internal fun ReportTimelineScrubbing(scrubbing: Boolean, onScrubbingChange: (Boolean) -> Unit) {
+internal fun ReportTimelineScrubbing(
+    scrubbing: Boolean,
+    fractionalSeekTolerance: Double?,
+    onScrubbingChange: (Boolean, Double?) -> Unit,
+) {
     val latestOnScrubbingChange by rememberUpdatedState(onScrubbingChange)
-    LaunchedEffect(scrubbing) { latestOnScrubbingChange(scrubbing) }
+    LaunchedEffect(scrubbing, fractionalSeekTolerance) {
+        latestOnScrubbingChange(scrubbing, fractionalSeekTolerance)
+    }
     DisposableEffect(Unit) {
-        onDispose { latestOnScrubbingChange(false) }
+        onDispose { latestOnScrubbingChange(false, null) }
     }
 }
 
@@ -149,7 +162,7 @@ internal fun PlayerTimeline(
     enabled: Boolean = true,
     seekPreview: SeekPreviewController? = null,
     onTouchChange: (Boolean) -> Unit = {},
-    onScrubbingChange: (Boolean) -> Unit = {},
+    onScrubbingChange: (Boolean, Double?) -> Unit = {},
     /** Each chapter after the first gets a mark where it starts. */
     chapters: List<PlayerChapter> = emptyList(),
 ) {
@@ -165,10 +178,16 @@ internal fun PlayerTimeline(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
+    var trackWidthPx by remember { mutableStateOf(0) }
+    val fractionalSeekTolerance = fractionalSeekToleranceForTrack(
+        trackWidthPx,
+        LocalDensity.current.density,
+    )
     val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged)
     ReportTimelineTouch(isInteracting, onTouchChange)
     ReportTimelineScrubbing(
         scrubbing = shouldEnablePlayerScrubbing(isDragged, enabled, durationMs),
+        fractionalSeekTolerance = fractionalSeekTolerance,
         onScrubbingChange = onScrubbingChange,
     )
     val trackThickness by animateDpAsState(
@@ -236,6 +255,7 @@ internal fun PlayerTimeline(
                 },
                 modifier = modifier
                     .fillMaxWidth()
+                    .onSizeChanged { trackWidthPx = it.width }
                     .height(24.dp)
                     .wrapContentHeight(Alignment.Bottom, unbounded = true)
                     .requiredHeight(48.dp)
