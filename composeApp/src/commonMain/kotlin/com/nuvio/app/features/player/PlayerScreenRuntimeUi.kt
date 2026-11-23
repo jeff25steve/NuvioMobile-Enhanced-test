@@ -884,7 +884,7 @@ private fun PlayerScreenRuntime.RenderPlayerControls(
             onTimelineScrubbingChange = { enabled, fractionalSeekTolerance ->
                 isExoPlayerScrubbing = enabled &&
                     !isPartyControlLocked &&
-                    playerController?.playbackEngine == AndroidPlaybackEngine.ExoPlayer
+                    playerController?.supportsInteractiveScrubbing == true
                 playerController?.setScrubbingMode(
                     isExoPlayerScrubbing,
                     fractionalSeekTolerance.takeIf { isExoPlayerScrubbing },
