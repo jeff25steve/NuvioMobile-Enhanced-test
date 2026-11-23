@@ -49,6 +49,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import androidx.media3.common.text.CueGroup
@@ -266,6 +267,27 @@ internal class PlaybackDiagnostics {
         return true
     }
 }
+
+internal fun selectedSubtitleFormat(tracks: Tracks): Format? {
+    for (group in tracks.groups) {
+        if (group.type != C.TRACK_TYPE_TEXT) continue
+        for (trackIndex in 0 until group.length) {
+            if (group.isTrackSelected(trackIndex)) return group.getTrackFormat(trackIndex)
+        }
+    }
+    return null
+}
+
+internal fun isSsaSubtitleFormat(format: Format?): Boolean {
+    if (format == null) return false
+    if (format.sampleMimeType == MimeTypes.TEXT_SSA) return true
+    return format.codecs.orEmpty()
+        .split(',')
+        .any { codec -> codec.trim().equals(MimeTypes.TEXT_SSA, ignoreCase = true) }
+}
+
+internal fun shouldNormalizeSubtitleCuePosition(format: Format?): Boolean =
+    format == null || !isSsaSubtitleFormat(format)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
@@ -746,11 +768,9 @@ private fun ExoPlayerSurface(
             volumeBoostAudioProcessor = volumeBoostAudioProcessor,
             audioPassthroughEnabled = playerSettings.androidAudioPassthroughEnabled,
             presentCues = { cues ->
-                val format = playerViewRef?.player?.currentTracks?.groups
-                    ?.firstOrNull { it.type == C.TRACK_TYPE_TEXT && it.isSelected }
-                    ?.getTrackFormat(0)
+                val format = playerViewRef?.player?.currentTracks?.let(::selectedSubtitleFormat)
                 if (sidecarControllerRef?.isSidecarActive() == true) emptyList()
-                else subtitlePresenter.present(cues, format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA)
+                else subtitlePresenter.present(cues, shouldNormalizeSubtitleCuePosition(format))
             },
             videoBoundsFractionProvider = {
                 playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value)
