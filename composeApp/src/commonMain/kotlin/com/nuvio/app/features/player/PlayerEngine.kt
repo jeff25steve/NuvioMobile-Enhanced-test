@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 
 interface PlayerEngineController {
     val playbackEngine: AndroidPlaybackEngine? get() = null
+    val supportsInteractiveScrubbing: Boolean get() = playbackEngine == AndroidPlaybackEngine.ExoPlayer
     val supportsNightMode: Boolean get() = true
     fun play()
     fun pause()
