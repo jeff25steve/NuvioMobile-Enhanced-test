@@ -1337,6 +1337,16 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Worker failures from the flush action are now distinguished from stale decode failures. A native flush failure clears the pending barrier, releases queued input ownership and is surfaced through the Decoder exception callback instead of being suppressed as pre-seek work and retried indefinitely.
 - Errors from an in-flight decode operation that belongs to the old seek epoch remain suppressed when a flush is already pending.
 
+**Cycle 202 — use Media3 scrubbing mode for interactive ExoPlayer timeline drags**
+- The custom Compose timeline now reports drag lifecycle separately from ordinary touch/tap interactions. ExoPlayer enters scrubbing mode only while the user is actively dragging; it receives seek updates during the drag and a final seek on release.
+- Tap-to-seek, MPV playback and party-locked seeking retain their existing single-seek behavior. The shared controller API defaults to a no-op so engines without a matching native mode are unaffected.
+- Scrubbing mode is explicitly disabled when the timeline interaction ends or the ExoPlayer surface is disposed.
+
+**Cycle 203 — scale scrubbing seek tolerance to the actual timeline width**
+- The timeline measures its laid-out width and converts a 2dp touch tolerance into Media3's fractional seek tolerance. The fraction is recomputed when width or display density changes, avoiding a fixed time tolerance that would be inaccurate across short and long media.
+- The player clears the temporary fractional tolerance when scrubbing ends, restoring the player's ordinary seek parameters for normal playback and isolated seeks.
+- Added host tests for drag-only activation, disabled/zero-duration cases, density-independent tolerance and invalid layout measurements.
+
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
 - Exa independently retrieved FFmpeg 8.0's official send/receive API documentation. It confirms that a send-side EAGAIN requires receiving output before retrying the same packet; receive must be repeated until EAGAIN; a packet may produce zero or multiple frames; and EOS requires a null packet followed by receive calls through AVERROR_EOF. The AndroidX renderer source confirms that its callback executor wakes the playback thread and that it queues EOS during decoder replacement.
