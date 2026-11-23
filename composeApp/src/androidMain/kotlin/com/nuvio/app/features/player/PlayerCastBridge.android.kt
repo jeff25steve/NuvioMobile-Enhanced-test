@@ -517,6 +517,15 @@ private open class PlayerCastAwareController(
     private val bridge: PlayerCastBridge,
 ) : PlayerEngineController by base {
 
+    override val supportsInteractiveScrubbing: Boolean
+        get() = !bridge.isCasting && base.supportsInteractiveScrubbing
+
+    override fun setScrubbingMode(enabled: Boolean, fractionalSeekTolerance: Double?) {
+        if (!bridge.isCasting || !enabled) {
+            base.setScrubbingMode(enabled, fractionalSeekTolerance)
+        }
+    }
+
     override fun play() {
         if (!bridge.play()) base.play()
     }
