@@ -909,7 +909,8 @@ internal class SoftwareVideoDecoder(
 
         fun needsSoftwareDecoding(format: Format): Boolean =
             when (format.sampleMimeType) {
-                MimeTypes.VIDEO_H264 -> avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES
+                MimeTypes.VIDEO_H264 ->
+                    avcProfile(format) in HIGH_BIT_DEPTH_AVC_PROFILES || format.hasExplicitHighBitDepth()
                 MimeTypes.VIDEO_H265 -> hevcProfile(format) == HEVC_PROFILE_RANGE_EXTENSIONS
                 MimeTypes.VIDEO_VC1 -> true
                 else -> false
@@ -918,30 +919,44 @@ internal class SoftwareVideoDecoder(
         private fun avcProfile(format: Format): Int? {
             format.codecs
                 ?.split(',')
+                ?.asSequence()
                 ?.map(String::trim)
-                ?.firstOrNull { it.startsWith("avc1.") || it.startsWith("avc3.") }
-                ?.substringAfter('.')
-                ?.take(2)
-                ?.toIntOrNull(16)
+                ?.filter { it.startsWith("avc1.") || it.startsWith("avc3.") }
+                ?.mapNotNull { it.substringAfter('.').take(2).toIntOrNull(16) }
+                ?.firstOrNull()
                 ?.let { return it }
-            val sps = format.initializationData.firstOrNull() ?: return null
+
+            return format.initializationData
+                .asSequence()
+                .mapNotNull(::avcProfileFromSps)
+                .firstOrNull()
+        }
+
+        private fun avcProfileFromSps(data: ByteArray): Int? {
             var index = 0
-            while (index < sps.size && sps[index].toInt() == 0) index++
-            if (index >= sps.size || sps[index].toInt() != 1) index = -1
+            while (index < data.size && data[index].toInt() == 0) index++
+            if (index >= data.size || data[index].toInt() != 1) index = -1
             val header = index + 1
-            if (header + 1 >= sps.size || (sps[header].toInt() and 0x1F) != 7) return null
-            return sps[header + 1].toInt() and 0xFF
+            if (header + 1 >= data.size || (data[header].toInt() and 0x1F) != 7) return null
+            return data[header + 1].toInt() and 0xFF
         }
 
         private fun hevcProfile(format: Format): Int? =
             format.codecs
                 ?.split(',')
+                ?.asSequence()
                 ?.map(String::trim)
-                ?.firstOrNull { it.startsWith("hvc1.") || it.startsWith("hev1.") }
-                ?.split('.')
-                ?.getOrNull(1)
-                ?.trimStart('A', 'B', 'C')
-                ?.toIntOrNull()
+                ?.filter { it.startsWith("hvc1.") || it.startsWith("hev1.") }
+                ?.mapNotNull { codec ->
+                    codec.split('.')
+                        .getOrNull(1)
+                        ?.trimStart('A', 'B', 'C')
+                        ?.toIntOrNull()
+                }
+                ?.firstOrNull()
+
+        private fun Format.hasExplicitHighBitDepth(): Boolean =
+            colorInfo?.let { it.lumaBitdepth > 8 || it.chromaBitdepth > 8 } == true
 
         private fun extraData(format: Format): ByteArray? {
             if (format.initializationData.isEmpty()) return null
