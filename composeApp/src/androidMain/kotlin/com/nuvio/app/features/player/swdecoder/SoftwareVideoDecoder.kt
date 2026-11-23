@@ -621,7 +621,7 @@ internal class SoftwareVideoDecoder(
 
     private fun dispatchCallback(input: Boolean) {
         val pair = synchronized(lock) {
-            if (released) null else callback to callbackExecutor
+            if (released || flushRequested) null else callback to callbackExecutor
         } ?: return
         val target = pair.first ?: return
         val executor = pair.second ?: return
