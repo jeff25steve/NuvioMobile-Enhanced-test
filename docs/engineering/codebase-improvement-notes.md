@@ -1516,9 +1516,9 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 **Cycle 226 — recover AVC/HEVC profile detection from later codec entries and AVC SPS**
 - The previous profile parsers stopped at the first matching codec prefix even when that token was malformed. AVC's SPS fallback was also skipped whenever any `avc1.`/`avc3.` token existed, even if its profile field could not be parsed.
-- AVC and HEVC parsers now inspect every matching comma-separated codec entry rather than stopping at the first valid profile, so a later high-bit-depth/range-extension declaration cannot be hidden by an earlier lower profile. AVC also scans every `Format.initializationData` entry for a usable Annex-B/raw SPS profile.
+- AVC and HEVC parsers now inspect every matching comma-separated codec entry rather than stopping at the first valid profile, so a later high-bit-depth/range-extension declaration cannot be hidden by an earlier lower profile. AVC also scans every `Format.initializationData` entry for a usable Annex-B/raw SPS profile, even when a codec-string profile is present, so actual SPS evidence is not hidden by a stale container hint.
 - This improves fallback selection when codec metadata is incomplete or malformed but the stream's own AVC SPS still identifies a high-bit-depth profile. No changes were made to Media3's general codec-string parser or to manifest track selection.
-- Added host-test source for malformed-first and mixed-profile AVC/HEVC codec lists, AVC SPS fallback after a malformed codec string, and SPS discovery in a later initialization-data entry.
+- Added host-test source for malformed-first and mixed-profile AVC/HEVC codec lists, AVC SPS fallback after malformed or conflicting codec hints, and SPS discovery in a later initialization-data entry.
 
 **Cycle 227 — add a 12-bit HEVC fallback without displacing Main10 hardware decoding**
 - HEVC Range Extensions profile 4 already selected the software renderer. Explicit 12-bit `ColorInfo` now does too, covering streams whose codec string is missing or does not identify the range-extension profile.
