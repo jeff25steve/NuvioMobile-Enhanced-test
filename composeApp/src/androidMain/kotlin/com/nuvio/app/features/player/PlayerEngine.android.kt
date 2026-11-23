@@ -523,6 +523,7 @@ private fun ExoPlayerSurface(
     var currentVideoFrameRate by remember(playerSourceKey) { mutableStateOf(Float.NaN) }
     var videoAspectRatio by remember(playerSourceKey) { mutableStateOf(0f) }
     val latestVideoAspectRatio = rememberUpdatedState(videoAspectRatio)
+    val latestResizeMode = rememberUpdatedState(resizeMode)
     var currentSubtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
     val subtitlePresenter = remember(playerSourceKey) { SubtitleCuePresenter { currentSubtitleStyle } }
     var sidecarControllerRef by remember { mutableStateOf<SidecarSubtitleController?>(null) }
@@ -770,7 +771,7 @@ private fun ExoPlayerSurface(
                 )
             },
             videoBoundsFractionProvider = {
-                playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value, resizeMode)
+                playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value, latestResizeMode.value)
             },
         ).apply {
             // Media3 1.11.0 enables dynamic player scheduling by default. The renderer-side
