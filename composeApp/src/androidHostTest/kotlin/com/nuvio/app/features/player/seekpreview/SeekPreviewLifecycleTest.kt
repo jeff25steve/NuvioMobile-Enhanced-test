@@ -11,6 +11,31 @@ import kotlin.test.assertTrue
 
 class SeekPreviewLifecycleTest {
     @Test
+    fun closedFeedSkipsThumbnailDecode() {
+        var decodeStarted = false
+
+        val bitmap = decodeSeekPreviewThumbnailWhileOpen(
+            isClosed = { true },
+            decode = { decodeStarted = true; "bitmap" },
+        )
+
+        assertNull(bitmap)
+        assertFalse(decodeStarted)
+    }
+
+    @Test
+    fun thumbnailDecodedDuringCloseIsDiscarded() {
+        var closed = false
+
+        val bitmap = decodeSeekPreviewThumbnailWhileOpen(
+            isClosed = { closed },
+            decode = { closed = true; "bitmap" },
+        )
+
+        assertNull(bitmap)
+    }
+
+    @Test
     fun releasedOrDisposedSourceGenerationCannotPublishAFrame() {
         assertTrue(canUseSeekPreviewSource(generation = 4, currentGeneration = 4, disposed = false))
         assertFalse(canUseSeekPreviewSource(generation = 4, currentGeneration = 5, disposed = false))

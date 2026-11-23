@@ -119,7 +119,7 @@ private class NativeSeekPreviewFeed(
     private val headers = headers.flatMap { (name, value) -> listOf(name, value) }.toTypedArray()
     private val thumbnailer = Executors.newSingleThreadExecutor { Thread(it, "thumbnails") }
     private var handle = 0L
-    private var closed = false
+    private val closed = AtomicBoolean(false)
 
     override fun want(positionMs: Long, showingMs: Long?) {
         submit { Thumbnails.want(it, positionMs, showingMs ?: -1L) }
@@ -130,11 +130,11 @@ private class NativeSeekPreviewFeed(
     }
 
     override fun close() {
+        if (!closed.compareAndSet(false, true)) return
         runCatching {
             thumbnailer.execute {
                 if (handle != 0L) Thumbnails.close(handle)
                 handle = 0L
-                closed = true
             }
         }
         thumbnailer.shutdown()
@@ -145,12 +145,18 @@ private class NativeSeekPreviewFeed(
     }
 
     private fun open(): Long? {
-        if (closed) return null
+        if (closed.get()) return null
         if (handle != 0L) return handle
         return runCatching {
             Thumbnails.open(url, headers, Thumbnails.trustedRoots(context)) { at, jpeg, error ->
-                val bitmap = jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
-                if (jpeg == null || bitmap != null) main.post { onThumbnail(at, bitmap, error) }
+                val bitmap = decodeSeekPreviewThumbnailWhileOpen({ closed.get() }) {
+                    jpeg?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
+                }
+                if (jpeg == null || bitmap != null) {
+                    main.post {
+                        if (!closed.get()) onThumbnail(at, bitmap, error)
+                    }
+                }
             }
         }.onFailure { error ->
             main.post { onThumbnail(-1L, null, error.toString()) }
