@@ -53,6 +53,10 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 anchorFraction = positionXAnchor,
                 requestedSize = cue.size.takeIf(::isSubtitleCueFraction),
             )
+            val cueTextSizeType = cue.subtitleTextSizeType()
+            val cueTextSizeValue = cue.textSize.takeIf {
+                cueTextSizeType != null && it.isFinite() && it > 0f
+            }
             StyledSubtitleBlock(
                 text = cue.text?.toSubtitleAnnotatedString() ?: AnnotatedString(""),
                 vertical = cue.verticalPosition(),
@@ -65,10 +69,21 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
                 widthFraction = widthFraction,
                 fillCueWidth = widthFraction != null,
                 textAlignment = textAlignment,
+                windowColor = cue.windowColor.takeIf { cue.windowColorSet }?.let { Color(it) },
+                textSizeValue = cueTextSizeValue,
+                textSizeType = cueTextSizeType,
             )
         })
         return native
     }
+}
+
+private fun Cue.subtitleTextSizeType(): SubtitleCueTextSizeType? = when (textSizeType) {
+    Cue.TEXT_SIZE_TYPE_ABSOLUTE -> SubtitleCueTextSizeType.ABSOLUTE_PX
+    Cue.TEXT_SIZE_TYPE_FRACTIONAL -> SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT
+    Cue.TEXT_SIZE_TYPE_FRACTIONAL_IGNORE_PADDING ->
+        SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT_IGNORE_PADDING
+    else -> null
 }
 
 private fun Cue.requiresNativeSubtitleOutput(): Boolean =

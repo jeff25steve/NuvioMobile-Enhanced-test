@@ -14,6 +14,12 @@ internal enum class SubtitleVerticalPosition { TOP, MIDDLE, BOTTOM }
 
 internal enum class SubtitleHorizontalPosition { START, CENTER, END }
 
+internal enum class SubtitleCueTextSizeType {
+    ABSOLUTE_PX,
+    FRACTIONAL_VIEWPORT,
+    FRACTIONAL_VIEWPORT_IGNORE_PADDING,
+}
+
 internal data class StyledSubtitleBlock(
     val text: AnnotatedString,
     val vertical: SubtitleVerticalPosition = SubtitleVerticalPosition.BOTTOM,
@@ -25,6 +31,9 @@ internal data class StyledSubtitleBlock(
     val widthFraction: Float? = null,
     val fillCueWidth: Boolean = true,
     val textAlignment: SubtitleHorizontalPosition = horizontal,
+    val windowColor: Color? = null,
+    val textSizeValue: Float? = null,
+    val textSizeType: SubtitleCueTextSizeType? = null,
 )
 
 internal data class StyledSubtitleCues(val blocks: List<StyledSubtitleBlock> = emptyList()) {
@@ -41,6 +50,9 @@ private data class StyledSubtitleCueLayoutKey(
     val widthFraction: Float?,
     val fillCueWidth: Boolean,
     val textAlignment: SubtitleHorizontalPosition,
+    val windowColor: Color?,
+    val textSizeValue: Float?,
+    val textSizeType: SubtitleCueTextSizeType?,
 )
 
 internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtitleCues =
@@ -58,6 +70,9 @@ internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtit
                     widthFraction = block.widthFraction,
                     fillCueWidth = block.fillCueWidth,
                     textAlignment = block.textAlignment,
+                    windowColor = block.windowColor,
+                    textSizeValue = block.textSizeValue,
+                    textSizeType = block.textSizeType,
                 )
             }
             .map { (key, grouped) ->
@@ -72,6 +87,9 @@ internal fun styledSubtitleCues(blocks: List<StyledSubtitleBlock>): StyledSubtit
                     widthFraction = key.widthFraction,
                     fillCueWidth = key.fillCueWidth,
                     textAlignment = key.textAlignment,
+                    windowColor = key.windowColor,
+                    textSizeValue = key.textSizeValue,
+                    textSizeType = key.textSizeType,
                 )
             },
     )
@@ -107,6 +125,22 @@ internal fun subtitleCueWidthFraction(
     val maxFromStart = if (anchor > 0f) position / anchor else 1f
     val maxFromEnd = if (anchor < 1f) (1f - position) / (1f - anchor) else 1f
     return minOf(requested, maxFromStart, maxFromEnd).coerceIn(0f, 1f)
+}
+
+internal fun subtitleCueTextSizePx(
+    value: Float?,
+    type: SubtitleCueTextSizeType?,
+    rawViewHeight: Float,
+    viewHeightMinusPadding: Float,
+): Float? {
+    if (value == null || !value.isFinite() || value <= 0f) return null
+    val resolved = when (type) {
+        SubtitleCueTextSizeType.ABSOLUTE_PX -> value
+        SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT -> value * viewHeightMinusPadding
+        SubtitleCueTextSizeType.FRACTIONAL_VIEWPORT_IGNORE_PADDING -> value * rawViewHeight
+        null -> return null
+    }
+    return resolved.takeIf { it.isFinite() && it > 0f }
 }
 
 internal fun List<AnnotatedString>.joinLines(): AnnotatedString = buildAnnotatedString {

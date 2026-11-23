@@ -111,6 +111,9 @@ private fun PositionedSubtitleBlock(
                 horizontal = if (block.fillCueWidth) block.textAlignment else SubtitleHorizontalPosition.CENTER,
                 textAlignment = block.textAlignment,
                 fillCueWidth = block.fillCueWidth,
+                cueWindowColor = block.windowColor,
+                cueTextSizeValue = block.textSizeValue,
+                cueTextSizeType = block.textSizeType,
             )
         },
     ) { measurables, constraints ->
@@ -175,6 +178,9 @@ internal fun StyledSubtitleText(
     horizontal: SubtitleHorizontalPosition = SubtitleHorizontalPosition.CENTER,
     textAlignment: SubtitleHorizontalPosition = horizontal,
     fillCueWidth: Boolean = true,
+    cueWindowColor: Color? = null,
+    cueTextSizeValue: Float? = null,
+    cueTextSizeType: SubtitleCueTextSizeType? = null,
 ) {
     StyledSubtitleText(
         text = AnnotatedString(text),
@@ -187,6 +193,9 @@ internal fun StyledSubtitleText(
         horizontal = horizontal,
         textAlignment = textAlignment,
         fillCueWidth = fillCueWidth,
+        cueWindowColor = cueWindowColor,
+        cueTextSizeValue = cueTextSizeValue,
+        cueTextSizeType = cueTextSizeType,
     )
 }
 
@@ -202,6 +211,9 @@ internal fun StyledSubtitleText(
     horizontal: SubtitleHorizontalPosition = SubtitleHorizontalPosition.CENTER,
     textAlignment: SubtitleHorizontalPosition = horizontal,
     fillCueWidth: Boolean = true,
+    cueWindowColor: Color? = null,
+    cueTextSizeValue: Float? = null,
+    cueTextSizeType: SubtitleCueTextSizeType? = null,
 ) {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
@@ -230,9 +242,17 @@ internal fun StyledSubtitleText(
         val edgePaddingPx = if (outlineEnabled) outline + blurBleedPx else 0f
         val edgePadding = with(density) { edgePaddingPx.toDp() }
 
+        val cueTextSizePx = subtitleCueTextSizePx(
+            value = cueTextSizeValue,
+            type = cueTextSizeType,
+            rawViewHeight = constraints.maxHeight.toFloat(),
+            viewHeightMinusPadding = constraints.maxHeight.toFloat(),
+        )
+        val resolvedFontSize = cueTextSizePx?.let { with(density) { it.toSp() } }
+            ?: (style.fontSizeSp * scale).sp
         val textStyle = TextStyle(
             fontFamily = fontFamily,
-            fontSize = (style.fontSizeSp * scale).sp,
+            fontSize = resolvedFontSize,
             fontWeight = if (style.bold) FontWeight.Bold else FontWeight.Normal,
             textAlign = when (textAlignment) {
                 SubtitleHorizontalPosition.START -> TextAlign.Start
@@ -244,6 +264,7 @@ internal fun StyledSubtitleText(
         val availableTextWidth = (availableWidth - paddingX * 2 - edgePaddingPx * 2).coerceAtLeast(1f).toInt()
         val textConstraints = Constraints(maxWidth = availableTextWidth)
         val textAlpha = style.textColor.alpha
+        val effectiveBackgroundColor = cueWindowColor ?: style.backgroundColor
         val layout = measurer.measure(
             text = text.mapColors { subtitleFileColor(it, textAlpha) },
             style = textStyle,
@@ -282,7 +303,7 @@ internal fun StyledSubtitleText(
         ) {
             Canvas(Modifier.fillMaxSize()) {
                 drawRoundRect(
-                    color = style.backgroundColor,
+                    color = effectiveBackgroundColor,
                     topLeft = Offset(edgePaddingPx, edgePaddingPx),
                     size = androidx.compose.ui.geometry.Size(
                         contentWidth,
