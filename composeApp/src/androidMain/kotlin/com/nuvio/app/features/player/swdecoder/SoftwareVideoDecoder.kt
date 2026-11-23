@@ -595,7 +595,9 @@ internal class SoftwareVideoDecoder(
     private fun dispatchOutputBufferAvailable() = dispatchCallback(input = false)
 
     private fun dispatchCallback(input: Boolean) {
-        val pair = synchronized(lock) { callback to callbackExecutor }
+        val pair = synchronized(lock) {
+            if (released) null else callback to callbackExecutor
+        } ?: return
         val target = pair.first ?: return
         val executor = pair.second ?: return
         try {
