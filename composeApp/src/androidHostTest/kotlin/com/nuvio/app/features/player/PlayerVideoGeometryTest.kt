@@ -134,4 +134,37 @@ class PlayerVideoGeometryTest {
         assertEquals(0.8f, mapped.line, 0.0001f)
         assertEquals(0.25f, mapped.bitmapHeight, 0.0001f)
     }
+
+    @Test
+    fun pipSubtitleFractionScalesAgainstVisibleVideoHeight() {
+        val fraction = pipSubtitleFractionalTextSize(
+            fontSizePx = 40f,
+            fullScreenVideoHeightPx = 900f,
+            pipVideoHeightPx = 270f,
+            pipSubtitleViewHeightPx = 270f,
+        )
+
+        assertEquals(40f / 900f, fraction!!, 0.0001f)
+    }
+
+    @Test
+    fun pipSubtitleFractionCompensatesForZoomedSubtitleChildLargerThanViewport() {
+        val fraction = pipSubtitleFractionalTextSize(
+            fontSizePx = 40f,
+            fullScreenVideoHeightPx = 900f,
+            pipVideoHeightPx = 270f,
+            pipSubtitleViewHeightPx = 360f,
+        )
+
+        assertEquals(40f * 270f / (900f * 360f), fraction!!, 0.0001f)
+        assertEquals(12f, fraction * 360f, 0.0001f)
+    }
+
+    @Test
+    fun pipSubtitleFractionRejectsUnknownOrInvalidGeometry() {
+        assertNull(pipSubtitleFractionalTextSize(40f, null, 270f, 270f))
+        assertNull(pipSubtitleFractionalTextSize(40f, 900f, null, 270f))
+        assertNull(pipSubtitleFractionalTextSize(40f, 900f, 270f, 0f))
+    }
+
 }
