@@ -12,9 +12,9 @@ import kotlin.test.assertNull
 class PlayerVideoGeometryTest {
     @Test
     fun fitModeReturnsLetterboxBoundsForUltrawideVideo() {
-        val bounds = videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fit)
+        val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fit))
 
-        assertEquals(0f, bounds!!.left, 0.0001f)
+        assertEquals(0f, bounds.left, 0.0001f)
         assertEquals(1f, bounds.right, 0.0001f)
         assertEquals(0.1217f, bounds.top, 0.001f)
         assertEquals(0.8783f, bounds.bottom, 0.001f)
@@ -22,7 +22,7 @@ class PlayerVideoGeometryTest {
 
     @Test
     fun fillModeUsesEntireViewportInsteadOfFittingSubtitleBitmapsIntoLetterboxBounds() {
-        val bounds = videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fill)
+        val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fill))
 
         assertEquals(0f, bounds!!.left, 0.0001f)
         assertEquals(0f, bounds.top, 0.0001f)
@@ -32,7 +32,7 @@ class PlayerVideoGeometryTest {
 
     @Test
     fun zoomModeReturnsCoverBoundsThatExtendBeyondTheViewport() {
-        val bounds = videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Zoom)
+        val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Zoom))
 
         assertEquals(-0.1609f, bounds!!.left, 0.001f)
         assertEquals(0f, bounds.top, 0.0001f)
@@ -42,7 +42,7 @@ class PlayerVideoGeometryTest {
 
     @Test
     fun aspectRatioWithinMedia3ToleranceKeepsFullFrameBounds() {
-        val bounds = videoDisplayBoundsFraction(1780f, 1000f, 1.77f, PlayerResizeMode.Fit)
+        val bounds = requireNotNull(videoDisplayBoundsFraction(1780f, 1000f, 1.77f, PlayerResizeMode.Fit))
 
         assertEquals(0f, bounds!!.left, 0.0001f)
         assertEquals(0f, bounds.top, 0.0001f)
