@@ -1307,7 +1307,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The Media3 EOS output buffer is queued only after FFmpeg reports EOF, so delayed B-frames and other buffered frames are delivered before the renderer sees end-of-stream. The same path is used when DecoderVideoRenderer signals EOS before a format-driven decoder replacement.
 
 **Cycle 195 — serialize flush, seek and release against native decode work**
-- Decoder flush is a synchronous worker barrier. It returns queued/dequeued input ownership, releases queued outputs, waits for any in-flight native operation, releases a pending packet, calls avcodec_flush_buffers(), resets queue/drain state and only then returns to the renderer.
+- Decoder flush is a non-blocking worker barrier. It immediately returns queued/dequeued input ownership and releases queued outputs, marks the new decode epoch, then lets the worker finish any in-flight native call, release the pending packet, call avcodec_flush_buffers() and reset queue/drain state before processing new input. This follows SimpleDecoder's non-blocking flush behavior and avoids making the playback thread wait for software decode during seeks.
 - The decoder preserves the Media3 setOutputStartTimeUs contract: the start timestamp can be changed before the first queued input or after a completed flush, not merely when the input pool happens to become empty.
 - Native release is serialized on the worker after it exits. Callback dispatch is suppressed while flushing or after release, and the renderer clears its reference after releasing the decoder.
 
@@ -1321,7 +1321,13 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Skipped-output counts now saturate at Int.MAX_VALUE instead of overflowing. Regression tests cover packets retained over EAGAIN, multiple frames per packet, output-pool backpressure, EOS retry/drain, flush reset, no-output/seek skipping, sample reconciliation and counter saturation.
 
 **Cycle 198 — release the renderer's last decoder reference**
-- SoftwareVideoRenderer now clears its decoder field in a finally block after the base renderer releases the decoder. This prevents the renderer from retaining the released decoder's buffer pools and stale output-mode state across format changes or disable/re-enable cycles.
+- SoftwareVideoRenderer now clears its decoder field in a finally block after the base renderer releases the decoder, and the decoder detaches its callback/executor at release. This prevents retaining the released decoder's buffer pools, stale output-mode state and renderer callback reference across format changes or disable/re-enable cycles.
+
+**Cycle 199 — make flush non-blocking on the playback thread**
+- The first custom-Decoder implementation waited for the worker to finish its in-flight native operation before returning from flush(). Review against Media3's SimpleDecoder flush contract showed this could stall the playback thread during a seek.
+- flush() now immediately clears queued input/output ownership, clears stale decoder exceptions and posts a flush barrier. The worker completes the current native call, discards its stale output, releases any pending input, calls avcodec_flush_buffers() and processes newly queued input only after the barrier.
+- New-epoch input can be queued immediately after setOutputStartTimeUs(); the worker prioritizes the flush barrier, and it dispatches input-available again after completing the barrier so the renderer can refill any buffer that was still in flight.
+- Decode failures from the stale pre-flush operation are suppressed rather than reported against the new seek position. No build or seek benchmark was run, so reduced seek stalls are an architectural expectation, not a measured result.
 
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
