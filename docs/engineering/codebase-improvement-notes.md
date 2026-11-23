@@ -1507,3 +1507,27 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - The queue design was reviewed for offer/take/close races, including the handoff between clearing the scheduled flag and rescheduling a newly arrived request. Device-level scrubbing responsiveness still needs measurement under slow native thumbnail extraction.
 - The portrait/ultrawide framing change is grounded in the Media3 1.11.1 Presentation API, but preview appearance still needs visual verification on real portrait, 16:9 and ultrawide samples. The preview should not be described as device-verified.
 - The cancelled-frame readback guard preserves the GL effect's input-release callback even when pixel extraction is skipped. Its test source was added but not executed; actual allocation and latency savings have not been profiled.
+
+
+**Cycle 225 — use explicit AVC bit depth when deciding on the software fallback**
+- `SoftwareVideoDecoder.needsSoftwareDecoding` previously depended on the AVC profile ID (High 10, High 4:2:2, High 4:4:4 and CAVLC 4:4:4). If the container omitted the codec string but supplied explicit Media3 `ColorInfo.lumaBitdepth` or `chromaBitdepth`, the software renderer could incorrectly report the stream as outside its handled formats.
+- AVC selection now also recognises explicit luma or chroma bit depth above 8. This is only a software-renderer capability signal: the normal hardware renderer retains its existing priority, so hardware-capable devices are not forced onto FFmpeg by this change.
+- Added host-test source for 10-bit AVC with no codec string and for ordinary 8-bit AVC remaining on the existing path.
+
+**Cycle 226 — recover AVC/HEVC profile detection from later codec entries and AVC SPS**
+- The previous profile parsers stopped at the first matching codec prefix even when that token was malformed. AVC's SPS fallback was also skipped whenever any `avc1.`/`avc3.` token existed, even if its profile field could not be parsed.
+- AVC and HEVC parsers now continue through matching comma-separated codec entries until they find a valid profile. AVC then scans every `Format.initializationData` entry for a usable Annex-B/raw SPS profile before giving up.
+- This improves fallback selection when codec metadata is incomplete or malformed but the stream's own AVC SPS still identifies a high-bit-depth profile. No changes were made to Media3's general codec-string parser or to manifest track selection.
+- Added host-test source for malformed-first AVC/HEVC codec lists, AVC SPS fallback after a malformed codec string, and SPS discovery in a later initialization-data entry.
+
+**Cycle 227 — add a 12-bit HEVC fallback without displacing Main10 hardware decoding**
+- HEVC Range Extensions profile 4 already selected the software renderer. Explicit 12-bit `ColorInfo` now does too, covering streams whose codec string is missing or does not identify the range-extension profile.
+- The threshold is deliberately above 10 bits: ordinary HEVC Main10 remains on the hardware-first path. The software decoder still converts to its existing 8-bit YV12 output, so this is a compatibility fallback rather than a claim of 12-bit output preservation.
+- Added a diagnostic reason for each software-decoder selection (AVC profile, AVC bit-depth metadata, HEVC Range Extensions, 12-bit HEVC, VC-1, or generic capability fallback) and log the reported luma/chroma bit depths when the decoder is created.
+- Added host-test source for 12-bit HEVC fallback, Main10 remaining on the hardware path, and the new reason labels.
+
+**Verification boundary — cycles 225–227**
+- Media3 remains pinned to the existing 1.11.1 version; no dependency or native ABI changes were made. The exact tagged Media3 1.11.1 `Format.java` and `ColorInfo.java` sources confirm the initialization-data and bit-depth fields used here. Context7 did not return a direct `ColorInfo` API snippet for this query, so the implementation was checked against those official version-tagged source files.
+- The new regression-test source is present but was not executed. No Gradle tasks, Kotlin compilation, native compilation, Android builds, CI, APK generation or device playback were started, as instructed.
+- The 10-bit AVC and 12-bit HEVC paths still need device verification with real streams. The software output path remains 8-bit YV12 and can lose precision relative to a capable high-bit-depth hardware decoder; the default renderer ordering keeps hardware first.
+- Investigated the current Dolby Vision Profile 7 fallback issue and the open HEVC compatibility-flags report in Media3 1.11.1. No beta upgrade or custom manifest rewrite was introduced: the former requires careful device capability handling through the project's patched ExoPlayer AAR, and the latter remains an open upstream report without a confirmed app-level parser hook in the current pipeline.
