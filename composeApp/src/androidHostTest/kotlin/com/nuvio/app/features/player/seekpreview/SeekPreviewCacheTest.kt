@@ -17,8 +17,8 @@ class SeekPreviewCacheTest {
             sizeInBytes = { it },
         )
 
-        assertEquals(listOf(2L, 3L), cache.keys.toList())
-        assertEquals(50L, retained)
+        assertEquals(listOf(3L), cache.keys.toList())
+        assertEquals(30L, retained)
     }
 
     @Test

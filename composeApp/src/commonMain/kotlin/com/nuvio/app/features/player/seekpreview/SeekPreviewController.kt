@@ -489,7 +489,7 @@ internal class SeekPreviewController(
             }
         }
         val key = bestKey ?: return null
-        if (!isSeekPreviewFrameWithinDistance(key, positionMs, MaxCachedPreviewDistanceMs)) return null
+        if (!isSeekPreviewFrameWithinDistance(key, bucket, MaxCachedPreviewDistanceMs)) return null
         val bitmap = cache[key] ?: return null
         return SeekPreviewFrame(key, bitmap)
     }
