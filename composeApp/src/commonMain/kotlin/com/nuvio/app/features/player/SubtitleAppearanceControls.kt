@@ -47,6 +47,7 @@ internal fun SubtitleAppearanceControls(
     spacing: Dp,
     onStyleChanged: (SubtitleStyleState) -> Unit,
     supportsAssStyleCustomization: Boolean = false,
+    supportsLetterboxTextSubtitles: Boolean = false,
 ) {
     var showFonts by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(spacing)) {
@@ -127,6 +128,19 @@ internal fun SubtitleAppearanceControls(
         SubtitleValueControl(stringResource(Res.string.compose_player_bottom_offset), style.bottomOffset, 0..200, 5) {
             onStyleChanged(style.copy(bottomOffset = it))
         }
+        if (supportsLetterboxTextSubtitles) {
+            SubtitleToggleControl(
+                title = stringResource(Res.string.subtitle_use_letterbox_area),
+                checked = style.appearance.placeUnpositionedTextInLetterbox,
+                description = stringResource(Res.string.subtitle_use_letterbox_area_description),
+            ) { enabled ->
+                onStyleChanged(
+                    style.copy(
+                        appearance = style.appearance.copy(placeUnpositionedTextInLetterbox = enabled),
+                    ),
+                )
+            }
+        }
     }
     if (showFonts) {
         SubtitleFontPicker(
@@ -157,7 +171,12 @@ private fun SubtitleValueControl(
 }
 
 @Composable
-private fun SubtitleToggleControl(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun SubtitleToggleControl(
+    title: String,
+    checked: Boolean,
+    description: String? = null,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     val tokens = MaterialTheme.nuvio
     SubtitleStyleSection(title) {
         Box(
@@ -171,6 +190,13 @@ private fun SubtitleToggleControl(title: String, checked: Boolean, onCheckedChan
                 stringResource(if (checked) Res.string.compose_action_on else Res.string.compose_action_off),
                 color = if (checked) tokens.colors.onAccent else Color.White,
                 style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        if (description != null) {
+            Text(
+                text = description,
+                color = tokens.colors.textMuted,
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
