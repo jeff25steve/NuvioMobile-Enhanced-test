@@ -223,7 +223,7 @@ private class ExoSeekPreviewFrameSource(
         val activeGrabber = grabber
         if (activeGrabber == null) {
             val opened = openGrabber(
-                targetHeight = (maxWidthPx * 9 / 16).coerceAtLeast(16),
+                targetShortSidePx = seekPreviewTargetShortSidePx(maxWidthPx),
                 startPositionMs = targetMs,
             )
             return opened.awaitFirstFrame().asImageBitmap()
@@ -231,17 +231,17 @@ private class ExoSeekPreviewFrameSource(
         return activeGrabber.frameAt(targetMs).asImageBitmap()
     }
 
-    private fun openGrabber(targetHeight: Int, startPositionMs: Long): ExoFrameGrabber = try {
-        openAndAwait(targetHeight, mimeType = null, startPositionMs = startPositionMs)
+    private fun openGrabber(targetShortSidePx: Int, startPositionMs: Long): ExoFrameGrabber = try {
+        openAndAwait(targetShortSidePx, mimeType = null, startPositionMs = startPositionMs)
     } catch (error: PlaybackException) {
         if (error.errorCode != PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED) throw error
         InAppLogger.info("Player/SeekPreview", "container not recognised, retrying as HLS")
-        openAndAwait(targetHeight, mimeType = MimeTypes.APPLICATION_M3U8, startPositionMs = startPositionMs)
+        openAndAwait(targetShortSidePx, mimeType = MimeTypes.APPLICATION_M3U8, startPositionMs = startPositionMs)
     }
 
-    private fun openAndAwait(targetHeight: Int, mimeType: String?, startPositionMs: Long): ExoFrameGrabber {
+    private fun openAndAwait(targetShortSidePx: Int, mimeType: String?, startPositionMs: Long): ExoFrameGrabber {
         val created = onMainThread {
-            ExoFrameGrabber(context, url, headers, targetHeight, mimeType, startPositionMs).also {
+            ExoFrameGrabber(context, url, headers, targetShortSidePx, mimeType, startPositionMs).also {
                 grabber = it
             }
         }
@@ -271,7 +271,7 @@ private class ExoFrameGrabber(
     context: Context,
     url: String,
     headers: Map<String, String>,
-    targetHeight: Int,
+    targetShortSidePx: Int,
     mimeType: String?,
     startPositionMs: Long,
 ) {
@@ -308,7 +308,7 @@ private class ExoFrameGrabber(
         player.addAnalyticsListener(Listener())
         player.setVideoEffects(
             listOf(
-                Presentation.createForHeight(targetHeight),
+                Presentation.createForShortSide(targetShortSidePx),
                 MatrixTransformation { Matrix().apply { setScale(1f, -1f) } },
                 FrameReader(),
             ),
