@@ -186,6 +186,8 @@ JNIEXPORT jlong JNICALL METHOD(nativeCreate)(JNIEnv *env, jclass clazz, jstring 
         (*env)->GetByteArrayRegion(env, extra_data, 0, size, (jbyte *) d->codec->extradata);
         d->codec->extradata_size = size;
     }
+    // Java supplies AVPacket PTS values in Media3 microseconds.
+    d->codec->pkt_timebase = (AVRational) {1, 1000000};
     d->codec->thread_count = threads;
     d->codec->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
     d->codec->flags2 |= AV_CODEC_FLAG2_FAST;
