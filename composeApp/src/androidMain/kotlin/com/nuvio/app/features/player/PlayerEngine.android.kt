@@ -1055,8 +1055,9 @@ private fun ExoPlayerSurface(
         }
     }
 
-    val pendingSubtitleTrackIndex = remember { mutableListOf<Int>() }
-    val pendingAudioTrackSelection = remember { mutableListOf<TrackSelectionSnapshot>() }
+    // Keep pending selections across a same-source player rebuild, but never carry them into a new source.
+    val pendingSubtitleTrackIndex = remember(playerSourceKey) { mutableListOf<Int>() }
+    val pendingAudioTrackSelection = remember(playerSourceKey) { mutableListOf<TrackSelectionSnapshot>() }
     var subtitleSelectionJob by remember { mutableStateOf<Job?>(null) }
     val isInPip = rememberIsInPictureInPicture()
     // Player size outside PiP, so PiP subtitles keep the full-screen size relative to the video.
@@ -1148,10 +1149,11 @@ private fun ExoPlayerSurface(
         delay(ANIME_EFFECTS_REBUILD_DEBOUNCE_MS)
         InAppLogger.info("ExoPlayer/Android", "anime effects changed, rebuilding player upscale=$upscale lineSharpen=$sharpen")
         preserveAudioSelectionForReload("animeEffectsRebuild")
-        val selectedSubtitle = exoPlayer.currentTracks.selectedTextTrackOrdinal()
-        if (selectedSubtitle >= 0) {
+        val currentTracks = exoPlayer.currentTracks
+        if (currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+            // Preserve -1 as well: it means the user had subtitles disabled despite available tracks.
             pendingSubtitleTrackIndex.clear()
-            pendingSubtitleTrackIndex.add(selectedSubtitle)
+            pendingSubtitleTrackIndex.add(currentTracks.selectedTextTrackOrdinal())
         }
         if (useLibass && (upscale || sharpen) && !videoEffectsNeeded &&
             exoPlayer.currentTracks.hasSelectedAssWithoutDolbyVision()
@@ -1194,23 +1196,32 @@ private fun ExoPlayerSurface(
         }
 
         fun reportPlayerError(error: PlaybackException) {
-            if (
-                playerSettings.decoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON &&
-                effectiveDecoderPriority != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER &&
-                error.isDecoderFailure()
-            ) {
+            val fallbackDecoderPriority = decoderPriorityFallbackAfterFailure(
+                configuredPriority = playerSettings.decoderPriority,
+                activePriority = effectiveDecoderPriority,
+                isDecoderFailure = error.isDecoderFailure(),
+            )
+            if (fallbackDecoderPriority != null) {
+                val fallbackPriorityName = fallbackDecoderPriority.decoderPriorityName()
                 Log.w(
                     TAG,
-                    "Decoder failure (${error.errorCodeName}); retrying with app decoders. " +
+                    "Decoder failure (${error.errorCodeName}); rebuilding with renderer priority=$fallbackPriorityName. " +
                         "cause=${diagnosticThrowableChain(error)}",
                 )
                 InAppLogger.warn(
                     "ExoPlayer/Android",
-                    "Decoder failure ${error.errorCodeName}; retrying with preferred app decoders. " +
+                    "Decoder failure ${error.errorCodeName}; retrying with renderer priority=$fallbackPriorityName. " +
                         "cause=${error.cause?.let(::diagnosticThrowableChain) ?: diagnosticThrowableChain(error)}",
                 )
+                // A renderer-priority rebuild creates a fresh track selector. Preserve user choices
+                // before changing the remember key so the replacement player restores them.
+                preserveAudioSelectionForReload("decoder fallback")
+                if (exoPlayer.currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT }) {
+                    pendingSubtitleTrackIndex.clear()
+                    pendingSubtitleTrackIndex.add(exoPlayer.currentTracks.selectedTextTrackOrdinal())
+                }
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-                decoderPriorityOverride = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+                decoderPriorityOverride = fallbackDecoderPriority
                 latestOnError.value(null)
                 return
             }
@@ -1479,7 +1490,13 @@ private fun ExoPlayerSurface(
                         Log.d(TAG, "onTracksChanged: restored pending audio selection=$restored")
                     }
                 }
-                if (pendingSubtitleTrackIndex.isNotEmpty() && tracks.groups.isNotEmpty()) {
+                val pendingSubtitleIndex = pendingSubtitleTrackIndex.firstOrNull()
+                val hasTextTracks = tracks.groups.any { it.type == C.TRACK_TYPE_TEXT }
+                if (pendingSubtitleIndex != null && shouldApplyPendingSubtitleTrackSelection(
+                    pendingSubtitleIndex,
+                    hasTrackGroups = tracks.groups.isNotEmpty(),
+                    hasTextTracks = hasTextTracks,
+                )) {
                     val idx = pendingSubtitleTrackIndex.removeAt(0)
                     Log.d(TAG, "onTracksChanged: applying pending subtitle selection index=$idx")
                     exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
@@ -4884,6 +4901,27 @@ private data class FfmpegAudioDownmix(
     val channels: AudioOutputChannels,
     val normalize: Boolean,
 )
+
+internal fun decoderPriorityFallbackAfterFailure(
+    configuredPriority: Int,
+    activePriority: Int,
+    isDecoderFailure: Boolean,
+): Int? {
+    if (!isDecoderFailure || activePriority != configuredPriority) return null
+    return when (configuredPriority) {
+        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON ->
+            DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER ->
+            DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
+        else -> null
+    }
+}
+
+internal fun shouldApplyPendingSubtitleTrackSelection(
+    pendingTrackIndex: Int,
+    hasTrackGroups: Boolean,
+    hasTextTracks: Boolean,
+): Boolean = hasTrackGroups && (pendingTrackIndex < 0 || hasTextTracks)
 
 internal fun softwareVideoRendererInsertionIndex(
     extensionRendererMode: Int,

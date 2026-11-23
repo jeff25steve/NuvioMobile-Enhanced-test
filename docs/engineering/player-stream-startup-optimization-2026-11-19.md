@@ -387,3 +387,23 @@ This is a targeted latency correction to the software-decoder fallback (currentl
 - Verified Media3 1.11.0 enables dynamic scheduling by default. The app already enables the renderer duration-to-progress hint on API 31+ where asynchronous MediaCodec operation is the default; this remains gated for older Android versions.
 - Did not enable MediaCodec renderer prewarming: the current player prepares one media item at a time, and this app overrides buildVideoRenderers while not providing a matching secondary renderer implementation. Enabling prewarming without the required secondary renderer would be incorrect.
 - This cycle intentionally makes no redundant renderer configuration change. It records confirmed upstream defaults and the exact integration boundary so future work does not duplicate already-active optimisations.
+
+
+### Cycle 231 — bidirectional decoder recovery without losing track choices
+
+- The Android renderer factory inserts the custom software video renderer before platform renderers in PREFER mode and after platform renderers in ON mode. The prior recovery branch only handled a configured ON preference, so a failure while the app renderer was preferred could leave the user stuck even though the platform decoder was still available.
+- Decoder failures now trigger at most one opposite-priority player rebuild for either configured ON or PREFER: ON retries with app renderers preferred; PREFER retries with platform renderers preferred. OFF remains respected and is never overridden. The active priority must still equal the configured priority, which prevents a second fallback loop after the first retry.
+- Before rebuilding, the current audio track selection and text-track ordinal are captured. A selected subtitle track is restored after the replacement player discovers text tracks; a stored -1 also restores the user's explicit subtitles-disabled state when text tracks were available.
+- Pending audio/subtitle restoration is now keyed to the source identity: same-source renderer rebuilds retain the pending selection, while switching to a different source clears it. Subtitle restoration no longer consumes a positive track index on an earlier video/audio-only track update before text tracks have appeared.
+- Added host-test contracts for both decoder-priority directions, one-shot behavior, respecting OFF, non-decoder errors, and waiting for text tracks. Test source was committed before production changes. Tests were not executed because no build/test task was authorised.
+
+#### Versioned source evidence
+
+- [Media3 1.11.1 DefaultRenderersFactory](https://github.com/androidx/media/blob/1.11.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/DefaultRenderersFactory.java) documents that ON places extension renderers after core renderers, while PREFER places them before core renderers.
+- [Media3 1.11.1 ExoPlaybackException](https://github.com/androidx/media/blob/1.11.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/ExoPlaybackException.java) distinguishes renderer failures from source failures and documents its internal recoverable-renderer state. ExoPlayer performs its own disable/re-enable recovery for errors marked recoverable; this app-side opposite-priority rebuild remains limited to terminal decoder failures delivered to onPlayerError.
+- The custom software renderer's insertion policy was verified in SubtitleOffsetRenderersFactory.buildVideoRenderers and softwareVideoRendererInsertionIndex; no assumption about generic Media3 extension ordering was substituted for the app's actual code.
+
+#### Verification boundary
+
+- Static review checked the new helper call sites, source-key lifetime, capture-before-rebuild ordering, text-track gating and the existing one-retry guard.
+- No Gradle task, test execution, compilation, build, CI, APK/AAB, Macrobenchmark, Perfetto capture or physical-device playback was run. No measured playback or decoder-recovery improvement is claimed.
