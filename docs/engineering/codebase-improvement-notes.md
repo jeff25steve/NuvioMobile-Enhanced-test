@@ -1673,3 +1673,45 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Render profiles and the Debanding toggle are independent controls. The renderer now reapplies the user's current deband value after every profile transition, so a future upstream profile that starts modifying `deband` cannot silently override the explicit user choice.
 - This preserves the deband toggle whether the user changes quality first, debanding first, or switches repeatedly between profiles. The command remains on the existing serialized MPV dispatcher.
 - Static review verified the reapplication occurs after restore/apply commands and uses the latest requested value; no build or test task was run.
+
+
+### Cycle 239 — preserve exact Media3 subtitle cue geometry
+
+- Replaced the lossy left/centre/right and top/middle/bottom-only mapping for supported horizontal Media3 text cues with normalized `position`, `positionAnchor`, fractional `line`, `lineAnchor`, explicit `size` and independent `textAlignment`.
+- The custom commonMain `Layout` measures each cue before applying its anchor. Explicit cue sizes are bounded by the available space around the anchor. When size is unset, the text is measured to its actual content width and wrapping is limited to the available region; it is not stretched to a full-width cue box.
+- Media3's unset anchor behavior is START, as implemented in Media3 1.11.1 `SubtitlePainter`; missing text alignment remains CENTER. Non-finite/out-of-range coordinates are ignored.
+- Different geometry and text alignment values remain separate blocks. Bitmap, vertical-writing and numbered-line cues are routed to Media3's native subtitle output instead of being incorrectly drawn by the horizontal custom overlay.
+
+### Cycle 240 — preserve embedded subtitle window colors
+
+- The presenter now carries `Cue.windowColor` only when `windowColorSet` is true. A supplied window color overrides the user's subtitle background for that cue; an unset window color continues to use the configured user background.
+- For an explicitly sized cue, the custom background fills the cue box; for an unset size, it remains sized to the measured text box. Window color is part of the grouping key so cues with different colors are not merged.
+
+### Cycle 241 — preserve embedded cue font sizes
+
+- The presenter carries Media3's `Cue.textSize` and `textSizeType` through the common model.
+- Absolute values are treated as pixels; fractional values use the fitted video-frame height minus padding; fractional-ignore-padding values use the raw fitted video-frame height. The full-bleed overlay has no additional padding, so both fractional inputs resolve to the fitted frame height.
+- Resolved pixel sizes are converted through Compose `Density.toSp()`, preserving the intended rendered pixel size while leaving the user's configured font size as the fallback when the cue supplies no embedded size.
+
+### Cycle 242 — anchor subtitle coordinates to the fitted video frame
+
+- `SubtitleVideoBoundsPx` now includes `left` and `top` offsets as well as width/height. Fit mode records positive letterbox offsets; Zoom records negative crop offsets; Fill remains the full container.
+- Subtitle positions, widths, default bottom/top insets, font scaling, outline sizing and fractional embedded text sizes are now based on the fitted video bounds rather than the outer player container.
+- The custom overlay clips to the player container, so Zoom-cropped video coordinates cannot draw outside the player. Default bottom-centre cues remain inside the actual video frame when Fit introduces letterboxing.
+- Added common test source for Fit/Fill/Zoom offsets, fractional anchor placement, bounded cue widths, invalid metadata, native fallbacks, embedded window colors and all supported text-size modes.
+
+#### Research and source checks
+
+- [Media3 1.11.1 Cue source](https://github.com/androidx/media/blob/1.11.1/libraries/common/src/main/java/androidx/media3/common/text/Cue.java): source fields, anchors, cue size, window color and text-size types.
+- [Media3 1.11.1 SubtitlePainter](https://github.com/androidx/media/blob/1.11.1/libraries/ui/src/main/java/androidx/media3/ui/SubtitlePainter.java): exact position/line anchor behavior, cue-box sizing and text alignment.
+- [Media3 1.11.1 CanvasSubtitleOutput](https://github.com/androidx/media/blob/1.11.1/libraries/ui/src/main/java/androidx/media3/ui/CanvasSubtitleOutput.java) and [SubtitleViewUtils](https://github.com/androidx/media/blob/1.11.1/libraries/ui/src/main/java/androidx/media3/ui/SubtitleViewUtils.java): distinction between raw view height and height after padding for cue text size.
+- [AndroidX Media issue #2977](https://github.com/androidx/media/issues/2977): maintainer discussion (2 January 2026) states positioned subtitle coordinates are relative to the video frame, not an arbitrary outer container.
+- [ExoPlayer issue #7243](https://github.com/google/ExoPlayer/issues/7243): maintainer discussion of WebVTT position, anchor, size and alignment interactions.
+- [Stack Overflow discussion on custom ExoPlayer subtitle positioning](https://stackoverflow.com/questions/68802859/how-to-change-exoplayer-subtitle-position-in-android): older community workaround considered as context only; implementation follows current Media3 source instead.
+- Exa searches of Reddit and current forum discussions did not surface a stronger reproducible implementation. Current Media3 source and maintainer issue discussion were treated as the source of truth.
+- Context7 was queried for the project's Compose Multiplatform 1.13.0-beta01 Layout/Density APIs but did not return version-matched documentation. The stable common Compose API signatures were cross-checked against official JetBrains/Compose API sources; no dependency upgrade was made.
+
+#### Verification boundary
+
+- Static remote-source review checked Cue mapping, anchor defaults, width bounds, grouping keys, embedded window-color/text-size handling, Fit/Fill/Zoom offsets, video-frame-relative layout and native fallbacks.
+- Common and Android host regression tests were added but **not executed**. No Gradle task, compilation, build, CI, benchmark, Perfetto trace or physical-device playback was run. No runtime improvement is claimed until authorized validation is performed.

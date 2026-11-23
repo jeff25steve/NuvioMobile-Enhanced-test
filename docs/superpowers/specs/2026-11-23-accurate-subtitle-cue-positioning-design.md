@@ -23,7 +23,7 @@ Media3 1.11.1 documents `position` as the fractional location of `positionAnchor
 
 ## Non-goals
 
-- Implement all WebVTT CSS, ruby, text-combine, vertical writing, shear, or arbitrary window/background styling.
+- Implement all WebVTT CSS, ruby, text-combine, vertical writing, shear, or arbitrary window styling beyond the supported cue window color.
 - Change MPV's native libass subtitle rendering.
 - Change subtitle track selection, timing, synchronization or playback engine selection.
 - Change subtitle appearance preferences or add settings.
@@ -38,10 +38,13 @@ Media3 1.11.1 documents `position` as the fractional location of `positionAnchor
 ## Design decisions
 
 - Extend `StyledSubtitleBlock` with optional normalized horizontal/vertical fractions, anchor fractions, width fraction and independent text alignment. Existing MPV ASS-created blocks keep their current enum defaults.
-- For horizontal cues, use `position` with `positionAnchor`; if the anchor is unset, derive a sensible anchor from `textAlignment` (normal/start, center/middle, opposite/end).
+- For horizontal cues, use `position` with `positionAnchor`. Media3's `SubtitlePainter` treats an unset position anchor as START; preserve that default. Missing `textAlignment` defaults to CENTER.
 - Use `line` and `lineAnchor` only when `lineType == Cue.LINE_TYPE_FRACTION`. Unset line keeps the current bottom default. Numbered lines are passed through natively.
-- For explicit `size`, clamp the width to the available viewport and anchor. If size is unset but position is explicit, use the maximum width that fits on the requested side of the anchor; if both are unset, keep the existing full-width default.
-- Position each block with a Compose `Layout` measure policy so the child is measured before applying anchor offsets. This keeps the behavior commonMain and avoids platform-specific coordinate code.
+- For explicit `size`, clamp the width to the available video-frame region around the anchor and fill that cue box. If size is unset, measure the text to its content width while limiting its wrapping width to the maximum region available around the position anchor.
+- Preserve `Cue.windowColor` only when `windowColorSet` is true; it overrides the user background for that cue. Otherwise retain the user's configured background.
+- Resolve `Cue.textSize` from Media3's absolute-pixel, fractional and fractional-ignore-padding modes. The full-bleed overlay uses the fitted video height for both fractional inputs; convert resolved px through Compose Density to sp.
+- Extend `SubtitleVideoBoundsPx` with left/top offsets. Fit returns positive letterbox offsets; Zoom returns negative crop offsets; Fill remains the container bounds.
+- Position each block with a Compose `Layout` measure policy relative to the fitted video-frame origin, then clip Zoom overflow to the player container. This keeps the behavior commonMain and avoids platform-specific coordinate code.
 - Keep unsupported vertical writing cues and bitmap cues in the native output list.
 - Clamp normalized coordinates to [0, 1], reject non-finite values, and keep fallback placement for unset fields.
 

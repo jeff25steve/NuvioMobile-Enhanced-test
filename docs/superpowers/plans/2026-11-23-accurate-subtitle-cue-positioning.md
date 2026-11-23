@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Preserve Media3 fractional subtitle coordinates, anchors, width and text alignment in Nuvio's custom Compose overlay.
+**Goal:** Preserve Media3 cue geometry and embedded styling in Nuvio's custom subtitle overlay, anchored to the actual video frame.
 
-**Architecture:** Map Media3 Cue layout metadata into the existing StyledSubtitleBlock model, then use a custom commonMain Layout to measure and place each cue at its exact anchor point. Bitmap cues, vertical-writing cues and numbered-line cues stay in the native subtitle output.
+**Architecture:** Map Media3 Cue geometry, window color and text-size metadata into the existing StyledSubtitleBlock model, then use a commonMain Compose Layout to measure and place each cue relative to SubtitleVideoBoundsPx. Bitmap cues, vertical-writing cues and numbered-line cues stay in the native subtitle output.
 
 **Tech Stack:** Kotlin Multiplatform, Compose Multiplatform commonMain, AndroidX Media3 1.11.1 Cue, existing Android host tests.
 
@@ -38,7 +38,7 @@
 - Test: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/SubtitleCuePresenterTest.kt`
 
 **Interfaces:**
-- Produce: `StyledSubtitleBlock.positionX`, `positionXAnchor`, `positionY`, `positionYAnchor`, `widthFraction` and `textAlignment`.
+- Produce: `StyledSubtitleBlock.positionX`, `positionXAnchor`, `positionY`, `positionYAnchor`, `widthFraction`, `textAlignment`, `windowColor`, `textSizeValue` and `textSizeType`.
 - Preserve existing `vertical` and `horizontal` fields as fallback placement for default and ASS cues.
 
 - [ ] Add common tests for anchor/width calculations and grouping by the full placement key.
@@ -73,7 +73,7 @@
 - Modify: `docs/engineering/player-stream-startup-optimization-2026-11-19.md`
 
 - [ ] Record the concrete bug, Media3 1.11.1 Cue semantics, chosen implementation, unsupported cue fallbacks and source links.
-- [ ] Record tests added but not executed and the explicit no-build boundary.
+- [x] Record tests added but not executed and the explicit no-build boundary.
 - [ ] Re-fetch every changed file from the remote branch and statically verify metadata mapping, exact placement, fallback routing and docs.
 - [ ] Commit as `docs(player): record accurate subtitle cue rendering`.
 
