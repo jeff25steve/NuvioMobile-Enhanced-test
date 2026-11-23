@@ -2099,3 +2099,22 @@ Verification boundary:
 - Test source was added before the production edit. The tests were not executed because no Gradle test/build or CI run was authorised in this cycle. No build, CI, benchmark or device playback was run.
 - This is a source-level correction to subtitle format classification; the visual result still requires later playback validation with SSA/ASS and non-SSA tracks, including a subtitle group where the selected track is not index zero.
 - The separate NuvioTV HLG alternative-transfer-SEI implementation was reviewed. It modifies a Matroska extractor at sample-read time; this app currently wires `DefaultExtractorsFactory`, so transplanting that implementation without an extractor integration plan would be a broad, risky fork. No speculative HDR parser fork or mpv tone-map default was introduced.
+
+## MPV stream information uses measured output FPS — 23 November 2026
+
+The MPV stream-information reader displayed `container-fps` as the video's frame rate. The official mpv property manual explicitly warns that `container-fps` can contain bogus values and is often incorrect for modern container formats/codecs. The repository already had `mpvPlaybackEstimatedFps` and tests for finite, positive measured FPS, but `mpvMediaInfo` did not use that validated estimate.
+
+Correction:
+- Read `estimated-vf-fps`, which mpv defines as the estimated/measured output FPS based on recent frame durations.
+- Pass the parsed value through the existing finite/positive validator and reject values that overflow when converted to the model's `Float`.
+- Do not silently fall back to `container-fps`; if a measured estimate is unavailable, the overlay leaves the frame-rate field blank rather than displaying a known-unreliable nominal value.
+- Added regression cases where container FPS disagrees with measured output FPS and where measured output FPS is unavailable.
+
+Evidence:
+- The [mpv property list](https://mpv.io/manual/stable/#property-list) states that `container-fps` can easily contain bogus values, while `estimated-vf-fps` is calculated from recent output frame durations. The same documentation warns that measured FPS can be inaccurate during frame dropping or after precise seeks, so this is an estimate of current output cadence, not a claim about the source's immutable nominal frame rate.
+- Reused the existing `mpvPlaybackEstimatedFps` validation helper; no new dependency or playback pipeline change was needed.
+
+Verification boundary:
+- Regression tests were authored before the production edit but were not executed because no Gradle test/build or CI run was authorised. No build, CI, benchmark or device playback was run.
+- The displayed value is now a measured output estimate. It can fluctuate with frame dropping and may be unavailable before enough frames have been observed; those are documented mpv property semantics, not a source-FPS guarantee.
+
