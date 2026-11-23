@@ -59,6 +59,7 @@
 - Modify: `composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerMediaInfo.kt`
 - Modify: `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/PlayerEngine.android.kt`
 - Create: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/PlaybackFormatMetadataTest.kt`
+- Create: `composeApp/src/commonTest/kotlin/com/nuvio/app/features/player/PlayerMediaInfoTest.kt`
 
 **Interfaces:**
 - Produces pure helpers:
@@ -74,6 +75,7 @@
   - Cover Dolby Vision MIME, PQ, HLG, SDR and unknown transfer values.
   - Cover DV profile extraction for HEVC, AVC and AV1 codec strings.
   - Cover full/limited/unknown color ranges.
+  - Cover PQ badges as `HDR (PQ)` and preserve a Dolby Vision badge plus PQ base-layer signal.
   - Prove BT.2020 matrix/primaries without PQ/HLG/DV signalling is not classified as HDR.
 - [x] **Step 2: Implement ExoPlayer classification**
   - Make playback-info DV detection/profile extraction use the same five codec families already recognized by the player media-info helper.

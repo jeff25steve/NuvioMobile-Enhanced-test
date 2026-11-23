@@ -30,7 +30,7 @@ Make the integrated player's playback information trustworthy and more useful, a
 - ExoPlayer: recognize Dolby Vision MIME and all existing codec families (`dvhe`, `dvh1`, `dvav`, `dva1`, `dav1`) consistently in playback-info classification and profile extraction.
 - libmpv: classify Dolby Vision from selected track profile/codec/decoder or `video-params/colormatrix=dolbyvision`; classify PQ and HLG from their transfer functions; retain SDR only when mpv explicitly reports SDR.
 - Do not infer HDR from BT.2020 primaries alone. PQ is shown as `HDR (PQ)`, not automatically `HDR10`, unless the engine can prove the more specific format.
-- Add pure helper tests for codec-family and transfer-function combinations.
+- Add pure helper tests for codec-family and transfer-function combinations, including consistent PQ/Dolby Vision badges in the track-info model.
 
 ### 3. Surface actual bit depth and color range in Playback Info
 

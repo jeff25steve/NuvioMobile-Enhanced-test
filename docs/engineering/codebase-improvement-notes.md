@@ -1773,7 +1773,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 ### Integrated on `main-build-testing`
 
-- Corrected ExoPlayer playback-info Dolby Vision detection to recognize `dvhe`, `dvh1`, `dvav`, `dva1` and `dav1` codec strings even when the selected track exposes a fallback HEVC/AVC/AV1 MIME type. Dolby Vision profile extraction now covers the same codec families.
+- Corrected ExoPlayer playback-info and track-badge Dolby Vision detection to recognize `dvhe`, `dvh1`, `dvav`, `dva1` and `dav1` codec strings even when the selected track exposes a fallback HEVC/AVC/AV1 MIME type. Dolby Vision profile extraction now covers the same codec families. PQ badges now say `HDR (PQ)` rather than claiming HDR10 without proof; Dolby Vision + PQ base-layer signals remain separately visible.
 - Corrected libmpv dynamic-range classification to use explicit Dolby Vision profile/codec/decoder or `video-params/colormatrix=dolbyvision`, and PQ/HLG/SDR transfer information. BT.2020 primaries alone no longer imply HDR; a wide-gamut SDR source must not be labelled HDR.
 - ExoPlayer and libmpv playback-info JSON now include source bit depth and normalized source color range when the active engine exposes them. The shared Playback Info modal shows these fields and omits unavailable values.
 - The selected/recommended HLS quality details now show the variant's declared dynamic range and frame rate. Auto mode labels these as recommended metadata, not the currently adaptive-selected rendition.
@@ -1789,5 +1789,5 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 
 ### Verification boundary
 
-- Added four common HLS resolver metadata tests and five Android host playback-format tests (including all five Dolby Vision codec families, transfer-function classification, BT.2020-only SDR, color range and bit-depth parsing).
+- Added four common HLS resolver metadata tests, three common `PlayerMediaInfo` tests and five Android host playback-format tests (including all five Dolby Vision codec families, transfer-function classification, BT.2020-only SDR, color range, bit depth and consistent PQ/DV badges).
 - Source files, test sources, the Media3 catalog and compatibility guard were re-fetched and reviewed. No Gradle test, compilation, build, CI, benchmark or device playback was run because authorization has not been given. No runtime playback improvement is claimed until those checks and representative device tests pass.
