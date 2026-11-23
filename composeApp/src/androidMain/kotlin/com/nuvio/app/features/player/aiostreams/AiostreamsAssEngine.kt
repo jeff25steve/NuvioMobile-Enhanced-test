@@ -281,8 +281,13 @@ internal class AiostreamsAssEngine(
     }
 
     override fun onVideoSizeChanged(videoSize: VideoSize) {
-        if (videoSize.width == 0 || videoSize.height == 0) return
-        layout = layout.copy(videoWidth = videoSize.width, videoHeight = videoSize.height)
+        // Player rebuilds can initially report VideoSize.UNKNOWN. Clear the old source geometry
+        // instead of showing a new ASS track against the previous video's subtitle coordinate space.
+        val dimensions = assVideoDimensionsFromSize(videoSize)
+        layout = layout.copy(
+            videoWidth = dimensions?.width ?: 0,
+            videoHeight = dimensions?.height ?: 0,
+        )
         updateLayout()
     }
 
