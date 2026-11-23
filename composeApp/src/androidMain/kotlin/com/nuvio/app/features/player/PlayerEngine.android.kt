@@ -1506,13 +1506,9 @@ private fun ExoPlayerSurface(
 
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 InAppLogger.info("ExoPlayer/Android", "videoSize=${videoSize.toLogSummary()}")
-                if (videoSize.width > 0 && videoSize.height > 0) {
-                    // Include anamorphic pixel width so fitted subtitle geometry follows
-                    // the display aspect ratio reported by Media3.
-                    videoAspectRatio = (
-                        videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio
-                    ) / videoSize.height.toFloat()
-                }
+                // Clear stale geometry when a source reports UNKNOWN/invalid dimensions.
+                // Keep the same pixel-aspect calculation used by PiP and subtitle geometry.
+                videoAspectRatio = videoAspectRatioFromSize(videoSize) ?: 0f
                 if (exoVideoEffects.pipelineConfigured) {
                     val sourceFormat = exoPlayer.videoFormat
                     if (sourceFormat != null && sourceFormat.width > 0 && sourceFormat.height > 0) {
