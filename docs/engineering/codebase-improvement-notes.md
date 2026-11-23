@@ -1232,3 +1232,33 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Context7 was attempted for the coroutine and API documentation but its monthly quota was exhausted. The repository's pinned versions were checked directly (kotlinx-coroutines 1.10.2 and Media3 1.11.1). Exa retrieved the official Kotlin coroutine cancellation documentation and Oracle CompletableFuture API documentation; Oracle specifies that cancelling a CompletableFuture completes it with CancellationException and unblocks waiters. No dependency versions or APIs were changed.
 - These changes target seek-preview cancellation latency, stale-frame correctness and avoiding obsolete thumbnail CPU work. No measured latency or battery improvement is claimed.
 - No tests, Kotlin compilation, Gradle tasks, builds, CI, device playback, Macrobenchmark or Perfetto capture were run. Static review and remote-source verification only.
+### Improve software video color conversion, native surface safety and frame timing (Cycles 183–187, 23 November 2026)
+
+**Cycle 183 — preserve a usable timestamp when FFmpeg omits frame PTS**
+- The JNI frame metadata previously collapsed AVFrame.pts and best_effort_timestamp into one value. When both were AV_NOPTS_VALUE, Kotlin passed Long.MIN_VALUE into Media3 as the output frame presentation time, which could make the frame fail the output-start-time check or carry an invalid timestamp.
+- Native frame metadata now returns PTS and best-effort timestamp independently. Kotlin prefers PTS, then best-effort timestamp, and uses the input packet's Media3 timestamp only when FFmpeg has neither.
+- Added host tests for all three precedence cases. Tests not run.
+
+**Cycle 184 — configure FFmpeg YUV matrix and range explicitly**
+- The software decoder converted source frames to YUV420P with swscale defaults, while separately attaching a dataspace derived from the source frame. The conversion path did not explicitly provide the source matrix or range, risking a mismatch between converted pixel values and the output dataspace on BT.709, BT.2020 and full-range material.
+- The native converter now selects FFmpeg's ITU-601, ITU-709 or BT.2020 coefficient table from the decoded frame metadata and explicitly applies the frame's full/limited range to both sides of the YUV conversion. Failure to configure the conversion is surfaced as a frame-conversion failure instead of silently using mismatched defaults.
+- FFmpeg 8.0's official libswscale API documents sws_getCoefficients() and sws_setColorspaceDetails(), including the source and destination range flags. No HDR tone-mapping claim is made; this change corrects matrix/range configuration for the existing 8-bit YUV output path.
+
+**Cycle 185 — always unlock a successfully locked native surface buffer**
+- nativeRender() previously returned an error if ANativeWindow_lock() succeeded but supplied a null buffer.bits pointer. That return path skipped ANativeWindow_unlockAndPost(), leaving a successfully acquired window buffer locked and potentially blocking later frame presentation.
+- The successful-lock/null-bits error path now attempts unlockAndPost() before returning, and logs an unlock failure. A failed lock is still not unlocked; the existing -ENODEV surface-loss path still releases the native window and drops the frame.
+- Android NDK documentation defines unlockAndPost() as the operation that unlocks a surface buffer after it has been locked.
+
+**Cycle 186 — declare the packet timestamp time base to FFmpeg**
+- The JNI bridge writes Media3's microsecond presentation timestamps directly into AVPacket.pts, but the AVCodecContext did not set pkt_timebase. FFmpeg documents pkt_timebase as the time base in which input packet PTS/DTS values are expressed and requires decoders to set it.
+- The decoder now sets pkt_timebase to 1/1,000,000 before avcodec_open2(), matching the microsecond values supplied by Kotlin and making FFmpeg's output timestamp interpretation explicit.
+
+**Cycle 187 — retain the correct color-space slot in Media3's output buffer**
+- Expanding the JNI metadata to return separate PTS and best-effort timestamps shifted the frame-info array indices. Review caught that initForYuvFrame() was temporarily receiving the frame height in its colorspace argument.
+- The decoder now reads the colorspace from its dedicated metadata slot through a small helper, and a regression test uses distinct height/colorspace values to catch this exact index mix-up.
+
+**Validation and remaining decoder limitation**
+- Media3 1.11.1's official SimpleDecoder source was inspected. Its decode loop handles an end-of-stream input buffer directly by emitting an EOS output buffer; it does not invoke the subclass decode() method for EOS. Therefore the current SimpleDecoder-based FFmpeg wrapper cannot drain delayed B-frames by adding a flush branch inside SoftwareVideoDecoder.decode(). Correct FFmpeg EOS draining needs a deliberate Decoder implementation or another architecture that can intercept EOS; that larger redesign is recorded as a follow-up rather than hidden behind an ineffective patch.
+- Context7 resolved and queried AndroidX Media3 1.11.1, Android NDK native-window reference documentation and FFmpeg 8.0. Exa independently retrieved the official FFmpeg 8.0 send/receive and libswscale references and Android NDK native-window documentation. The repository pins Media3 1.11.1 and includes FFmpeg 8.0 headers in the native target.
+- Added SoftwareVideoFrameTimestampTest.kt with four host regression cases covering PTS precedence, best-effort fallback, packet timestamp fallback and colorspace metadata indexing. Tests not run.
+- No CMake/NDK build, Kotlin compilation, Gradle task, test execution, CI, device playback, HDR validation or performance benchmark was run. Source-level review and remote GitHub verification only; no measured playback improvement is claimed.
