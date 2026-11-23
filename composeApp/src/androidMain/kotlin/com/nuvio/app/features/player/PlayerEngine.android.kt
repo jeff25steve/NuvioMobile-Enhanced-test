@@ -268,6 +268,11 @@ internal class PlaybackDiagnostics {
     }
 }
 
+/**
+ * Returns a selected text format for cue MIME/codec classification.
+ *
+ * Tracks.Group does not expose which selected adaptive format is currently active.
+ */
 internal fun selectedSubtitleFormat(tracks: Tracks): Format? {
     for (group in tracks.groups) {
         if (group.type != C.TRACK_TYPE_TEXT) continue
@@ -759,7 +764,10 @@ private fun ExoPlayerSurface(
             presentCues = { cues ->
                 val format = playerViewRef?.player?.currentTracks?.let(::selectedSubtitleFormat)
                 if (sidecarControllerRef?.isSidecarActive() == true) emptyList()
-                else subtitlePresenter.present(cues, format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA)
+                else subtitlePresenter.present(
+                    cues,
+                    format?.sampleMimeType != MimeTypes.TEXT_SSA && format?.codecs != MimeTypes.TEXT_SSA,
+                )
             },
             videoBoundsFractionProvider = {
                 playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value)
