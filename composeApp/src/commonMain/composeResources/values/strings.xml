@@ -3247,6 +3247,8 @@
     <string name="subtitle_shadow_description">Separate the text from bright scenes.</string>
     <string name="subtitle_shadow_opacity">Shadow opacity</string>
     <string name="subtitle_shadow_size">Shadow size</string>
+    <string name="subtitle_use_letterbox_area">Use letterbox area for plain subtitles</string>
+    <string name="subtitle_use_letterbox_area_description">Place unpositioned SRT and WebVTT text in the black bar when the whole cue fits. Explicitly positioned, ASS/SSA and image subtitles stay anchored to the video.</string>
     <string name="subtitle_customize_ass">Customize ASS/SSA styling</string>
     <string name="subtitle_outline_width">Outline width</string>
     <string name="subtitle_reset_appearance">Reset appearance</string>
