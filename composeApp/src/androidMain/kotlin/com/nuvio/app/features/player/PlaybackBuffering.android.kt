@@ -21,6 +21,7 @@ import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.DefaultLoadControl
 import java.io.File
 import java.io.IOException
+import java.io.IOException
 import java.io.InterruptedIOException
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -400,8 +401,17 @@ internal class SelectiveBufferedDataSource(
     override fun getResponseHeaders(): Map<String, List<String>> = active?.responseHeaders.orEmpty()
 
     override fun close() {
-        active?.close()
-        active = null
+        val closing = active ?: return
+        try {
+            closing.close()
+        } catch (error: IOException) {
+            // A delegate that failed to close is not safe to reuse on the next open.
+            if (closing === plain) plain = null
+            if (closing === buffered) buffered = null
+            throw error
+        } finally {
+            active = null
+        }
     }
 }
 
