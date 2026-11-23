@@ -470,6 +470,7 @@ private fun ExoPlayerSurface(
     val latestExternalSubtitleMimeType = rememberUpdatedState(selectedExternalSubtitleMimeType)
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
     var alwaysFrameRateController by remember { mutableStateOf<AlwaysVideoFrameRateController?>(null) }
+    var currentVideoFrameRate by remember(playerSourceKey) { mutableStateOf(Float.NaN) }
     var videoAspectRatio by remember(playerSourceKey) { mutableStateOf(0f) }
     val latestVideoAspectRatio = rememberUpdatedState(videoAspectRatio)
     var currentSubtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
@@ -1580,7 +1581,8 @@ private fun ExoPlayerSurface(
                 format: androidx.media3.common.Format,
                 decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
             ) {
-                alwaysFrameRateController?.updateVideoFrameRate(format.frameRate)
+                currentVideoFrameRate = format.frameRate
+                alwaysFrameRateController?.updateVideoFrameRate(currentVideoFrameRate)
                 updateAlwaysFrameRateState()
             }
 
@@ -2136,6 +2138,7 @@ private fun ExoPlayerSurface(
                 alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
             }
         }
+        alwaysFrameRateController?.updateVideoFrameRate(currentVideoFrameRate)
         updateAlwaysFrameRateState()
     }
 
