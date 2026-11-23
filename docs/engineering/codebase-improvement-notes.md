@@ -1654,6 +1654,7 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added common and Android host test source for the disabled default, persistence, and settings-sync round trip. Tests were not executed.
 
 #### Additional source review
+- The same 2026 Findroid discussion also reviews an experimental HDR-capable Vulkan MPV fork and reports that it cannot use MediaCodec-copy/HW+ and may stutter on large high-bitrate files; this is not a safe default engine switch without device testing.
 
 - [mpv debanding option and runtime properties](https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst) and [libmpv option property API](https://github.com/mpv-player/mpv/blob/master/DOCS/man/input.rst#property-list): confirms the option and runtime `options/<name>` setter.
 - [mpv PR #13731](https://github.com/mpv-player/mpv/pull/13731): upstream discussion explains why debanding is not enabled in default quality profiles and why excessive debanding can blur details.
