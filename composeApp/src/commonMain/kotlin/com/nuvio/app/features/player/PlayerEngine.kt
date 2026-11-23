@@ -61,6 +61,8 @@ interface PlayerEngineController {
     fun setSubtitleDelayMs(delayMs: Int) {}
     /** True only for mpv engines that support full user overrides of ASS/SSA tracks. */
     val supportsAssStyleCustomization: Boolean get() = false
+    /** True when this engine can render unpositioned SRT/WebVTT text in available letterbox space. */
+    val supportsLetterboxTextSubtitles: Boolean get() = false
     /** Whether [setAudioDelayMs] has an effect; the player hides the audio delay control otherwise. */
     val supportsAudioDelay: Boolean get() = false
     /** Plays the audio [delayMs] later than the video; negative values play it earlier. */
