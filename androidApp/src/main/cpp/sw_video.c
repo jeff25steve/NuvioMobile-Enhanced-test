@@ -36,7 +36,7 @@
     X(avcodec_free_context) X(avcodec_send_packet) X(avcodec_receive_frame) X(avcodec_flush_buffers) \
     X(av_packet_alloc) X(av_packet_free)
 #define AVUTIL(X) X(avutil_version) X(av_frame_alloc) X(av_frame_free) X(av_frame_unref) X(av_mallocz)
-#define SWSCALE(X) X(swscale_version) X(sws_getCachedContext) X(sws_scale) X(sws_freeContext)
+#define SWSCALE(X) X(swscale_version) X(sws_getCachedContext) X(sws_getCoefficients) X(sws_setColorspaceDetails) X(sws_scale) X(sws_freeContext)
 
 typedef int32_t (*SetDataSpace)(ANativeWindow *window, int32_t dataSpace);
 
@@ -106,6 +106,14 @@ static int colorspace_of(const AVFrame *frame) {
         case AVCOL_SPC_BT2020_NCL:
         case AVCOL_SPC_BT2020_CL: return COLORSPACE_BT2020;
         default: return frame->height > 576 ? COLORSPACE_BT709 : COLORSPACE_BT601;
+    }
+}
+
+static int swscale_colorspace_of(const AVFrame *frame) {
+    switch (colorspace_of(frame)) {
+        case COLORSPACE_BT2020: return SWS_CS_BT2020;
+        case COLORSPACE_BT709: return SWS_CS_ITU709;
+        default: return SWS_CS_ITU601;
     }
 }
 
@@ -247,14 +255,15 @@ JNIEXPORT jint JNICALL METHOD(nativeReceiveFrame)(JNIEnv *env, jclass clazz, jlo
         d->has_frame = 1;
     }
     AVFrame *frame = d->frame;
-    jlong values[5] = {
-        frame->pts != AV_NOPTS_VALUE ? frame->pts : frame->best_effort_timestamp,
+    jlong values[6] = {
+        frame->pts,
+        frame->best_effort_timestamp,
         frame->width,
         frame->height,
         colorspace_of(frame),
         data_space_of(frame),
     };
-    (*env)->SetLongArrayRegion(env, info, 0, 5, values);
+    (*env)->SetLongArrayRegion(env, info, 0, 6, values);
     return RESULT_OK;
 }
 
@@ -269,16 +278,24 @@ JNIEXPORT jboolean JNICALL METHOD(nativeConvertFrame)(JNIEnv *env, jclass clazz,
                                      SWS_BILINEAR, NULL, NULL, NULL);
     jboolean converted = JNI_FALSE;
     if (base && d->sws) {
-        int uv_height = (frame->height + 1) / 2;
-        uint8_t *planes[4] = {
-            base,
-            base + (size_t) y_stride * frame->height,
-            base + (size_t) y_stride * frame->height + (size_t) uv_stride * uv_height,
-            NULL,
-        };
-        int strides[4] = {y_stride, uv_stride, uv_stride, 0};
-        converted = ff.sws_scale(d->sws, (const uint8_t *const *) frame->data, frame->linesize, 0,
-                                 frame->height, planes, strides) > 0;
+        const int *coefficients = ff.sws_getCoefficients(swscale_colorspace_of(frame));
+        int full_range = frame->color_range == AVCOL_RANGE_JPEG;
+        if (!coefficients || ff.sws_setColorspaceDetails(
+                d->sws, coefficients, full_range, coefficients, full_range, 0, 1 << 16, 1 << 16) < 0) {
+            LOGW("Failed to configure YUV conversion matrix/range (colorspace=%d full_range=%d)",
+                 colorspace_of(frame), full_range);
+        } else {
+            int uv_height = (frame->height + 1) / 2;
+            uint8_t *planes[4] = {
+                base,
+                base + (size_t) y_stride * frame->height,
+                base + (size_t) y_stride * frame->height + (size_t) uv_stride * uv_height,
+                NULL,
+            };
+            int strides[4] = {y_stride, uv_stride, uv_stride, 0};
+            converted = ff.sws_scale(d->sws, (const uint8_t *const *) frame->data, frame->linesize, 0,
+                                     frame->height, planes, strides) > 0;
+        }
     }
     ff.av_frame_unref(frame);
     d->has_frame = 0;
@@ -322,7 +339,14 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         release_window(env, d);
         return RESULT_OK;
     }
-    if (result || !buffer.bits) return RESULT_ERROR;
+    if (result) return RESULT_ERROR;
+    if (!buffer.bits) {
+        int unlock_result = ANativeWindow_unlockAndPost(d->window);
+        if (unlock_result) {
+            LOGW("ANativeWindow_unlockAndPost failed after empty locked buffer: %d", unlock_result);
+        }
+        return RESULT_ERROR;
+    }
 
     uint8_t *dst = buffer.bits;
     int rows = height < buffer.height ? height : buffer.height;
