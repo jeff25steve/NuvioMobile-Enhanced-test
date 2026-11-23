@@ -77,17 +77,23 @@ internal fun displayedVideoHeightPx(
     }.takeIf { it.isFinite() && it > 0f }
 }
 
+internal fun videoAspectRatioFromSize(videoSize: VideoSize): Float? {
+    if (videoSize.width <= 0 || videoSize.height <= 0) return null
+    val pixelWidthHeightRatio = videoSize.pixelWidthHeightRatio
+    if (!pixelWidthHeightRatio.isFinite() || pixelWidthHeightRatio <= 0f) return null
+    val aspectRatio = (
+        videoSize.width.toFloat() * pixelWidthHeightRatio
+    ) / videoSize.height.toFloat()
+    return aspectRatio.takeIf { it.isFinite() && it > 0f }
+}
+
 internal fun displayedVideoHeightPx(
     viewSize: IntSize,
     videoSize: VideoSize,
     resizeMode: PlayerResizeMode,
 ): Float? {
-    if (viewSize.width <= 0 || viewSize.height <= 0 || videoSize.width <= 0 || videoSize.height <= 0) {
-        return null
-    }
-    val videoAspectRatio = (
-        videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio
-    ) / videoSize.height.toFloat()
+    if (viewSize.width <= 0 || viewSize.height <= 0) return null
+    val videoAspectRatio = videoAspectRatioFromSize(videoSize) ?: return null
     return displayedVideoHeightPx(
         viewWidthPx = viewSize.width.toFloat(),
         viewHeightPx = viewSize.height.toFloat(),
