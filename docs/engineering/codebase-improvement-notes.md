@@ -1162,3 +1162,29 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - Added host coverage for propagation, ensuring the reader wait still runs, and retaining both failures when both cleanup steps fail. Tests not run.
 - Context7's exact Media3 1.11.1 API documents `DataSource.close()` as a potentially failing operation; the 1.11.1 DataSource contract requires callers to close after open failures. Exa inspected the Media3 OkHttpDataSource close implementation and OkHttp response-body cleanup guidance. This preserves cleanup diagnostics; it does not claim faster playback.
 - No Gradle task, compilation, build, CI, device playback or benchmark was run.
+
+
+### Reclaim the reusable native read-ahead pool after producer completion (Cycle 170, 23 November 2026)
+
+- The previous EOF fix released partially filled terminal blocks, but full blocks already returned to `freeBlocks` remained mapped until `DataSource.close()`. Once the producer has reached EOF or terminated, no further reads can reuse those blocks.
+- The reader's completion path now frees the reusable pool immediately. A full block consumed after the producer has finished is freed rather than returned to that pool; full blocks remain reusable while the producer is active.
+- Added host coverage distinguishing reusable full blocks from terminal full blocks. Tests not run. This shortens native-memory lifetime at EOF; no playback-speed or peak-memory benchmark was run.
+
+### Recover selective buffered sources after close failure (Cycle 171, 23 November 2026)
+
+- `SelectiveBufferedDataSource.close()` previously cleared `active` only after the delegate closed successfully. A thrown close error left the wrapper pointing at the failed delegate, and the same potentially invalid instance could be selected again on the next open.
+- The wrapper now clears `active` in `finally` and invalidates only the delegate whose close failed, allowing the next open to create a fresh source. Successful delegates remain reusable, preserving the existing fast path.
+- Added a host regression case that simulates a first-close failure, checks that the wrapper no longer exposes the old URI, and verifies that the next open creates a replacement delegate. Test not run. Media3's DefaultDataSource implementation was inspected as a reference for clearing the selected delegate in a `finally` block.
+
+### Apply response-header overrides using HTTP field-name semantics (Cycle 172, 23 November 2026)
+
+- `ResponseHeaderOverridingDataSource` previously merged overrides with case-sensitive map keys. HTTP field names are case-insensitive (RFC 9110 §5.1), so an upstream `content-type` and an override `Content-Type` could coexist. Consumers could then observe the upstream MIME value instead of the intended override, affecting MIME inference and adaptive source selection.
+- Overrides now remove every existing key equal under case-insensitive comparison before inserting the override. Empty overrides return the upstream map unchanged.
+- Added host coverage for differently cased keys, duplicate case variants, preserving unrelated headers and the no-copy empty-override path. Tests not run. RFC 9110 §5.1 was checked through Exa.
+
+### Clean up partially created native read-ahead allocations (Cycle 173, 23 November 2026)
+
+- Native block allocation could leak its SharedMemory descriptor if `mapReadWrite()` failed. The pre-27 file-backed fallback could also leave its temporary file or RandomAccessFile open if opening or mapping failed.
+- Allocation now closes/unmaps any resource acquired before a failed mapping, removes the fallback temporary file, and preserves the original allocation failure while attaching cleanup failures as suppressed exceptions. Successful block release also retries deletion of the fallback file.
+- Added host coverage for cleanup on allocation failure, preserving both the original and cleanup failures, and not running cleanup on success. Tests not run. The official Android SharedMemory API confirms `close()` and `unmap()` are separate lifecycle operations and mappings remain valid until unmapped.
+- No Gradle task, Kotlin compilation, build, CI, device playback or benchmark was run for these cycles.
