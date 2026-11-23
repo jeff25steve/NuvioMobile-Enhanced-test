@@ -447,11 +447,11 @@ private fun parseAttributes(attributeText: String): Map<String, String> {
 }
 
 private fun rewriteAttribute(line: String, attributeName: String, value: String): String {
-    val pattern = Regex("$attributeName=\\"[^\\"]*\\"", RegexOption.IGNORE_CASE)
+    val pattern = Regex("$attributeName=\"[^\"]*\"", RegexOption.IGNORE_CASE)
     return if (pattern.containsMatchIn(line)) {
-        pattern.replace(line, "$attributeName=\\"$value\\"")
+        pattern.replace(line, "$attributeName=\"$value\"")
     } else {
-        "$line,$attributeName=\\"$value\\""
+        "$line,$attributeName=\"$value\""
     }
 }
 
