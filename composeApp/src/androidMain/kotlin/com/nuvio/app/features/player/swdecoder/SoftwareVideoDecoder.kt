@@ -178,6 +178,7 @@ internal class SoftwareVideoDecoder(
 
     private val codecName = codecNameFor(format.sampleMimeType)
         ?: throw SoftwareVideoDecoderException("Unsupported software video format: " + format.sampleMimeType)
+    @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
     private val lock = Object()
     private val availableInputBuffers = ArrayDeque<DecoderInputBuffer>(INPUT_BUFFERS)
     private val queuedInputBuffers = ArrayDeque<DecoderInputBuffer>(INPUT_BUFFERS)
