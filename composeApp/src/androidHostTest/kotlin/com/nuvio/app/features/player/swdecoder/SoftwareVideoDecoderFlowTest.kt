@@ -7,6 +7,15 @@ import kotlin.test.assertTrue
 
 class SoftwareVideoDecoderFlowTest {
     @Test
+    fun skipsFramesBeforeSeekTargetAndAvoidsConversionWithoutOutput() {
+        assertTrue(isSoftwareFrameBeforeOutputStart(900_000L, 1_000_000L))
+        assertFalse(isSoftwareFrameBeforeOutputStart(1_000_000L, 1_000_000L))
+        assertFalse(isSoftwareFrameBeforeOutputStart(900_000L, androidx.media3.common.C.TIME_UNSET))
+        assertFalse(shouldConvertSoftwareFrame(androidx.media3.common.C.VIDEO_OUTPUT_MODE_NONE))
+        assertTrue(shouldConvertSoftwareFrame(androidx.media3.common.C.VIDEO_OUTPUT_MODE_SURFACE_YUV))
+    }
+
+    @Test
     fun packetIsRetainedUntilSendSucceedsAfterReceiveMakesProgress() {
         val flow = SoftwareVideoDecoderFlowState()
         flow.queuePacket()
