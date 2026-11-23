@@ -480,7 +480,8 @@ internal class SoftwareVideoDecoder(
             }
             SOFTWARE_DECODER_RESULT_AGAIN -> Unit
             SOFTWARE_DECODER_RESULT_SKIP -> {
-                skippedOutputBufferCount = addSkippedOutputBufferCount(skippedOutputBufferCount, 1)
+                // The input sample remains unmatched and is accounted for at EOS if it
+                // never produces a frame; do not count it twice here.
                 pendingInputBuffer = null
                 synchronized(lock) { recycleInputBufferLocked(input) }
                 dispatchInputBufferAvailable()
