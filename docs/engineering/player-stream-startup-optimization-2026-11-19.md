@@ -334,3 +334,21 @@ Host regression tests were added for these cases but were not run. Context7 chec
 The SharedMemory-backed read-ahead allocator now attempts descriptor close even if unmapping fails, during both allocation rollback and normal block release. If both cleanup operations fail, the descriptor-close exception is propagated with the unmap exception preserved as suppressed. The file-backed fallback also attempts temporary-file deletion when closing its file handle fails.
 
 Host regression coverage was added for the two-failure path and descriptor closure after unmap failure; it was not run. Android's SharedMemory API documentation confirms that `close()` and `unmap()` are distinct operations: closing the descriptor alone does not release existing mappings. No Gradle task, Kotlin compilation, build, CI, device playback or memory benchmark was run.
+
+
+## Software video decoder latency — slice-first threading (23 November 2026)
+
+The Android FFmpeg software-video fallback previously requested both `FF_THREAD_FRAME` and `FF_THREAD_SLICE` for every codec. That is not a neutral “enable both” setting: FFmpeg's own threading implementation selects frame threading first when both modes are enabled. The bundled FFmpeg 62 headers explicitly document that frame threading adds one frame of decoding delay for every thread beyond the first.
+
+The decoder now chooses its threading mode from the actual `AVCodec.capabilities`:
+
+- Prefer `FF_THREAD_SLICE` when `AV_CODEC_CAP_SLICE_THREADS` is advertised. This parallelizes work within a frame instead of building a queue of future frames.
+- Use `FF_THREAD_FRAME` only when the codec lacks slice-thread support but advertises frame-thread support. Cap this fallback at two threads, bounding the documented extra delay to one frame rather than allowing up to seven extra frames on an eight-thread configuration.
+- Use one thread when neither multi-threading capability is advertised.
+- Clamp the native thread request to the same eight-thread ceiling as the Kotlin renderer, and log the selected codec, actual mode, effective thread count and capability bits for device-side diagnosis.
+
+This is a targeted latency correction to the software-decoder fallback (currently used when the device decoder cannot handle the stream, including the existing 10-bit H.264 path). It does not change hardware decoder selection, output format, frame conversion, timestamps, FFmpeg fast flags, Media3 load control, stream routing or subtitle handling.
+
+**Evidence:** the repository's bundled `libavcodec/codec.h` defines `AV_CODEC_CAP_SLICE_THREADS` and `AV_CODEC_CAP_FRAME_THREADS`; bundled `libavcodec/avcodec.h` explicitly documents the per-thread frame delay. FFmpeg's official `doc/multithreading.txt` describes slice threading as decoding parts of one frame in parallel and documents the frame-thread delay. FFmpeg 9.0's `libavcodec/pthread.c` also shows the runtime selection order: frame threading is selected before slice threading when both flags are requested. The change therefore removes an unintended preference for the higher-latency mode instead of assuming that setting both flags enables the best mode.
+
+**Verification boundary:** native source and the exact bundled FFmpeg 62 capability definitions were inspected. No native compilation, Gradle task, Android build, tests, CI, decoder playback, device profiling or frame-latency benchmark was run. The effective mode is now logged so the next authorized device test can confirm the selected codec path and compare first-frame latency, sustained frame pacing and dropped frames across representative 10-bit H.264/HEVC sources. No measured performance gain is claimed.

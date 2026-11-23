@@ -18,6 +18,8 @@
 
 #define TAG "SoftwareVideo"
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
+#define MAX_SOFTWARE_DECODER_THREADS 8
 
 #define RESULT_OK 0
 #define RESULT_SKIP 1
@@ -250,8 +252,35 @@ JNIEXPORT jlong JNICALL METHOD(nativeCreate)(JNIEnv *env, jclass clazz, jstring 
     }
     // Java supplies AVPacket PTS values in Media3 microseconds.
     d->codec->pkt_timebase = (AVRational) {1, 1000000};
-    d->codec->thread_count = threads;
-    d->codec->thread_type = FF_THREAD_FRAME | FF_THREAD_SLICE;
+
+    // Prefer slice threading whenever the codec supports it. FFmpeg gives frame
+    // threading priority when both flags are set, and its API documents one
+    // additional decoded frame of delay for every frame thread beyond the first.
+    // For codecs that only support frame threading, cap the pool at two threads
+    // to keep that extra reorder/buffer latency bounded to one frame.
+    int thread_count = threads > 0 ? threads : 1;
+    if (thread_count > MAX_SOFTWARE_DECODER_THREADS) {
+        thread_count = MAX_SOFTWARE_DECODER_THREADS;
+    }
+    int thread_type = 0;
+    const int codec_capabilities = codec->capabilities;
+    if (thread_count > 1) {
+        if (codec_capabilities & AV_CODEC_CAP_SLICE_THREADS) {
+            thread_type = FF_THREAD_SLICE;
+        } else if (codec_capabilities & AV_CODEC_CAP_FRAME_THREADS) {
+            thread_type = FF_THREAD_FRAME;
+            if (thread_count > 2) thread_count = 2;
+        } else {
+            thread_count = 1;
+        }
+    }
+    d->codec->thread_count = thread_count;
+    d->codec->thread_type = thread_type;
+    LOGI("decoder=%s threading=%s threads=%d capabilities=0x%x",
+         codec->name,
+         thread_type == FF_THREAD_SLICE ? "slice" :
+             (thread_type == FF_THREAD_FRAME ? "frame" : "single"),
+         thread_count, codec_capabilities);
     d->codec->flags2 |= AV_CODEC_FLAG2_FAST;
     int result = ff.avcodec_open2(d->codec, codec, NULL);
     if (result < 0) {
