@@ -132,6 +132,12 @@ internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
 internal fun supportsYv12SurfaceSize(width: Int, height: Int): Boolean =
     width > 0 && height > 0 && width % 2 == 0 && height % 2 == 0
 
+internal fun isSoftwareFrameBeforeOutputStart(timeUs: Long, outputStartTimeUs: Long): Boolean =
+    outputStartTimeUs != C.TIME_UNSET && timeUs < outputStartTimeUs
+
+internal fun shouldConvertSoftwareFrame(outputMode: Int): Boolean =
+    outputMode != C.VIDEO_OUTPUT_MODE_NONE
+
 /** Returns the byte capacity required by a described I420 frame, or null for invalid layouts. */
 internal fun requiredSoftwareYuv420BufferSize(width: Int, height: Int, yStride: Int, uvStride: Int): Long? {
     if (width <= 0 || height <= 0 || yStride < width || uvStride < (width / 2) + (width % 2)) return null
@@ -499,7 +505,9 @@ internal class SoftwareVideoDecoder(
 
         val timeUs = resolveSoftwareFrameTimestampUs(frameInfo[0], frameInfo[1], lastPacketTimestampUs)
         val startTimeUs = synchronized(lock) { outputStartTimeUs }
-        if (startTimeUs != C.TIME_UNSET && timeUs < startTimeUs) {
+        if (isSoftwareFrameBeforeOutputStart(timeUs, startTimeUs) || !shouldConvertSoftwareFrame(outputMode)) {
+            // Keep FFmpeg's reference-picture state, but avoid allocating/converting frames that
+            // cannot be presented before the seek target or while no output is attached.
             nativeDiscardFrame(handle)
             skippedOutputBufferCount++
             recycleOutputBuffer(outputBuffer)
@@ -511,7 +519,8 @@ internal class SoftwareVideoDecoder(
         val height = frameInfo[3].toInt()
         val yStride = align(width)
         val uvStride = align((width / 2) + (width % 2))
-        outputBuffer.init(timeUs, outputMode, null)
+        val currentOutputMode = outputMode
+        outputBuffer.init(timeUs, currentOutputMode, null)
         if (!outputBuffer.initForYuvFrame(width, height, yStride, uvStride, softwareFrameColorSpace(frameInfo))) {
             nativeDiscardFrame(handle)
             throw SoftwareVideoDecoderException("Invalid " + codecName + " frame " + width + "x" + height)
