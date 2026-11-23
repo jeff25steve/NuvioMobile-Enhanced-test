@@ -64,10 +64,14 @@ internal class SoftwareVideoRenderer(
         TraceUtil.beginSection("createSoftwareVideoDecoder")
         try {
             val threads = Runtime.getRuntime().availableProcessors().coerceIn(1, MAX_THREADS)
+            val fallbackReason = SoftwareVideoDecoder.softwareDecodingReason(format)
+                ?: "renderer-capability-fallback"
             InAppLogger.info(
                 "ExoPlayer/Android",
                 "Software video decoder mime=${format.sampleMimeType} codecs=${format.codecs} " +
-                    "size=${format.width}x${format.height} requestedThreads=$threads",
+                    "size=${format.width}x${format.height} " +
+                    "bitDepth=${format.colorInfo?.lumaBitdepth}/${format.colorInfo?.chromaBitdepth} " +
+                    "reason=$fallbackReason requestedThreads=$threads",
             )
             return SoftwareVideoDecoder(format, threads).also { decoder = it }
         } finally {
