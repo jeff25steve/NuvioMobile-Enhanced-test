@@ -850,6 +850,7 @@ private fun ExoPlayerSurface(
         player
     }
     val exoPlayerReleased = remember(exoPlayer) { AtomicBoolean(false) }
+    var isExoPlayerPlaying by remember(exoPlayer) { mutableStateOf(exoPlayer.isPlaying) }
 
     val nowPlayingController = remember(context, exoPlayer) {
         AndroidPlayerNowPlayingController(
@@ -1309,6 +1310,7 @@ private fun ExoPlayerSurface(
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isExoPlayerPlaying = isPlaying
                 InAppLogger.debug("ExoPlayer/Android", "isPlaying=$isPlaying")
                 if (isPlaying) playbackDiagnostics.markPlaybackStarted()
                 Log.i(
@@ -2012,10 +2014,12 @@ private fun ExoPlayerSurface(
         )
     }
 
-    LaunchedEffect(exoPlayer) {
+    LaunchedEffect(exoPlayer, isExoPlayerPlaying) {
+        val pollIntervalMs = playbackSnapshotPollingIntervalMs(isExoPlayerPlaying)
+            ?: return@LaunchedEffect
         while (isActive) {
             dispatchExoPlayerSnapshot()
-            delay(playbackSnapshotPollingIntervalMs(exoPlayer.isPlaying))
+            delay(pollIntervalMs)
         }
     }
 
