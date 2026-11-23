@@ -250,7 +250,13 @@ private fun PlaybackInfoContent(
 
             val fps = playbackInfo.doubleValue("fps")
             if (fps > 0.0) {
-                InfoRow(label = "Frame Rate", value = "${fps.formatPlaybackNumber()} fps")
+                val frameRateLabel = if (engine.equals("libmpv", ignoreCase = true)) "Container FPS" else "Frame Rate"
+                InfoRow(label = frameRateLabel, value = "${fps.formatPlaybackNumber()} fps")
+            }
+
+            val estimatedOutputFps = playbackInfo.doubleValue("estimatedOutputFps")
+            if (estimatedOutputFps > 0.0 && estimatedOutputFps.isFinite()) {
+                InfoRow(label = "Estimated Output FPS", value = "${estimatedOutputFps.formatPlaybackNumber()} fps")
             }
 
             val videoDecoder = playbackInfo.stringValue("videoDecoder")
@@ -308,9 +314,24 @@ private fun PlaybackInfoContent(
                 InfoRow(label = "Transfer Function", value = gamma)
             }
 
+            val sourcePixelFormat = playbackInfo.stringValue("sourcePixelFormat")
+            if (sourcePixelFormat.isNotBlank()) {
+                InfoRow(label = "Source Pixel Format", value = sourcePixelFormat)
+            }
+
             val pixelFormat = playbackInfo.stringValue("pixelFormat")
             if (pixelFormat.isNotBlank()) {
-                InfoRow(label = "Pixel Format", value = pixelFormat)
+                InfoRow(label = "Post-filter Pixel Format", value = pixelFormat)
+            }
+
+            val outputBitDepth = playbackInfo.intValue("outputBitDepth")
+            if (outputBitDepth > 0) {
+                InfoRow(label = "Post-filter Bit Depth", value = "$outputBitDepth-bit")
+            }
+
+            val outputColorRange = playbackInfo.stringValue("outputColorRange")
+            if (outputColorRange.isNotBlank()) {
+                InfoRow(label = "Post-filter Color Range", value = outputColorRange)
             }
 
             val videoBitrateKbps = playbackInfo.intValue("videoBitrateKbps")
