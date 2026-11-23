@@ -25,4 +25,21 @@ class SoftwareVideoFrameTimestampTest {
     fun fallsBackToPacketTimestampWhenBothFrameTimestampsAreMissing() {
         assertEquals(1_300_000L, resolveSoftwareFrameTimestampUs(Long.MIN_VALUE, Long.MIN_VALUE, 1_300_000L))
     }
+    @Test
+    fun computesRequiredYuv420BufferSizeForOddDimensionsAndAlignedStrides() {
+        assertEquals(64L * 3L + 64L * 2L * 2L, requiredSoftwareYuv420BufferSize(3, 3, 64, 64))
+    }
+
+    @Test
+    fun rejectsInvalidYuv420DimensionsAndStrides() {
+        assertEquals(null, requiredSoftwareYuv420BufferSize(0, 3, 64, 64))
+        assertEquals(null, requiredSoftwareYuv420BufferSize(3, 3, 2, 64))
+        assertEquals(null, requiredSoftwareYuv420BufferSize(3, 3, 64, 1))
+    }
+
+    @Test
+    fun rejectsYuv420BuffersLargerThanByteBufferCapacityCanRepresent() {
+        assertEquals(null, requiredSoftwareYuv420BufferSize(Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE, Int.MAX_VALUE))
+    }
+
 }
