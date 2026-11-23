@@ -1114,6 +1114,32 @@ private fun ExoPlayerSurface(
         animeRebuildGeneration += 1
     }
 
+    fun updateAlwaysFrameRateState(
+        playWhenReady: Boolean = exoPlayer.playWhenReady,
+        playbackState: Int = exoPlayer.playbackState,
+        durationMs: Long = exoPlayer.duration,
+    ) {
+        val preference = context.videoFrameRateUserPreference()
+        val alwaysRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            shouldUseAlwaysSurfaceFrameRateMatching(preference)
+        val manualModeActive = alwaysRequested &&
+            alwaysFrameRateController?.hasRequestedFrameRate == true &&
+            shouldApplyAlwaysVideoFrameRate(playWhenReady, playbackState, durationMs, liveStream)
+        exoPlayer.setVideoChangeFrameRateStrategy(
+            if (manualModeActive) {
+                C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
+            } else {
+                videoFrameRateStrategyForSystemPreference(preference)
+            },
+        )
+        alwaysFrameRateController?.updatePlaybackState(
+            playWhenReady,
+            playbackState,
+            durationMs,
+            liveStream,
+        )
+    }
+
     DisposableEffect(exoPlayer) {
         PlayerPictureInPictureManager.registerPausePlaybackCallback {
             exoPlayer.pause()
@@ -1159,31 +1185,16 @@ private fun ExoPlayerSurface(
             }
 
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
-                alwaysFrameRateController?.updatePlaybackState(
-                    exoPlayer.playWhenReady,
-                    exoPlayer.playbackState,
-                    exoPlayer.duration,
-                    liveStream,
-                )
+                updateAlwaysFrameRateState()
                 dispatchExoPlayerSnapshot()
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                alwaysFrameRateController?.updatePlaybackState(
-                    playWhenReady,
-                    exoPlayer.playbackState,
-                    exoPlayer.duration,
-                    liveStream,
-                )
+                updateAlwaysFrameRateState(playWhenReady = playWhenReady)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                alwaysFrameRateController?.updatePlaybackState(
-                    exoPlayer.playWhenReady,
-                    playbackState,
-                    exoPlayer.duration,
-                    liveStream,
-                )
+                updateAlwaysFrameRateState(playbackState = playbackState)
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -1570,6 +1581,7 @@ private fun ExoPlayerSurface(
                 decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
             ) {
                 alwaysFrameRateController?.updateVideoFrameRate(format.frameRate)
+                updateAlwaysFrameRateState()
             }
 
             override fun onVideoDecoderInitialized(
@@ -2115,6 +2127,7 @@ private fun ExoPlayerSurface(
         if (!alwaysRequested) {
             alwaysFrameRateController?.release()
             alwaysFrameRateController = null
+            updateAlwaysFrameRateState()
             return
         }
         if (alwaysFrameRateController == null) {
@@ -2123,12 +2136,7 @@ private fun ExoPlayerSurface(
                 alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
             }
         }
-        alwaysFrameRateController?.updatePlaybackState(
-            exoPlayer.playWhenReady,
-            exoPlayer.playbackState,
-            exoPlayer.duration,
-            liveStream,
-        )
+        updateAlwaysFrameRateState()
     }
 
     Box(modifier = modifier) {
