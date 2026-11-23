@@ -48,6 +48,22 @@ class SeekPreviewLifecycleTest {
         assertFalse(canUseSeekPreviewSource(generation = 4, currentGeneration = 4, disposed = true))
     }
 
+
+    @Test
+    fun exactCachedThumbnailPositionDoesNotNeedAnotherDecodeRequest() {
+        assertTrue(isSeekPreviewFrameCachedAtExactPosition(12_000L, 12_000L))
+    }
+
+    @Test
+    fun nearbyCachedThumbnailDoesNotSuppressARequestForTheExactPosition() {
+        assertFalse(isSeekPreviewFrameCachedAtExactPosition(12_000L, 12_001L))
+    }
+
+    @Test
+    fun missingCachedThumbnailDoesNotSuppressARequest() {
+        assertFalse(isSeekPreviewFrameCachedAtExactPosition(null, 12_000L))
+    }
+
     @Test
     fun cancellingPendingFrameUnblocksWaiterAndClearsPendingReference() {
         val future = CompletableFuture<String>()
