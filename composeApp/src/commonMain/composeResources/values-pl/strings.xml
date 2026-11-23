@@ -2535,6 +2535,8 @@
     <string name="subtitle_font_remove">Usuń %1$s</string>
     <string name="subtitle_background_opacity">Krycie tła</string>
     <string name="subtitle_background_roundness">Zaokrąglenie narożników</string>
+    <string name="subtitle_use_letterbox_area">Używaj czarnych pasów dla zwykłych napisów</string>
+    <string name="subtitle_use_letterbox_area_description">Umieszczaj niepozycjonowane napisy SRT i WebVTT w czarnym pasie, jeśli mieści się tam cały tekst. Napisy z określoną pozycją, ASS/SSA i napisy graficzne pozostają zakotwiczone względem obrazu.</string>
     <string name="subtitle_shadow">Cień</string>
     <string name="subtitle_shadow_description">Oddziel tekst od jasnych scen.</string>
     <string name="subtitle_shadow_opacity">Krycie cienia</string>
