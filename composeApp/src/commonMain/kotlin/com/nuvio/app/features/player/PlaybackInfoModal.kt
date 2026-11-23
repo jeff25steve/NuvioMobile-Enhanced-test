@@ -213,6 +213,14 @@ private fun PlaybackInfoContent(
                 InfoRow(label = "Declared Bitrate", value = declaredBitrate)
             }
 
+            playerVideoRangeLabel(variant.videoRange)?.let { range ->
+                InfoRow(label = "Declared Dynamic Range", value = range)
+            }
+            variant.frameRate
+                ?.takeIf { it.isFinite() && it > 0.0 }
+                ?.let { frameRate ->
+                    InfoRow(label = "Declared Frame Rate", value = "${frameRate.formatPlaybackNumber()} fps")
+                }
             if (variant.codecs.isNotBlank()) {
                 InfoRow(label = "Declared Codecs", value = variant.codecs)
             }
@@ -258,12 +266,22 @@ private fun PlaybackInfoContent(
             val hdrLabel = when (hdrFormat) {
                 "dolby_vision" -> "Dolby Vision"
                 "hdr10_plus" -> "HDR10+"
-                "hdr" -> "HDR10 / PQ"
+                "hdr" -> "HDR (PQ)"
                 "hlg" -> "HLG"
                 "sdr" -> "SDR"
-                else -> "Unknown"
+                else -> null
             }
-            InfoRow(label = "Dynamic Range", value = hdrLabel)
+            hdrLabel?.let { InfoRow(label = "Dynamic Range", value = it) }
+
+            val bitDepth = playbackInfo.intValue("bitDepth")
+            if (bitDepth > 0) {
+                InfoRow(label = "Bit Depth", value = "$bitDepth-bit")
+            }
+
+            val colorRange = playbackInfo.stringValue("colorRange")
+            if (colorRange.isNotBlank()) {
+                InfoRow(label = "Color Range", value = colorRange)
+            }
 
             if (hdrFormat == "dolby_vision") {
                 val dvProfile = playbackInfo.stringValue("dvProfile")

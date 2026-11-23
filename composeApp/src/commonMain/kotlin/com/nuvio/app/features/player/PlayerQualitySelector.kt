@@ -84,6 +84,26 @@ internal fun playerVideoRangeLabel(value: String?): String? = when (value?.trim(
 internal fun parsePlayerFrameRate(value: String?): Double? =
     value?.trim()?.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 }
 
+internal data class PlayerQualityVariantMetadata(
+    val videoRange: String?,
+    val frameRate: Double?,
+)
+
+internal fun parsePlayerQualityVariantMetadata(
+    attributes: Map<String, String>,
+): PlayerQualityVariantMetadata {
+    val videoRange = when (attributes["VIDEO-RANGE"]?.trim()?.uppercase()) {
+        "PQ" -> "PQ"
+        "HLG" -> "HLG"
+        "SDR" -> "SDR"
+        else -> null
+    }
+    return PlayerQualityVariantMetadata(
+        videoRange = videoRange,
+        frameRate = parsePlayerFrameRate(attributes["FRAME-RATE"]),
+    )
+}
+
 private fun formatFrameRate(value: Double): String {
     val rounded = kotlin.math.round(value * 100.0) / 100.0
     val text = rounded.toString()
@@ -302,7 +322,7 @@ private data class HlsMasterPlaylist(
                             type = attributes["TYPE"].orEmpty(),
                             groupId = attributes["GROUP-ID"],
                             rewrittenLine = if (uri != null) {
-                                rewriteAttribute(line, "URI", absolutizeHlsUri(baseUrl, uri))
+                                rewriteHlsAttribute(line, "URI", absolutizeHlsUri(baseUrl, uri))
                             } else {
                                 line
                             },
@@ -310,6 +330,7 @@ private data class HlsMasterPlaylist(
                     }
                     line.startsWith("#EXT-X-STREAM-INF", ignoreCase = true) -> {
                         val attributes = parseAttributes(line.substringAfter(':', ""))
+                        val metadata = parsePlayerQualityVariantMetadata(attributes)
                         val uriIndex = (index + 1 until lines.size)
                             .firstOrNull { candidate -> !lines[candidate].startsWith("#") }
                         if (uriIndex != null) {
@@ -324,8 +345,8 @@ private data class HlsMasterPlaylist(
                                 codecs = attributes["CODECS"].orEmpty(),
                                 audioGroupId = attributes["AUDIO"],
                                 absoluteUri = absolutizeHlsUri(baseUrl, variantUri),
-                                videoRange = attributes["VIDEO-RANGE"]?.trim()?.uppercase(),
-                                frameRate = parsePlayerFrameRate(attributes["FRAME-RATE"]),
+                                videoRange = metadata.videoRange,
+                                frameRate = metadata.frameRate,
                             )
                             index = uriIndex
                         }
@@ -446,10 +467,10 @@ private fun parseAttributes(attributeText: String): Map<String, String> {
     return attributes
 }
 
-private fun rewriteAttribute(line: String, attributeName: String, value: String): String {
+internal fun rewriteHlsAttribute(line: String, attributeName: String, value: String): String {
     val pattern = Regex("$attributeName=\"[^\"]*\"", RegexOption.IGNORE_CASE)
     return if (pattern.containsMatchIn(line)) {
-        pattern.replace(line, "$attributeName=\"$value\"")
+        pattern.replace(line) { "$attributeName=\"$value\"" }
     } else {
         "$line,$attributeName=\"$value\""
     }

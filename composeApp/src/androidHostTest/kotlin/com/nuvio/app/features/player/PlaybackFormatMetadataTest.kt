@@ -4,6 +4,7 @@ package com.nuvio.app.features.player
 
 import androidx.media3.common.C
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.Format
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -27,7 +28,7 @@ class PlaybackFormatMetadataTest {
         }
         assertEquals(
             "dolby_vision",
-            exoPlaybackHdrFormat(MimeTypes.VIDEO_DOLBY_VISION, null, C.COLOR_TRANSFER_UNKNOWN),
+            exoPlaybackHdrFormat(MimeTypes.VIDEO_DOLBY_VISION, null, Format.NO_VALUE),
         )
     }
 
@@ -36,7 +37,7 @@ class PlaybackFormatMetadataTest {
         assertEquals("hdr", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.2.4.L153.B0", C.COLOR_TRANSFER_ST2084))
         assertEquals("hlg", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.2.4.L153.B0", C.COLOR_TRANSFER_HLG))
         assertEquals("sdr", exoPlaybackHdrFormat(MimeTypes.VIDEO_H264, "avc1.640028", C.COLOR_TRANSFER_SDR))
-        assertEquals("", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.1.6.L120.B0", C.COLOR_TRANSFER_UNKNOWN))
+        assertEquals("", exoPlaybackHdrFormat(MimeTypes.VIDEO_H265, "hvc1.1.6.L120.B0", Format.NO_VALUE))
     }
 
     @Test
@@ -84,7 +85,7 @@ class PlaybackFormatMetadataTest {
     fun colorRangeAndBitDepthAreOnlyReportedWhenKnown() {
         assertEquals("Full", exoPlaybackColorRange(C.COLOR_RANGE_FULL))
         assertEquals("Limited", exoPlaybackColorRange(C.COLOR_RANGE_LIMITED))
-        assertEquals("", exoPlaybackColorRange(C.COLOR_RANGE_UNSPECIFIED))
+        assertEquals("", exoPlaybackColorRange(Format.NO_VALUE))
 
         assertEquals("Full", mpvPlaybackColorRange("full"))
         assertEquals("Limited", mpvPlaybackColorRange("limited"))

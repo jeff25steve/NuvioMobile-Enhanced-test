@@ -3160,13 +3160,16 @@ private class NuvioLibmpvView(
             val filename = currentSourceUrl?.substringBefore('?')?.substringAfterLast('/').orEmpty()
             val gamma = mpv.getPropertyString("video-params/gamma").orEmpty()
             val primaries = mpv.getPropertyString("video-params/primaries").orEmpty()
+            val colorMatrix = mpv.getPropertyString("video-params/colormatrix").orEmpty()
             val colorLevels = mpv.getPropertyString("video-params/colorlevels").orEmpty()
+            val colorRange = mpvPlaybackColorRange(colorLevels).orEmpty()
             val pixelFormat = mpv.getPropertyString("video-out-params/pixelformat").orEmpty()
+            val sourcePixelFormat = mpv.getPropertyString("video-params/pixelformat").orEmpty()
+            val bitDepth = mpvBitDepth(sourcePixelFormat) ?: 0
             val videoWidth = mpv.getPropertyInt("video-params/w") ?: 0
             val videoHeight = mpv.getPropertyInt("video-params/h") ?: 0
             val fps = mpv.getPropertyDouble("container-fps") ?: 0.0
             val hwdecCurrent = mpv.getPropertyString("hwdec-current").orEmpty()
-            var hdrFormat = ""
 
             for (node in nodes) {
                 if (node.nodeString("type") == "video" && node.nodeBoolean("selected") != false) {
@@ -3176,36 +3179,18 @@ private class NuvioLibmpvView(
                         ?: node.nodeString("dv_profile")
                         ?: ""
                     codecProfile = node.nodeString("codec-profile").orEmpty()
-                    val dvLower = dvProfile.lowercase()
-                    val isDolbyVision = dvProfile.isNotBlank() &&
-                        dvLower != "none" &&
-                        dvLower != "unknown" &&
-                        dvLower != "0" &&
-                        dvLower != "false"
-                    if (
-                        isDolbyVision ||
-                        videoCodec.contains("dovi", ignoreCase = true) ||
-                        videoCodec.contains("dvhe", ignoreCase = true) ||
-                        videoCodec.contains("dvh1", ignoreCase = true) ||
-                        videoDecoder.contains("dovi", ignoreCase = true) ||
-                        codecProfile.contains("dovi", ignoreCase = true)
-                    ) {
-                        hdrFormat = "dolby_vision"
-                    }
                     break
                 }
             }
 
-            if (hdrFormat.isEmpty()) {
-                hdrFormat = when {
-                    gamma.equals("hlg", ignoreCase = true) -> "hlg"
-                    gamma.equals("pq", ignoreCase = true) -> "hdr"
-                    primaries.equals("bt.2020", ignoreCase = true) ||
-                        primaries.equals("bt.2020nc", ignoreCase = true) -> "hdr"
-                    gamma.equals("sdr", ignoreCase = true) -> "sdr"
-                    else -> ""
-                }
-            }
+            val hdrFormat = mpvPlaybackHdrFormat(
+                dvProfile = dvProfile,
+                videoCodec = videoCodec,
+                videoDecoder = videoDecoder,
+                codecProfile = codecProfile,
+                gamma = gamma,
+                colorMatrix = colorMatrix,
+            )
 
             var audioCodec = mpv.getPropertyString("audio-codec").orEmpty()
             var audioDecoder = ""
@@ -3252,10 +3237,13 @@ private class NuvioLibmpvView(
                 append(',')
                 appendJsonString("colorLevels", colorLevels)
                 append(',')
+                appendJsonString("colorRange", colorRange)
+                append(',')
                 appendJsonString("pixelFormat", pixelFormat)
                 append(',')
                 append("\"videoWidth\":").append(videoWidth).append(',')
                 append("\"videoHeight\":").append(videoHeight).append(',')
+                append("\"bitDepth\":").append(bitDepth).append(',')
                 append("\"fps\":").append(if (fps.isFinite()) fps else 0.0).append(',')
                 appendJsonString("hwdecCurrent", hwdecCurrent)
                 append(',')
@@ -4085,6 +4073,9 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
                 append(',')
                 appendJsonString("pixelFormat", "")
                 append(',')
+                append("\"bitDepth\":").append(videoFormat.exoBitDepth() ?: 0).append(',')
+                appendJsonString("colorRange", videoFormat.colorRangeForPlaybackInfo())
+                append(',')
             } else {
                 appendJsonString("videoCodec", "")
                 append(',')
@@ -4104,6 +4095,9 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
                 appendJsonString("primaries", "")
                 append(',')
                 appendJsonString("pixelFormat", "")
+                append(',')
+                append("\"bitDepth\":0,")
+                appendJsonString("colorRange", "")
                 append(',')
             }
 
@@ -4153,32 +4147,62 @@ private fun ExoPlayer.selectedPlaybackInfoFormat(trackType: Int): Format? {
     return null
 }
 
-private fun Format.hdrFormatForPlaybackInfo(): String {
-    val codecString = codecs.orEmpty().lowercase()
-    if (sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION || codecString.contains("dvhe") || codecString.contains("dvh1")) {
-        return "dolby_vision"
-    }
-    val info = colorInfo ?: return ""
-    return when (info.colorTransfer) {
-        C.COLOR_TRANSFER_ST2084 -> if (codecString.contains("hdr10+")) "hdr10_plus" else "hdr"
+internal fun exoPlaybackHdrFormat(
+    sampleMimeType: String?,
+    codecs: String?,
+    colorTransfer: Int,
+): String {
+    if (
+        sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION ||
+        isDolbyVisionCodecString(codecs)
+    ) return "dolby_vision"
+
+    return when (colorTransfer) {
+        C.COLOR_TRANSFER_ST2084 -> "hdr"
         C.COLOR_TRANSFER_HLG -> "hlg"
         C.COLOR_TRANSFER_SDR -> "sdr"
         else -> ""
     }
 }
 
-private fun Format.dolbyVisionProfileForPlaybackInfo(): String {
-    val codecString = codecs.orEmpty().lowercase()
-    val prefix = when {
-        codecString.contains("dvhe") -> "dvhe"
-        codecString.contains("dvh1") -> "dvh1"
-        else -> return ""
+private fun isDolbyVisionCodecString(codecs: String?): Boolean =
+    codecs.orEmpty().split(',').any { codec ->
+        val normalized = codec.trim().lowercase()
+        listOf("dvhe", "dvh1", "dvav", "dva1", "dav1")
+            .any { normalized.startsWith("$it.") }
     }
-    val profile = codecString.substringAfter("$prefix.", missingDelimiterValue = "")
+
+internal fun exoDolbyVisionProfile(codecs: String?): String {
+    val codec = codecs.orEmpty().split(',').firstOrNull { candidate ->
+        isDolbyVisionCodecString(candidate)
+    }?.trim()?.lowercase() ?: return ""
+    val prefix = listOf("dvhe", "dvh1", "dvav", "dva1", "dav1")
+        .firstOrNull { codec.startsWith("$it.") }
+        ?: return ""
+    val profile = codec.substringAfter("$prefix.", missingDelimiterValue = "")
         .substringBefore('.')
         .takeIf { it.isNotBlank() }
     return profile?.toIntOrNull()?.let { "Profile $it" } ?: profile.orEmpty()
 }
+
+internal fun exoPlaybackColorRange(colorRange: Int): String = when (colorRange) {
+    C.COLOR_RANGE_FULL -> "Full"
+    C.COLOR_RANGE_LIMITED -> "Limited"
+    else -> ""
+}
+
+private fun Format.hdrFormatForPlaybackInfo(): String =
+    exoPlaybackHdrFormat(
+        sampleMimeType = sampleMimeType,
+        codecs = codecs,
+        colorTransfer = colorInfo?.colorTransfer ?: Format.NO_VALUE,
+    )
+
+private fun Format.dolbyVisionProfileForPlaybackInfo(): String =
+    exoDolbyVisionProfile(codecs)
+
+private fun Format.colorRangeForPlaybackInfo(): String =
+    exoPlaybackColorRange(colorInfo?.colorRange ?: Format.NO_VALUE)
 
 private fun Format.transferFunctionForPlaybackInfo(): String =
     when (colorInfo?.colorTransfer) {
