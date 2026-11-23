@@ -144,26 +144,39 @@ internal class PlaybackDiagnostics {
     var attempt: Int = 0
         private set
 
-    private var firstManifestLogged = false
-    private var firstMediaLogged = false
-    private var firstManifestCompletedLogged = false
-    private var firstMediaCompletedLogged = false
+    private var firstManifestLoadTaskId: Long? = null
+    private var firstManifestCompleted = false
+    private val firstMediaLoadTaskIds = mutableMapOf<Int, Long>()
+    private val completedMediaTrackTypes = mutableSetOf<Int>()
     private var playbackHasStarted = false
     private var rebufferingAfterPlayback = false
-    private var rebufferLoadStartLogged = false
-    private var rebufferLoadCompletionLogged = false
+    private val rebufferLoadTaskIds = mutableMapOf<Int, Long>()
 
     fun beginAttempt(startedAtMs: Long) {
         attempt += 1
         prepareStartedAtMs = startedAtMs
-        firstManifestLogged = false
-        firstMediaLogged = false
-        firstManifestCompletedLogged = false
-        firstMediaCompletedLogged = false
+        firstManifestLoadTaskId = null
+        firstManifestCompleted = false
+        firstMediaLoadTaskIds.clear()
+        completedMediaTrackTypes.clear()
         playbackHasStarted = false
         rebufferingAfterPlayback = false
-        rebufferLoadStartLogged = false
-        rebufferLoadCompletionLogged = false
+        rebufferLoadTaskIds.clear()
+    }
+
+    /**
+     * LoadEventInfo.elapsedRealtimeMs is the event timestamp and loadDurationMs is the
+     * duration up to that event. Subtracting the duration rejects old work that completes
+     * after a newer prepare attempt has already begun.
+     */
+    fun isLoadForCurrentAttempt(loadEventElapsedRealtimeMs: Long, loadDurationMs: Long): Boolean {
+        if (
+            prepareStartedAtMs <= 0L ||
+            loadEventElapsedRealtimeMs < 0L ||
+            loadDurationMs < 0L ||
+            loadDurationMs > loadEventElapsedRealtimeMs
+        ) return false
+        return loadEventElapsedRealtimeMs - loadDurationMs >= prepareStartedAtMs
     }
 
     fun markPlaybackStarted() {
@@ -173,50 +186,52 @@ internal class PlaybackDiagnostics {
     fun markRebufferStarted() {
         if (!playbackHasStarted || rebufferingAfterPlayback) return
         rebufferingAfterPlayback = true
-        rebufferLoadStartLogged = false
-        rebufferLoadCompletionLogged = false
+        rebufferLoadTaskIds.clear()
     }
 
     fun markReady() {
         rebufferingAfterPlayback = false
     }
 
-    fun claimRebufferLoad(dataType: Int): Boolean {
-        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA || rebufferLoadStartLogged) return false
-        rebufferLoadStartLogged = true
-        return true
+    fun claimFirstLoad(dataType: Int, trackType: Int, loadTaskId: Long): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestLoadTaskId != null) false else {
+            firstManifestLoadTaskId = loadTaskId
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (trackType in firstMediaLoadTaskIds) false else {
+            firstMediaLoadTaskIds[trackType] = loadTaskId
+            true
+        }
+        else -> false
     }
 
-    fun claimRebufferLoadCompletion(dataType: Int): Boolean {
-        if (!rebufferingAfterPlayback || dataType != C.DATA_TYPE_MEDIA ||
-            !rebufferLoadStartLogged || rebufferLoadCompletionLogged
+    fun claimFirstCompletion(dataType: Int, trackType: Int, loadTaskId: Long): Boolean = when (dataType) {
+        C.DATA_TYPE_MANIFEST -> if (firstManifestLoadTaskId != loadTaskId || firstManifestCompleted) false else {
+            firstManifestCompleted = true
+            true
+        }
+        C.DATA_TYPE_MEDIA -> if (
+            firstMediaLoadTaskIds[trackType] != loadTaskId ||
+            !completedMediaTrackTypes.add(trackType)
+        ) false else true
+        else -> false
+    }
+
+    fun claimRebufferLoad(dataType: Int, trackType: Int, loadTaskId: Long): Boolean {
+        if (
+            !playbackHasStarted ||
+            !rebufferingAfterPlayback ||
+            dataType != C.DATA_TYPE_MEDIA ||
+            trackType in rebufferLoadTaskIds
         ) return false
-        rebufferLoadCompletionLogged = true
+        rebufferLoadTaskIds[trackType] = loadTaskId
         return true
     }
 
-    fun claimFirstLoad(dataType: Int): Boolean = when (dataType) {
-        C.DATA_TYPE_MANIFEST -> if (firstManifestLogged) false else {
-            firstManifestLogged = true
-            true
-        }
-        C.DATA_TYPE_MEDIA -> if (firstMediaLogged) false else {
-            firstMediaLogged = true
-            true
-        }
-        else -> false
-    }
-
-    fun claimFirstCompletion(dataType: Int): Boolean = when (dataType) {
-        C.DATA_TYPE_MANIFEST -> if (firstManifestCompletedLogged) false else {
-            firstManifestCompletedLogged = true
-            true
-        }
-        C.DATA_TYPE_MEDIA -> if (firstMediaCompletedLogged) false else {
-            firstMediaCompletedLogged = true
-            true
-        }
-        else -> false
+    fun claimRebufferLoadCompletion(dataType: Int, trackType: Int, loadTaskId: Long): Boolean {
+        if (dataType != C.DATA_TYPE_MEDIA || rebufferLoadTaskIds[trackType] != loadTaskId) return false
+        rebufferLoadTaskIds.remove(trackType)
+        return true
     }
 }
 
@@ -454,6 +469,7 @@ private fun ExoPlayerSurface(
     val ffmpegAudioRenderer = remember { AtomicReference<FfmpegAudioRenderer?>(null) }
     val latestExternalSubtitleMimeType = rememberUpdatedState(selectedExternalSubtitleMimeType)
     var playerViewRef by remember { mutableStateOf<PlayerView?>(null) }
+    var alwaysFrameRateController by remember { mutableStateOf<AlwaysVideoFrameRateController?>(null) }
     var videoAspectRatio by remember(playerSourceKey) { mutableStateOf(0f) }
     val latestVideoAspectRatio = rememberUpdatedState(videoAspectRatio)
     var currentSubtitleStyle by remember { mutableStateOf(SubtitleStyleState.DEFAULT) }
@@ -1143,7 +1159,31 @@ private fun ExoPlayerSurface(
             }
 
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+                alwaysFrameRateController?.updatePlaybackState(
+                    exoPlayer.playWhenReady,
+                    exoPlayer.playbackState,
+                    exoPlayer.duration,
+                    liveStream,
+                )
                 dispatchExoPlayerSnapshot()
+            }
+
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                alwaysFrameRateController?.updatePlaybackState(
+                    playWhenReady,
+                    exoPlayer.playbackState,
+                    exoPlayer.duration,
+                    liveStream,
+                )
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                alwaysFrameRateController?.updatePlaybackState(
+                    exoPlayer.playWhenReady,
+                    playbackState,
+                    exoPlayer.duration,
+                    liveStream,
+                )
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -1445,24 +1485,46 @@ private fun ExoPlayerSurface(
                 else -> "other"
             }
 
+            private fun trackKind(trackType: Int): String = when (trackType) {
+                C.TRACK_TYPE_VIDEO -> "video"
+                C.TRACK_TYPE_AUDIO -> "audio"
+                C.TRACK_TYPE_TEXT -> "text"
+                C.TRACK_TYPE_METADATA -> "metadata"
+                else -> "other($trackType)"
+            }
+
             override fun onLoadStarted(
                 eventTime: AnalyticsListener.EventTime,
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
                 retryCount: Int,
             ) {
-                if (retryCount != 0) return
+                if (
+                    retryCount != 0 ||
+                    !playbackDiagnostics.isLoadForCurrentAttempt(
+                        loadEventInfo.elapsedRealtimeMs,
+                        loadEventInfo.loadDurationMs,
+                    )
+                ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
                 if (elapsedMs < 0L) return
-                val isFirstLoad = playbackDiagnostics.claimFirstLoad(mediaLoadData.dataType)
-                val isRebufferLoad = playbackDiagnostics.claimRebufferLoad(mediaLoadData.dataType)
+                val isFirstLoad = playbackDiagnostics.claimFirstLoad(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
+                val isRebufferLoad = playbackDiagnostics.claimRebufferLoad(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
                 if (!isFirstLoad && !isRebufferLoad) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
                     "loadStart kind=${loadKind(mediaLoadData.dataType)} phase=${if (isRebufferLoad) "rebuffer" else "initial"} " +
                         "attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=$elapsedMs " +
-                        "trackType=${mediaLoadData.trackType} " +
+                        "track=${trackKind(mediaLoadData.trackType)} " +
                         "url=${InAppLogger.redactUrl(loadEventInfo.uri.toString())}",
                 )
             }
@@ -1472,10 +1534,24 @@ private fun ExoPlayerSurface(
                 loadEventInfo: LoadEventInfo,
                 mediaLoadData: MediaLoadData,
             ) {
+                if (
+                    !playbackDiagnostics.isLoadForCurrentAttempt(
+                        loadEventInfo.elapsedRealtimeMs,
+                        loadEventInfo.loadDurationMs,
+                    )
+                ) return
                 val elapsedMs = eventTime.realtimeMs - playbackDiagnostics.prepareStartedAtMs
                 if (elapsedMs < 0L) return
-                val isFirstCompletion = playbackDiagnostics.claimFirstCompletion(mediaLoadData.dataType)
-                val isRebufferCompletion = playbackDiagnostics.claimRebufferLoadCompletion(mediaLoadData.dataType)
+                val isFirstCompletion = playbackDiagnostics.claimFirstCompletion(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
+                val isRebufferCompletion = playbackDiagnostics.claimRebufferLoadCompletion(
+                    mediaLoadData.dataType,
+                    mediaLoadData.trackType,
+                    loadEventInfo.loadTaskId,
+                )
                 if (!isFirstCompletion && !isRebufferCompletion) return
                 Log.i(
                     PLAYER_DIAGNOSTIC_TAG,
@@ -1484,8 +1560,16 @@ private fun ExoPlayerSurface(
                         "elapsedMs=$elapsedMs " +
                         "durationMs=${loadEventInfo.loadDurationMs} " +
                         "bytes=${loadEventInfo.bytesLoaded} " +
-                        "trackType=${mediaLoadData.trackType}",
+                        "track=${trackKind(mediaLoadData.trackType)}",
                 )
+            }
+
+            override fun onVideoInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+            ) {
+                alwaysFrameRateController?.updateVideoFrameRate(format.frameRate)
             }
 
             override fun onVideoDecoderInitialized(
@@ -1554,6 +1638,8 @@ private fun ExoPlayerSurface(
             PlayerPictureInPictureManager.registerPausePlaybackCallback(null)
             exoPlayer.removeListener(listener)
             exoPlayer.removeAnalyticsListener(analyticsListener)
+            alwaysFrameRateController?.release()
+            alwaysFrameRateController = null
             playerViewRef?.keepScreenOn = false
             subtitleSelectionJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
@@ -2035,6 +2121,7 @@ private fun ExoPlayerSurface(
                     this.resizeMode = resizeMode.toExoResizeMode()
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     playerViewRef = this
+                    updateAlwaysFrameRateController(this)
                     sidecarController.bindSubtitleView(this.subtitleView)
                     subtitleView?.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
                         val inPip = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
@@ -2063,6 +2150,7 @@ private fun ExoPlayerSurface(
                 playerView.useController = useNativeController
                 playerView.resizeMode = resizeMode.toExoResizeMode()
                 playerViewRef = playerView
+                updateAlwaysFrameRateController(playerView)
                 sidecarController.bindSubtitleView(playerView.subtitleView)
                 syncPlayerViewKeepScreenOn()
                 playerView.syncLibassOverlay(
@@ -2462,6 +2550,28 @@ private fun LibmpvPlayerSurface(
             view.keepScreenOn = snapshot.isPlaying || snapshot.isLoading
             delay(250L)
         }
+    }
+
+    fun updateAlwaysFrameRateController(playerView: PlayerView) {
+        val alwaysRequested = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            shouldUseAlwaysSurfaceFrameRateMatching(context.videoFrameRateUserPreference())
+        if (!alwaysRequested) {
+            alwaysFrameRateController?.release()
+            alwaysFrameRateController = null
+            return
+        }
+        if (alwaysFrameRateController == null) {
+            val surfaceView = playerView.videoSurfaceView as? android.view.SurfaceView
+            if (surfaceView != null) {
+                alwaysFrameRateController = AlwaysVideoFrameRateController(surfaceView)
+            }
+        }
+        alwaysFrameRateController?.updatePlaybackState(
+            exoPlayer.playWhenReady,
+            exoPlayer.playbackState,
+            exoPlayer.duration,
+            liveStream,
+        )
     }
 
     Box(modifier = modifier) {
