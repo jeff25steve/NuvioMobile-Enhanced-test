@@ -74,8 +74,8 @@ private const val SeekToleranceUs = 2_000_000L
 private const val GrabberMinBufferMs = 1_000
 private const val GrabberMaxBufferMs = 2_000
 
-internal fun shouldReadSeekPreviewFrame(hasPendingRequest: Boolean, isReleased: Boolean): Boolean =
-    hasPendingRequest && !isReleased
+internal fun shouldReadSeekPreviewFrame(hasActiveRequest: Boolean, isReleased: Boolean): Boolean =
+    hasActiveRequest && !isReleased
 
 internal data class SeekPreviewWant(val positionMs: Long, val showingMs: Long?)
 
@@ -395,7 +395,7 @@ private class ExoFrameGrabber(
             inputTexture: GlTextureInfo,
             presentationTimeUs: Long,
         ) {
-            if (!shouldReadSeekPreviewFrame(pending.get() != null, released.get())) {
+            if (!shouldReadSeekPreviewFrame(pending.get()?.isDone == false, released.get())) {
                 inputListener.onInputFrameProcessed(inputTexture)
                 return
             }
