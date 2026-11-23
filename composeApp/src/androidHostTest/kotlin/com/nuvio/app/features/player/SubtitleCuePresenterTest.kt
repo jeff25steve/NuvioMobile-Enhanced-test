@@ -57,6 +57,60 @@ class SubtitleCuePresenterTest {
     }
 
     @Test
+    fun onlyUnpositionedSrtAndWebVttTextCuesUseLetterboxPlacement() {
+        val presenter = SubtitleCuePresenter {
+            SubtitleStyleState(
+                appearance = SubtitleAppearance(placeUnpositionedTextInLetterbox = true),
+            )
+        }
+        val defaultCue = Cue.Builder().setText("Plain SRT").build()
+        val positionedX = Cue.Builder().setText("Positioned horizontally").setPosition(0.5f).build()
+        val positionedY = Cue.Builder().setText("Positioned vertically")
+            .setLine(0.8f, Cue.LINE_TYPE_FRACTION).build()
+
+        presenter.present(
+            listOf(defaultCue, positionedX, positionedY),
+            allowLetterboxPlacement = true,
+        )
+
+        assertEquals(
+            listOf(true, false, false),
+            presenter.cues.blocks.map { it.placeInLetterbox },
+        )
+    }
+
+    @Test
+    fun letterboxPlacementRequiresAnEnabledPreferenceAndSupportedTextMimeType() {
+        assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_SUBRIP))
+        assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.TEXT_VTT))
+        assertTrue(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_MP4VTT))
+        assertFalse(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.TEXT_SSA))
+        assertFalse(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_PGS))
+        assertFalse(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_TTML))
+
+        val presenter = SubtitleCuePresenter { SubtitleStyleState.DEFAULT }
+        val cue = Cue.Builder().setText("Plain SRT").build()
+        presenter.present(listOf(cue), allowLetterboxPlacement = true)
+        assertFalse(presenter.cues.blocks.single().placeInLetterbox)
+    }
+
+    @Test
+    fun letterboxPlacementPreferenceIsReevaluatedWhenStyleChanges() {
+        var style = SubtitleStyleState.DEFAULT
+        val presenter = SubtitleCuePresenter { style }
+        val cue = Cue.Builder().setText("Plain VTT").build()
+
+        presenter.present(listOf(cue), allowLetterboxPlacement = true)
+        assertFalse(presenter.cues.blocks.single().placeInLetterbox)
+
+        style = style.copy(
+            appearance = style.appearance.copy(placeUnpositionedTextInLetterbox = true),
+        )
+        presenter.refresh()
+        assertTrue(presenter.cues.blocks.single().placeInLetterbox)
+    }
+
+    @Test
     fun topPositionedCuesAndItalicSpansReachTheOverlay() {
         val presenter = SubtitleCuePresenter { SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true)) }
         val italic = SpannableString("Italic line").apply {
