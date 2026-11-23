@@ -62,6 +62,7 @@ actual object PlayerSettingsStorage {
     private const val androidLibmpvHardwareDecodingEnabledKey = "android_libmpv_hardware_decoding_enabled"
     private const val androidLibmpvVideoOutputKey = "android_libmpv_video_output"
     private const val androidLibmpvRenderQualityKey = "android_libmpv_render_quality"
+    private const val androidLibmpvDebandEnabledKey = "android_libmpv_deband_enabled"
     private const val androidLibmpvYuv420pEnabledKey = "android_libmpv_yuv420p_enabled"
     private const val androidAnimeUpscaleEnabledKey = "android_anime_upscale_enabled"
     private const val androidAnimeLineSharpenEnabledKey = "android_anime_line_sharpen_enabled"
@@ -764,6 +765,16 @@ actual object PlayerSettingsStorage {
 
     actual fun saveAndroidLibmpvRenderQuality(quality: String) {
         NSUserDefaults.standardUserDefaults.setObject(quality, forKey = ProfileScopedKey.of(androidLibmpvRenderQualityKey))
+    }
+
+    actual fun loadAndroidLibmpvDebandEnabled(): Boolean? {
+        val defaults = NSUserDefaults.standardUserDefaults
+        val key = ProfileScopedKey.of(androidLibmpvDebandEnabledKey)
+        return if (defaults.objectForKey(key) != null) defaults.boolForKey(key) else null
+    }
+
+    actual fun saveAndroidLibmpvDebandEnabled(enabled: Boolean) {
+        NSUserDefaults.standardUserDefaults.setBool(enabled, forKey = ProfileScopedKey.of(androidLibmpvDebandEnabledKey))
     }
 
     actual fun loadAndroidLibmpvHardwareDecodingEnabled(): Boolean? {

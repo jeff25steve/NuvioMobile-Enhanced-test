@@ -74,6 +74,17 @@ internal fun PlaybackVideoSettings(
                         )
                         SettingsGroupDivider(isTablet = isTablet)
                         SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_playback_libmpv_deband),
+                            searchAnchorKey = "playback-libmpv-deband",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            description = stringResource(Res.string.settings_playback_libmpv_deband_description),
+                            checked = settings.androidLibmpvDebandEnabled,
+                            enabled = libmpvOptionsEnabled,
+                            isTablet = isTablet,
+                            onCheckedChange = PlayerSettingsRepository::setAndroidLibmpvDebandEnabled,
+                        )
+                        SettingsGroupDivider(isTablet = isTablet)
+                        SettingsSwitchRow(
                             title = stringResource(Res.string.settings_playback_libmpv_hardware_decoding),
                             searchAnchorKey = "playback-libmpv-hardware-decoding",
                             highlightedSearchAnchorKey = highlightedSearchAnchorKey,

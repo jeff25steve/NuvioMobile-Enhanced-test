@@ -67,6 +67,7 @@ actual object PlayerSettingsStorage {
     private const val androidLibmpvHardwareDecodingEnabledKey = "android_libmpv_hardware_decoding_enabled"
     private const val androidLibmpvVideoOutputKey = "android_libmpv_video_output"
     private const val androidLibmpvRenderQualityKey = "android_libmpv_render_quality"
+    private const val androidLibmpvDebandEnabledKey = "android_libmpv_deband_enabled"
     private const val androidLibmpvYuv420pEnabledKey = "android_libmpv_yuv420p_enabled"
     private const val androidAnimeUpscaleEnabledKey = "android_anime_upscale_enabled"
     private const val androidAnimeLineSharpenEnabledKey = "android_anime_line_sharpen_enabled"
@@ -184,6 +185,7 @@ actual object PlayerSettingsStorage {
         streamAutoPlayFallbackStartupTimeoutSecondsKey,
         androidLibmpvVideoOutputKey,
         androidLibmpvRenderQualityKey,
+        androidLibmpvDebandEnabledKey,
         androidLibmpvHardwareDecodingEnabledKey,
         androidLibmpvYuv420pEnabledKey,
         androidExoChaptersEnabledKey,
@@ -987,6 +989,19 @@ actual object PlayerSettingsStorage {
         preferences
             ?.edit()
             ?.putString(ProfileScopedKey.of(androidLibmpvRenderQualityKey), quality)
+            ?.apply()
+    }
+
+    actual fun loadAndroidLibmpvDebandEnabled(): Boolean? =
+        preferences?.let { sharedPreferences ->
+            val key = ProfileScopedKey.of(androidLibmpvDebandEnabledKey)
+            if (sharedPreferences.contains(key)) sharedPreferences.getBoolean(key, false) else null
+        }
+
+    actual fun saveAndroidLibmpvDebandEnabled(enabled: Boolean) {
+        preferences
+            ?.edit()
+            ?.putBoolean(ProfileScopedKey.of(androidLibmpvDebandEnabledKey), enabled)
             ?.apply()
     }
 
@@ -2094,6 +2109,7 @@ actual object PlayerSettingsStorage {
         }
         loadAndroidLibmpvVideoOutput()?.let { put(androidLibmpvVideoOutputKey, encodeSyncString(it)) }
         loadAndroidLibmpvRenderQuality()?.let { put(androidLibmpvRenderQualityKey, encodeSyncString(it)) }
+        loadAndroidLibmpvDebandEnabled()?.let { put(androidLibmpvDebandEnabledKey, encodeSyncBoolean(it)) }
         loadAndroidLibmpvHardwareDecodingEnabled()?.let {
             put(androidLibmpvHardwareDecodingEnabledKey, encodeSyncBoolean(it))
         }
@@ -2187,6 +2203,7 @@ actual object PlayerSettingsStorage {
             ?.let(::saveStreamAutoPlayFallbackStartupTimeoutSeconds)
         payload.decodeSyncString(androidLibmpvVideoOutputKey)?.let(::saveAndroidLibmpvVideoOutput)
         payload.decodeSyncString(androidLibmpvRenderQualityKey)?.let(::saveAndroidLibmpvRenderQuality)
+        payload.decodeSyncBoolean(androidLibmpvDebandEnabledKey)?.let(::saveAndroidLibmpvDebandEnabled)
         payload.decodeSyncBoolean(androidLibmpvHardwareDecodingEnabledKey)
             ?.let(::saveAndroidLibmpvHardwareDecodingEnabled)
         payload.decodeSyncBoolean(androidLibmpvYuv420pEnabledKey)?.let(::saveAndroidLibmpvYuv420pEnabled)

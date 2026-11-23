@@ -1451,6 +1451,8 @@
     <string name="settings_playback_libmpv_video_output_dialog">libmpv Renderer</string>
     <string name="settings_playback_libmpv_render_quality">libmpv Render Quality</string>
     <string name="settings_playback_libmpv_render_quality_dialog">libmpv Render Quality</string>
+    <string name="settings_playback_libmpv_deband">libmpv Debanding</string>
+    <string name="settings_playback_libmpv_deband_description">Reduce visible color banding in gradients. Optional GPU processing can soften fine detail, and hardware decoding may limit its effect.</string>
     <string name="settings_playback_libmpv_hardware_decoding">libmpv Hardware Decoding</string>
     <string name="settings_playback_libmpv_hardware_decoding_description">Use mpv hardware decoding when available.</string>
     <string name="settings_playback_libmpv_yuv420p">libmpv YUV420P Compatibility</string>

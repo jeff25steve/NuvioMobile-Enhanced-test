@@ -111,6 +111,8 @@ internal expect object PlayerSettingsStorage {
     fun saveAndroidLibmpvVideoOutput(output: String)
     fun loadAndroidLibmpvRenderQuality(): String?
     fun saveAndroidLibmpvRenderQuality(quality: String)
+    fun loadAndroidLibmpvDebandEnabled(): Boolean?
+    fun saveAndroidLibmpvDebandEnabled(enabled: Boolean)
     fun loadAndroidLibmpvHardwareDecodingEnabled(): Boolean?
     fun saveAndroidLibmpvHardwareDecodingEnabled(enabled: Boolean)
     fun loadAndroidLibmpvYuv420pEnabled(): Boolean?

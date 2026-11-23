@@ -76,6 +76,7 @@ data class PlayerSettingsUiState(
     val streamAutoPlayFallbackStartupTimeoutSeconds: Int = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS,
     val androidLibmpvVideoOutput: AndroidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext,
     val androidLibmpvRenderQuality: AndroidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced,
+    val androidLibmpvDebandEnabled: Boolean = false,
     val androidLibmpvHardwareDecodingEnabled: Boolean = true,
     val androidLibmpvYuv420pEnabled: Boolean = false,
     val androidAnimeUpscaleEnabled: Boolean = false,
@@ -215,6 +216,7 @@ object PlayerSettingsRepository {
     private var streamAutoPlayFallbackStartupTimeoutSeconds = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS
     private var androidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext
     private var androidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced
+    private var androidLibmpvDebandEnabled = false
     private var androidLibmpvHardwareDecodingEnabled = true
     private var androidLibmpvYuv420pEnabled = false
     private var androidAnimeUpscaleEnabled = false
@@ -340,6 +342,7 @@ object PlayerSettingsRepository {
         streamAutoPlayFallbackStartupTimeoutSeconds = DEFAULT_SOURCE_STARTUP_TIMEOUT_SECONDS
         androidLibmpvVideoOutput = AndroidLibmpvVideoOutput.GpuNext
         androidLibmpvRenderQuality = AndroidLibmpvRenderQuality.Balanced
+        androidLibmpvDebandEnabled = false
         androidLibmpvHardwareDecodingEnabled = true
         androidLibmpvYuv420pEnabled = false
         androidAnimeUpscaleEnabled = false
@@ -505,6 +508,7 @@ object PlayerSettingsRepository {
         androidLibmpvRenderQuality = PlayerSettingsStorage.loadAndroidLibmpvRenderQuality()
             ?.let { runCatching { AndroidLibmpvRenderQuality.valueOf(it) }.getOrNull() }
             ?: AndroidLibmpvRenderQuality.Balanced
+        androidLibmpvDebandEnabled = PlayerSettingsStorage.loadAndroidLibmpvDebandEnabled() ?: false
         androidLibmpvHardwareDecodingEnabled = PlayerSettingsStorage.loadAndroidLibmpvHardwareDecodingEnabled() ?: true
         androidLibmpvYuv420pEnabled = PlayerSettingsStorage.loadAndroidLibmpvYuv420pEnabled() ?: false
         androidAnimeUpscaleEnabled = PlayerSettingsStorage.loadAndroidAnimeUpscaleEnabled() ?: false
@@ -963,6 +967,14 @@ object PlayerSettingsRepository {
         androidLibmpvRenderQuality = quality
         publish()
         PlayerSettingsStorage.saveAndroidLibmpvRenderQuality(quality.name)
+    }
+
+    fun setAndroidLibmpvDebandEnabled(enabled: Boolean) {
+        ensureLoaded()
+        if (androidLibmpvDebandEnabled == enabled) return
+        androidLibmpvDebandEnabled = enabled
+        publish()
+        PlayerSettingsStorage.saveAndroidLibmpvDebandEnabled(enabled)
     }
 
     fun setAndroidLibmpvHardwareDecodingEnabled(enabled: Boolean) {
@@ -1642,6 +1654,7 @@ object PlayerSettingsRepository {
             streamAutoPlayFallbackStartupTimeoutSeconds = streamAutoPlayFallbackStartupTimeoutSeconds,
             androidLibmpvVideoOutput = androidLibmpvVideoOutput,
             androidLibmpvRenderQuality = androidLibmpvRenderQuality,
+            androidLibmpvDebandEnabled = androidLibmpvDebandEnabled,
             androidLibmpvHardwareDecodingEnabled = androidLibmpvHardwareDecodingEnabled,
             androidLibmpvYuv420pEnabled = androidLibmpvYuv420pEnabled,
             androidAnimeUpscaleEnabled = androidAnimeUpscaleEnabled,

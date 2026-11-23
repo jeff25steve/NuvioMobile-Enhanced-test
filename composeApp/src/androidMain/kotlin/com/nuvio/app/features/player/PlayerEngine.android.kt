@@ -384,6 +384,7 @@ actual fun PlatformPlayerSurface(
                 resizeMode = resizeMode,
                 videoOutput = playerSettings.androidLibmpvVideoOutput,
                 renderQuality = playerSettings.androidLibmpvRenderQuality,
+                debandEnabled = playerSettings.androidLibmpvDebandEnabled,
                 hardwareDecodingEnabled = playerSettings.androidLibmpvHardwareDecodingEnabled,
                 yuv420pEnabled = playerSettings.androidLibmpvYuv420pEnabled,
                 animeUpscaleEnabled = animeContent && playerSettings.androidAnimeUpscaleEnabled,
@@ -2343,6 +2344,7 @@ private fun LibmpvPlayerSurface(
     resizeMode: PlayerResizeMode,
     videoOutput: AndroidLibmpvVideoOutput,
     renderQuality: AndroidLibmpvRenderQuality,
+    debandEnabled: Boolean,
     hardwareDecodingEnabled: Boolean,
     yuv420pEnabled: Boolean,
     animeUpscaleEnabled: Boolean,
@@ -2718,6 +2720,7 @@ private fun LibmpvPlayerSurface(
                     context = viewContext,
                     videoOutput = videoOutput,
                     initialRenderQuality = renderQuality,
+                    initialDebandEnabled = debandEnabled,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
@@ -2743,6 +2746,7 @@ private fun LibmpvPlayerSurface(
             update = { view ->
                 playerViewRef = view
                 view.setRenderQuality(renderQuality)
+                view.setDebandEnabled(debandEnabled)
                 view.applyResizeMode(resizeMode)
             },
             onRelease = { view ->
@@ -2772,6 +2776,7 @@ private class NuvioLibmpvView(
     context: Context,
     private val videoOutput: AndroidLibmpvVideoOutput,
     initialRenderQuality: AndroidLibmpvRenderQuality,
+    initialDebandEnabled: Boolean,
     private val hardwareDecodingEnabled: Boolean,
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,
@@ -2782,6 +2787,20 @@ private class NuvioLibmpvView(
     private var activeRenderQuality = initialRenderQuality
     @Volatile
     private var requestedRenderQuality = initialRenderQuality
+    @Volatile
+    private var activeDebandEnabled = initialDebandEnabled
+    @Volatile
+    private var requestedDebandEnabled = initialDebandEnabled
+
+    fun setDebandEnabled(enabled: Boolean) {
+        if (enabled == requestedDebandEnabled) return
+        requestedDebandEnabled = enabled
+        executeMpv {
+            mpv.setPropertyBoolean("options/deband", enabled)
+            activeDebandEnabled = enabled
+            InAppLogger.info("MPV/Android", "deband changed enabled=$enabled")
+        }
+    }
 
     fun setRenderQuality(quality: AndroidLibmpvRenderQuality) {
         if (quality == requestedRenderQuality) return
@@ -2873,12 +2892,13 @@ private class NuvioLibmpvView(
         InAppLogger.info(
             "MPV/Android",
             "Initializing libmpv vo=${videoOutput.mpvValue} hwdec=${if (hardwareDecodingEnabled) "auto" else "no"} yuv420p=$yuv420pEnabled " +
-                "renderQuality=${initialRenderQuality.name} " +
+                "renderQuality=${initialRenderQuality.name} deband=$initialDebandEnabled " +
                 "animeShaders=${animeShaderPaths.joinToString(",") { it.substringAfterLast('/') }.ifEmpty { "none" }}",
         )
         // Runtime profiles are destructive; save their previous values so quality changes can restore them.
         mpv.setOptionString("profile-restore", "copy").logIfMpvError("profile-restore")
         initialRenderQuality.profileName?.let { mpv.command("apply-profile", it) }
+        mpv.setOptionString("deband", if (initialDebandEnabled) "yes" else "no").logIfMpvError("deband")
         mpv.setOptionString("hwdec", if (hardwareDecodingEnabled) "auto" else "no")
         if (yuv420pEnabled) {
             mpv.setOptionString("vf", "format=yuv420p")
