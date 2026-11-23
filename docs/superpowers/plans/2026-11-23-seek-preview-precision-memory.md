@@ -37,7 +37,7 @@
 - Consumes: `bucketFor(positionMs, durationMs)` and `nearestCached(bucket)`.
 - Produces: 1,000–2,000 ms bucket selection and distance-bounded cached fallback.
 
-- [x] Add regression tests for long-title bucket duration, rounding, and maximum cached-frame distance.
+- [x] Add regression tests for long-title bucket duration, rounding, maximum cached-frame distance, and overflow-safe endpoint clamping.
 - [ ] Verify the tests fail before implementation when test execution is authorized (not run; Gradle test execution remains unauthorized).
 - [x] Clamp `MaxBucketMs` to 2,000 ms and expose `seekPreviewBucketDurationMs` for deterministic tests.
 - [x] Make `nearestCached` return only frames within 2,000 ms.
@@ -74,7 +74,7 @@
 
 ## Execution record
 
-- Implementation committed to `main-build-testing` in four fast-forward commits after base `180acafd15435c3033f06342f3faa582c0b1a17e`; final HEAD at this record: `7807fd46f6a91899306f76ae730c8ea139979ccf`.
+- Implementation committed to `main-build-testing` in five fast-forward commits after base `180acafd15435c3033f06342f3faa582c0b1a17e`; final HEAD at this record: `da8d17f4987ff3bfbdc06040cfc60e037662ea88`.
 - Regression-test source is present. The RED run, GREEN run, host-test suite, and Kotlin compilation remain pending because no Gradle test/build execution was authorized.
 - No CI, build, APK/AAB, benchmark, or device playback was started.
 - Final review was a read-only author self-review of the complete GitHub compare range; no independent reviewer/subagent facility was available.
