@@ -1220,6 +1220,9 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 **Cycle 180 — suppress queued open errors after close**
 - The asynchronous feed-open failure callback now checks the same closed flag on the main thread, matching the success callback and preventing a late error from reopening fallback work after teardown.
 
+**Cycle 181 — do not reattach a grabber after teardown**
+- The initial open path already publishes the new grabber inside openAndAwait(), before waiting for its first frame. A second assignment after openGrabber() returned was redundant and could race with close(), reattaching a grabber that had just been detached and released. Removed the second assignment so source ownership has one publication point.
+
 **Regression coverage added (not executed)**
 - Added composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/seekpreview/SeekPreviewLifecycleTest.kt covering pending-future cancellation, stale/disposed generation rejection, skipping thumbnail decode after close, and discarding a decode that overlaps close.
 - Context7 was attempted for the coroutine and API documentation but its monthly quota was exhausted. The repository's pinned versions were checked directly (kotlinx-coroutines 1.10.2 and Media3 1.11.1). Exa retrieved the official Kotlin coroutine cancellation documentation and Oracle CompletableFuture API documentation; Oracle specifies that cancelling a CompletableFuture completes it with CancellationException and unblocks waiters. No dependency versions or APIs were changed.
