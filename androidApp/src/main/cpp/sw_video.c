@@ -333,6 +333,10 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
                                             jobject source, jint width, jint height, jint y_stride,
                                             jint uv_stride, jint data_space) {
     Decoder *d = (Decoder *) (intptr_t) handle;
+    if (width <= 0 || height <= 0 || (width & 1) || (height & 1)) {
+        LOGW("YV12 surface output requires positive even dimensions (%dx%d)", width, height);
+        return RESULT_ERROR;
+    }
     const uint8_t *src = (*env)->GetDirectBufferAddress(env, source);
     jlong source_capacity = (*env)->GetDirectBufferCapacity(env, source);
     size_t required_size = 0;
@@ -378,7 +382,8 @@ JNIEXPORT jint JNICALL METHOD(nativeRender)(JNIEnv *env, jclass clazz, jlong han
         return RESULT_OK;
     }
     if (result) return RESULT_ERROR;
-    if (!buffer.bits || buffer.width < width || buffer.height < height || buffer.stride < width) {
+    if (!buffer.bits || buffer.width < width || buffer.height < height || buffer.stride < width ||
+        (buffer.stride % 16) != 0 || buffer.stride > INT32_MAX - 15) {
         int unlock_result = ANativeWindow_unlockAndPost(d->window);
         if (unlock_result) {
             LOGW("ANativeWindow_unlockAndPost failed after invalid locked buffer: %d", unlock_result);
