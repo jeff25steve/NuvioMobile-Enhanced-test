@@ -1329,6 +1329,10 @@ Audited the shared `NuvioAsyncImage` contract against both platform implementati
 - New-epoch input can be queued immediately after setOutputStartTimeUs(); the worker prioritizes the flush barrier, and it dispatches input-available again after completing the barrier so the renderer can refill any buffer that was still in flight.
 - Decode failures from the stale pre-flush operation are suppressed rather than reported against the new seek position. No build or seek benchmark was run, so reduced seek stalls are an architectural expectation, not a measured result.
 
+**Cycle 200 — fail fast on an impossible dual-EAGAIN decoder state**
+- FFmpeg 8.0 explicitly forbids send and receive from both returning EAGAIN at the same time. The flow state now records when a send was blocked and requires at least one received frame before accepting receive-side EAGAIN and retrying the packet/EOS signal.
+- Added a regression test for this invalid state so a future API or state-machine regression fails explicitly instead of allowing an endless send/receive retry loop.
+
 ### Evidence and validation boundary
 - Context7 resolved the repository's AndroidX Media3 1.11.1, Kotlin 2.4.10 and FFmpeg 8.0 documentation. The exact Media3 1.11.1 Decoder, SimpleDecoder, DecoderVideoRenderer, DecoderInputBuffer and VideoDecoderOutputBuffer sources were inspected. Kotlin's JVM interop guidance was used for the Java monitor wait/notify implementation.
 - Exa independently retrieved FFmpeg 8.0's official send/receive API documentation. It confirms that a send-side EAGAIN requires receiving output before retrying the same packet; receive must be repeated until EAGAIN; a packet may produce zero or multiple frames; and EOS requires a null packet followed by receive calls through AVERROR_EOF. The AndroidX renderer source confirms that its callback executor wakes the playback thread and that it queues EOS during decoder replacement.
