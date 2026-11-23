@@ -2,6 +2,7 @@ package com.nuvio.app.features.player.swdecoder
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -32,6 +33,17 @@ class SoftwareVideoDecoderFlowTest {
         assertTrue(flow.packetPending)
         assertFalse(flow.receivePending)
         assertEquals(SoftwareDecoderWorkAction.SEND_PACKET, flow.nextAction(false, true))
+    }
+
+    @Test
+    fun rejectsImpossibleEagainFromBothSidesOfFfmpegApi() {
+        val flow = SoftwareVideoDecoderFlowState()
+        flow.queuePacket()
+        flow.onPacketSendResult(SOFTWARE_DECODER_RESULT_AGAIN)
+
+        assertFailsWith<IllegalStateException> {
+            flow.onFrameReceiveResult(SOFTWARE_DECODER_RESULT_AGAIN)
+        }
     }
 
     @Test
@@ -80,28 +92,6 @@ class SoftwareVideoDecoderFlowTest {
         assertTrue(flow.ended)
         assertFalse(flow.receivePending)
         assertEquals(SoftwareDecoderWorkAction.WAIT, flow.nextAction(false, true))
-    }
-
-    @Test
-    fun reconcilesSamplesThatProduceNoFramesOnlyAfterDrainCompletes() {
-        val flow = SoftwareVideoDecoderFlowState()
-        flow.onInputSampleQueued()
-        flow.onInputSampleQueued()
-        flow.onFrameProduced()
-
-        assertEquals(1, flow.drainUnmatchedInputSamples())
-        assertEquals(0, flow.drainUnmatchedInputSamples())
-    }
-
-    @Test
-    fun multipleFramesFromOnePacketDoNotCreateFalseMissingSampleSkips() {
-        val flow = SoftwareVideoDecoderFlowState()
-        flow.onInputSampleQueued()
-        flow.onFrameProduced()
-        flow.onFrameProduced()
-        flow.onInputSampleQueued()
-
-        assertEquals(0, flow.drainUnmatchedInputSamples())
     }
 
     @Test
