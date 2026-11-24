@@ -679,11 +679,14 @@ private fun ExoPlayerSurface(
     }
 
     fun ExoPlayer.setPlaybackMediaItem(videoMediaItem: MediaItem, startPositionMs: Long? = null) {
+        // An explicit zero is equivalent to Media3's default start, but routes through a
+        // position reset before the first decoded frame. Avoid that unnecessary reset.
+        val explicitStartPositionMs = startPositionMs?.takeIf { shouldUseExplicitStartPosition(it) }
         val discSource = bluraySession?.mediaSource(dataSourceFactory, videoMediaItem)
         if (discSource != null) {
             val delayedSource = AudioDelayMediaSource(discSource, audioDelayUs::get)
-            if (startPositionMs != null) {
-                setMediaSource(delayedSource, startPositionMs.coerceAtLeast(0L))
+            if (explicitStartPositionMs != null) {
+                setMediaSource(delayedSource, explicitStartPositionMs)
             } else {
                 setMediaSource(delayedSource)
             }
@@ -698,8 +701,8 @@ private fun ExoPlayerSurface(
             val videoSource = mediaSourceFactory.createMediaSource(videoMediaItem)
             val audioSource = mediaSourceFactory.createMediaSource(playbackMediaItemFromUrl(sourceAudioUrl))
             val mergedSource = AudioDelayMediaSource(MergingMediaSource(videoSource, audioSource), audioDelayUs::get)
-            if (startPositionMs != null) {
-                setMediaSource(mergedSource, startPositionMs.coerceAtLeast(0L))
+            if (explicitStartPositionMs != null) {
+                setMediaSource(mergedSource, explicitStartPositionMs)
             } else {
                 setMediaSource(mergedSource)
             }
@@ -710,8 +713,8 @@ private fun ExoPlayerSurface(
                     audioDelayUs::get,
                 ),
             )
-        } else if (startPositionMs != null) {
-            setMediaItem(videoMediaItem, startPositionMs.coerceAtLeast(0L))
+        } else if (explicitStartPositionMs != null) {
+            setMediaItem(videoMediaItem, explicitStartPositionMs)
         } else {
             setMediaItem(videoMediaItem)
         }
@@ -1324,6 +1327,9 @@ private fun ExoPlayerSurface(
                 InAppLogger.error(
                     "ExoPlayer/Android",
                     "onPlayerError code=${error.errorCodeName} recoverableProbe=${!probeAttempted} " +
+                        "failureContext=${error.playbackFailureDiagnosticContext()} " +
+                        "causeChain=${diagnosticThrowableChain(error)} " +
+                        "stacktrace=${diagnosticThrowableStackTrace(error)} " +
                         "message=${diagnosticPlayerMessage(error.localizedMessage ?: error.message)}",
                 )
                 Log.e(
@@ -5831,6 +5837,24 @@ private fun diagnosticThrowableChain(value: Throwable): String =
             "${error.javaClass.simpleName}:${diagnosticPlayerMessage(error.message)}"
         }
         .let(::diagnosticPlayerMessage)
+
+private fun diagnosticThrowableStackTrace(value: Throwable): String =
+    generateSequence(value) { it.cause }
+        .take(4)
+        .joinToString(" <- ") { error ->
+            val frames = try {
+                error.stackTrace.take(18).joinToString(",") { frame ->
+                    "${frame.className}.${frame.methodName}:${frame.lineNumber}"
+                }.ifBlank { "empty" }
+            } catch (diagnosticFailure: Throwable) {
+                "unavailable:${diagnosticFailure.javaClass.simpleName}"
+            }
+            "${error.javaClass.simpleName}[$frames]"
+        }
+
+internal fun shouldUseExplicitStartPosition(startPositionMs: Long?): Boolean =
+    startPositionMs != null && startPositionMs > 0L
+
 
 /** Renderer/source classification from Media3, without relying on unstable stack-trace text. */
 @androidx.annotation.OptIn(UnstableApi::class)
