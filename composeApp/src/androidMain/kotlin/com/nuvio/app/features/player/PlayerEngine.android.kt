@@ -5457,52 +5457,6 @@ private class SubtitleOffsetRenderersFactory(
         )
     }
 
-private class DolbyVisionSoftMatchVideoRenderer(
-    private val context: Context,
-    builder: MediaCodecVideoRenderer.Builder,
-) : MediaCodecVideoRenderer(builder) {
-    private var requiresTunnelingDecoder: Boolean = false
-
-    override fun onEnabled(joining: Boolean, mayRenderStartOfStream: Boolean) {
-        requiresTunnelingDecoder = getConfiguration().tunneling
-        super.onEnabled(joining, mayRenderStartOfStream)
-    }
-
-    override fun onDisabled() {
-        try {
-            super.onDisabled()
-        } finally {
-            requiresTunnelingDecoder = false
-        }
-    }
-
-    override fun getDecoderInfos(
-        mediaCodecSelector: MediaCodecSelector,
-        format: Format,
-        requiresSecureDecoder: Boolean,
-    ): List<MediaCodecInfo> {
-        if (!shouldUseSoftMatchDolbyVisionDecoder(
-                sampleMimeType = format.sampleMimeType,
-                displaySupportsDolbyVision = displaySupportsDolbyVision(context),
-            )
-        ) {
-            return super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
-        }
-
-        val decoderInfos = MediaCodecUtil.getDecoderInfosSoftMatch(
-            mediaCodecSelector,
-            format,
-            requiresSecureDecoder,
-            requiresTunnelingDecoder,
-        )
-        return if (decoderInfos.isEmpty()) {
-            super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
-        } else {
-            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context, decoderInfos, format)
-        }
-    }
-}
-
     override fun buildAudioRenderers(
         context: Context,
         extensionRendererMode: Int,
@@ -5560,6 +5514,53 @@ private class DolbyVisionSoftMatchVideoRenderer(
                 subtitleDelayUsProvider = subtitleDelayUsProvider,
                 audioDelayUsProvider = audioDelayUsProvider,
             )
+        }
+    }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+private class DolbyVisionSoftMatchVideoRenderer(
+    private val context: Context,
+    builder: MediaCodecVideoRenderer.Builder,
+) : MediaCodecVideoRenderer(builder) {
+    private var requiresTunnelingDecoder: Boolean = false
+
+    override fun onEnabled(joining: Boolean, mayRenderStartOfStream: Boolean) {
+        requiresTunnelingDecoder = getConfiguration().tunneling
+        super.onEnabled(joining, mayRenderStartOfStream)
+    }
+
+    override fun onDisabled() {
+        try {
+            super.onDisabled()
+        } finally {
+            requiresTunnelingDecoder = false
+        }
+    }
+
+    override fun getDecoderInfos(
+        mediaCodecSelector: MediaCodecSelector,
+        format: Format,
+        requiresSecureDecoder: Boolean,
+    ): List<MediaCodecInfo> {
+        if (!shouldUseSoftMatchDolbyVisionDecoder(
+                sampleMimeType = format.sampleMimeType,
+                displaySupportsDolbyVision = displaySupportsDolbyVision(context),
+            )
+        ) {
+            return super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
+        }
+
+        val decoderInfos = MediaCodecUtil.getDecoderInfosSoftMatch(
+            mediaCodecSelector,
+            format,
+            requiresSecureDecoder,
+            requiresTunnelingDecoder,
+        )
+        return if (decoderInfos.isEmpty()) {
+            super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
+        } else {
+            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context, decoderInfos, format)
         }
     }
 }
