@@ -78,4 +78,15 @@ class MpvRenderQualityTest {
         assertEquals(false, PlayerSettingsUiState().androidLibmpvDebandEnabled)
     }
 
+
+    @Test
+    fun gpuNextUsesAutomaticFilmGrainToUseFixedLibplaceboGpuSynthesis() {
+        assertEquals("auto", mpvFilmGrainMode(AndroidLibmpvVideoOutput.GpuNext))
+    }
+
+    @Test
+    fun legacyGpuRendererKeepsCpuFilmGrainFallback() {
+        assertEquals("cpu", mpvFilmGrainMode(AndroidLibmpvVideoOutput.Gpu))
+    }
+
 }
