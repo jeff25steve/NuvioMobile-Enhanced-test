@@ -267,4 +267,18 @@ class PlaybackDiagnosticsTest {
         assertEquals(null, subtitleTrackIndexForReload(-1, hasTextTracks = false, textTrackTypeDisabled = true))
     }
 
+    @Test
+    fun stackTraceFormattingContainsFailuresWithoutReplacingTheOriginalError() {
+        val brokenStackTrace = object : RuntimeException("original playback failure") {
+            override fun getStackTrace(): Array<StackTraceElement> {
+                throw NullPointerException("stack trace clone failed")
+            }
+        }
+
+        val diagnostic = diagnosticThrowableStackTrace(brokenStackTrace)
+
+        assertTrue(diagnostic.contains("RuntimeException"))
+        assertTrue(diagnostic.contains("unavailable:NullPointerException"))
+    }
+
 }
