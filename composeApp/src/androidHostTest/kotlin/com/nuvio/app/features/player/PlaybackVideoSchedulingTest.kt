@@ -2,15 +2,15 @@ package com.nuvio.app.features.player
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import androidx.media3.common.Flags
 import kotlin.test.assertTrue
 
 class PlaybackVideoSchedulingTest {
     @Test
-    fun mediaCodecProgressSchedulingIsEnabledWhenAsynchronousQueueingIsDefault() {
-        assertFalse(shouldEnableMediaCodecVideoRendererDurationToProgressUs(30))
-        assertTrue(shouldEnableMediaCodecVideoRendererDurationToProgressUs(31))
-        assertTrue(shouldEnableMediaCodecVideoRendererDurationToProgressUs(35))
+    fun media3VideoRendererDurationToProgressFlagIsEnabled() {
+        enableMedia3VideoRendererDurationToProgress()
+
+        assertTrue(Flags.isEnabled(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS))
     }
 
     @Test

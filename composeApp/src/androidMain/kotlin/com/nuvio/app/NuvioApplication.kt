@@ -14,6 +14,7 @@ import coil3.request.CachePolicy
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.network.DnsPlatform
+import com.nuvio.app.features.player.enableMedia3VideoRendererDurationToProgress
 import com.nuvio.app.core.network.SharedOkHttpClient
 import com.nuvio.app.core.network.NetworkErrorInterceptor
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
@@ -32,6 +33,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // Media3 1.12 moved renderer duration-to-progress scheduling to a global flag.
+        // Configure it before any player, renderer or other Media3 component is created.
+        enableMedia3VideoRendererDurationToProgress()
         DnsPlatform.initialize(this)
     }
 

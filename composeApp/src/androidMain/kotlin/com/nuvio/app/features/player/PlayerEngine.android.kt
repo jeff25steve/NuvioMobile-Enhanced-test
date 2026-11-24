@@ -783,13 +783,7 @@ private fun ExoPlayerSurface(
             videoBoundsFractionProvider = {
                 playerViewRef?.videoBoundsFraction(latestVideoAspectRatio.value, latestResizeMode.value)
             },
-        ).apply {
-            // Media3 1.11.0 enables dynamic player scheduling by default. The renderer-side
-            // duration hint is useful when MediaCodec runs asynchronously (default on API 31+).
-            setEnableMediaCodecVideoRendererDurationToProgressUs(
-                shouldEnableMediaCodecVideoRendererDurationToProgressUs(Build.VERSION.SDK_INT),
-            )
-        }
+        )
             .setExtensionRendererMode(effectiveDecoderPriority)
             .setEnableDecoderFallback(true)
             .setMapDV7ToHevc(playerSettings.mapDV7ToHevc)

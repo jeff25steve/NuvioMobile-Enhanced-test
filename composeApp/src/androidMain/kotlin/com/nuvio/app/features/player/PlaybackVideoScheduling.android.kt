@@ -1,13 +1,22 @@
+@file:OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
+
 package com.nuvio.app.features.player
 
-import android.os.Build
+import androidx.media3.common.Flags
 
 /**
- * Media3's asynchronous MediaCodec queueing is enabled by default on Android 12+.
- * The renderer's duration-to-progress scheduling only takes effect with an asynchronous codec.
+ * Enables Media3 1.12's renderer-aware dynamic scheduling before player construction.
+ *
+ * The 1.12 beta moved this from DefaultRenderersFactory to the process-wide Flags registry.
+ * It is effective with dynamic scheduling and asynchronous MediaCodec output; on devices that
+ * use synchronous codec operation it leaves the normal renderer scheduling path unchanged.
  */
-internal fun shouldEnableMediaCodecVideoRendererDurationToProgressUs(sdkInt: Int): Boolean =
-    sdkInt >= Build.VERSION_CODES.S
+internal fun enableMedia3VideoRendererDurationToProgress() {
+    Flags.enableFlag(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS)
+}
 
 internal fun averageVideoFrameProcessingOffsetUs(totalProcessingOffsetUs: Long, frameCount: Int): Long? =
     frameCount.takeIf { it > 0 }?.let { totalProcessingOffsetUs / it }
