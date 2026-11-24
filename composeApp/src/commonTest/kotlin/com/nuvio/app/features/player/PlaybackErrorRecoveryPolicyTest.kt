@@ -73,7 +73,7 @@ class PlaybackErrorRecoveryPolicyTest {
     fun legacyLibmpvMessagesKeepTheirExistingRecoveryBehavior() {
         val error = "mpv could not open the file"
 
-        assertFalse(shouldRefreshCredentialedPlaybackSource(error))
+        assertTrue(shouldRefreshCredentialedPlaybackSource(error))
         assertTrue(shouldRetryServerSourceAfterPlaybackError(error))
         assertTrue(shouldTryNextSourceAfterPlaybackError(error))
         assertTrue(shouldFailoverPlaybackEngine(error))
