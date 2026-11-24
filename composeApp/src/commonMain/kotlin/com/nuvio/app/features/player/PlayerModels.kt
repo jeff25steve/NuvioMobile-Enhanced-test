@@ -178,6 +178,15 @@ enum class AndroidLibmpvVideoOutput(
     ),
 }
 
+internal fun mpvFilmGrainMode(videoOutput: AndroidLibmpvVideoOutput): String =
+    when (videoOutput) {
+        // libplacebo >= 7.387.0 fixes the Android OpenGL ES AV1 grain-coordinate bug.
+        // Let mpv use gpu-next's film-grain capability instead of forcing CPU synthesis.
+        AndroidLibmpvVideoOutput.GpuNext -> "auto"
+        // The legacy gpu VO does not advertise GPU film-grain synthesis.
+        AndroidLibmpvVideoOutput.Gpu -> "cpu"
+    }
+
 enum class AndroidLibmpvScalingFilter(
     val mpvValue: String?,
     val label: String,
