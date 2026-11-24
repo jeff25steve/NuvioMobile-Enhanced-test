@@ -2501,3 +2501,38 @@ The dependency refresh brings the app onto a newer upstream mpv/libplacebo snaps
 - mpv master also fixed `target-gamut=auto` parsing on 22 November (commit `c2a42f414fcb5f8a21c9cd9a311d65932a5ef0cc`). Nuvio does not set `target-gamut=auto` or another explicit target-gamut option, so this specific regression does not justify a Nuvio override. Do not add a speculative target-gamut value: https://github.com/mpv-player/mpv/commit/c2a42f414fcb5f8a21c9cd9a311d65932a5ef0cc
 - The 22 November upstream mpv build started at 09:01:17 UTC, only 7 seconds after the mpv-android tag commit. Several GPU-next queue/reference-white changes landed around that time; the public AAR metadata does not identify the exact mpv checkout SHA. Their inclusion in 0.2.2 is therefore unverified.
 - No mpv-android 0.2.3 artifact or later Maven Central version was published by the 24 November audit. Keep 0.2.2 pinned rather than referencing a nonexistent release. Revisit the native artifact once the upstream library publishes a build that includes the 23 November libplacebo fixes and exposes immutable dependency SHAs.
+
+
+## Android video research follow-up: Dolby Vision decoder under-reporting and motion interpolation — 24 November 2026
+
+### High-impact Dolby Vision regression found
+
+- Just Player issue #761 (opened 10 November 2026) reports a reproducible Dolby Vision 8.1 regression on a Lenovo Tab P12 Pro (Snapdragon 870, Dolby Vision display): the device decoder advertises only FHD30 support for Dolby Vision Profile 8, despite decoding UHD successfully. Media3 1.12's Dolby Vision path uses `getDecoderInfosSoftMatchFilteredByFormatSupport`; this drops the under-reporting decoder, leaving the HEVC alternative and causing the display to enter HDR10 instead of Dolby Vision. The reporter tested a renderer override restoring Media3 1.11's functional-support ordering, which restored Dolby Vision on that device: https://github.com/moneytoo/Player/issues/761
+- The pinned Nuvio dependency is `androidx-media3 = 1.12.0-beta01`. Its exact upstream `MediaCodecVideoRenderer.java` source confirms the Dolby Vision-specific filtered lookup. The matching public APIs are `MediaCodecUtil.getDecoderInfosSoftMatch`, `getDecoderInfosSortedByFormatSupport`, and the protected `MediaCodecVideoRenderer.getDecoderInfos` hook: https://github.com/androidx/media/blob/1.12.0-beta01/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java and https://developer.android.com/reference/androidx/media3/exoplayer/mediacodec/MediaCodecUtil
+- Nuvio's existing `DisplayAwareDefaultTrackSelector` handles display HDR filtering and the Profile 7 HEVC base-layer compatibility flag. It does not override the renderer's Dolby Vision decoder lookup, so it does not address this Profile 8.1 under-reporting case.
+- This is a high-value candidate because the observed result is a real HDR mode downgrade on a Dolby Vision-capable display, not a theoretical quality tweak. A narrowly gated workaround would only use functional-support ordering for Dolby Vision formats when the active display explicitly reports Dolby Vision support; secure-decoder and tunneling requirements must be preserved.
+- **Not integrated in this cycle.** Nuvio's current `SubtitleOffsetRenderersFactory` also carries decoder-priority, software-renderer insertion, AV1 scheduling, Dolby Vision Profile 7 mapping, tunneling, and video-effect behavior. Replacing its core MediaCodec renderer without preserving every existing factory option could regress already-supported playback. The custom renderer must retain the current Profile 7-to-HEVC behavior and MediaCodec adapter/scheduling configuration, then be validated with Profile 8.1 and Profile 7 streams on real Dolby Vision hardware. No build/test/device validation was authorized in this session.
+
+### Dolby Vision Profile 7 work already covered upstream
+
+- Media3 issue #3486 (October 2026) documented incorrect Profile 7 decoder selection on Dolby Vision displays without a Profile 7 decoder. The upstream fix landed in commits `70e94470587f19072e2ab572f9c7100337869187` and `23f30658c9cf978cd148006e1b274c7e7f06a8a7`; the reporter verified HDR10 base-layer output with correct colours on the affected Realtek TV: https://github.com/androidx/media/issues/3486
+- Nuvio's existing Profile 7 fallback tests already cover the relevant HDR10-compatible base-layer path. Do not duplicate that work or replace the current tests with another generic DV7 patch.
+
+### Motion interpolation: promising, not production-ready for this stack
+
+- The newly surfaced `smoothmotion-android` project implements real-time frame interpolation through a Media3 video-effect pipeline and requires capable GLES hardware (the project documents GLES 3.2). Its own integration notes identify Media3-version coupling and video-size/aspect-ratio handling requirements: https://github.com/Ivorisnoob/smoothmotion-android
+- The project was validated against Media3 1.11.0, while Nuvio is pinned to 1.12.0-beta01 and already composes anime shader effects, asynchronous libass effects, tunneling, custom video geometry and multiple playback render paths. It is not safe to add this as a dependency or silently enable interpolation without confirming API compatibility, effect ordering, HDR preservation, frame pacing, thermal/battery behavior, and fallback on devices below GLES 3.2.
+- Treat interpolation as a separately gated feature candidate, not a default-on playback change. Required evidence is a real device matrix covering 24/30/60 fps sources, HDR and SDR, subtitles, seeking, playback-speed changes, PiP, tunneling, sustained thermals and battery draw. No interpolation code or dependency was added.
+
+### Community player and native renderer audit
+
+- The current mpvNova project contains active Android-player work and custom native subtitle/rendering changes: https://github.com/Laskco/mpvNova
+- Those changes are not directly transplantable into Nuvio's `io.github.abdallahmehiz:mpv-android-lib:0.2.2` AAR. Changes to libass, mpv or libplacebo require a compatible native artifact/build, not just Kotlin option changes. The 0.2.2 artifact audit above remains authoritative; no later published Nuvio-compatible artifact was verified.
+- The 23 November libplacebo DMA-BUF optimization remains Vulkan-specific, while Nuvio's current Android graphics-context selection prefers OpenGL and does not explicitly select Vulkan. Do not force Vulkan or claim the upstream 4K timing result applies to Nuvio's current path.
+- Targeted Reddit/forum searches did not produce a newer first-hand technical report with reproducible steps and source-level remediation beyond the dated GitHub issues above. No speculative sharpening, frame interpolation, tone-mapping, or renderer preset was copied from social posts.
+
+### Verification and next engineering gate
+
+- This follow-up is a research/decision record only; no production code, dependency, or test source was changed in this section.
+- The remote branch was inspected at `871583aa077008303385097182fe64b69f154ad1`. No build, Gradle task, test, CI, benchmark, APK/AAB generation or device playback was run.
+- The next defensible code candidate is the narrowly display-gated Dolby Vision 8.1 functional-decoder fallback. Before implementation, preserve the existing Profile 7 mapping, secure/tunneled decoder handling, decoder priorities, software renderer ordering, and Media3 scheduling behavior; add a regression test first; then obtain authorization for local verification and Dolby Vision device playback.
