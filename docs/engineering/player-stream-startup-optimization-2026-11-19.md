@@ -466,3 +466,8 @@ The manual HLS quality chooser now carries the playlist's declared PQ/HLG/SDR ra
 ## Playback format diagnostics follow-up (23 November 2026)
 
 Playback Info now exposes signalled dynamic range, source bit depth and source color range for ExoPlayer/libmpv when available, and shows declared/recommended HLS variant range/frame-rate metadata. Dolby Vision codec-family detection and libmpv HDR classification were corrected. Canonical details, upstream caveats and test/verification status are recorded in `docs/engineering/codebase-improvement-notes.md` under “Playback format fidelity and diagnostics — Dolby Vision, HLS and source color details”.
+
+
+### Media3 artifact compatibility update — 24 November 2026
+
+The active player baseline is Media3 1.8.0 with the five Nuvio-patched local AARs from the last known successful run #51. The 1.12.0-beta01 attempt is deferred because the generic replacement AARs omit Nuvio-specific renderer and FFmpeg APIs. Do not change the Media3 version alias or any individual AAR independently; the existing pre-Gradle compatibility guard checks the complete set. A newer Media3 rollout requires rebuilding and verifying the custom Nuvio AARs first.

@@ -1,22 +1,11 @@
-@file:OptIn(
-    androidx.media3.common.util.UnstableApi::class,
-    androidx.media3.common.util.ExperimentalApi::class,
-)
-
 package com.nuvio.app.features.player
 
-import androidx.media3.common.Flags
-
 /**
- * Enables Media3 1.12's renderer-aware dynamic scheduling before player construction.
- *
- * The 1.12 beta moved this from DefaultRenderersFactory to the process-wide Flags registry.
- * It is effective with dynamic scheduling and asynchronous MediaCodec output; on devices that
- * use synchronous codec operation it leaves the normal renderer scheduling path unchanged.
+ * Media3 1.8.0 does not expose the process-wide renderer Flags registry introduced later.
+ * Keep existing setup call sites source-compatible; renderer scheduling remains on the
+ * supported 1.8 default path until Nuvio's custom AARs are rebuilt against newer Media3.
  */
-internal fun enableMedia3VideoRendererDurationToProgress() {
-    Flags.enableFlag(Flags.FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS)
-}
+internal fun enableMedia3VideoRendererDurationToProgress() = Unit
 
 internal fun averageVideoFrameProcessingOffsetUs(totalProcessingOffsetUs: Long, frameCount: Int): Long? =
     frameCount.takeIf { it > 0 }?.let { totalProcessingOffsetUs / it }

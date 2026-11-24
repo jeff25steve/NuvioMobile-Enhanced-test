@@ -82,13 +82,10 @@ internal class BdavTrueHdReader(
         packetLength += length
     }
 
-    override fun packetFinished() {
+    override fun packetFinished(isEndOfInput: Boolean) {
         readPacket()
         packetLength = 0
-    }
-
-    override fun endOfInputReached() {
-        flushChunk()
+        if (isEndOfInput) flushChunk()
     }
 
     private fun readPacket() {

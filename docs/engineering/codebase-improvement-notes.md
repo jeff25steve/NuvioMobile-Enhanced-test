@@ -2674,7 +2674,7 @@ A second source pass resolved the renderer extension point and the important tun
 
 
 
-### Dolby Vision Profile 8 PQ track-selection capability alignment — 24 November 2026
+### Dolby Vision Profile 8 PQ track-selection capability alignment — 24 Nov (source logic retained; 1.12 beta rollout superseded)ember 2026
 
 - A second source-level pass found an integration gap in the existing soft-match renderer: Media3 1.12.0-beta01's protected MediaCodecVideoRenderer.getDecoderInfos override is used during codec initialization, but its supportsFormat implementation calls a private static decoder query. That query uses getDecoderInfosSoftMatchFilteredByFormatSupport, so it can still reject the under-reporting native Dolby Vision decoder before track selection.
 - Nuvio's DisplayAwareDefaultTrackSelector intentionally treats FORMAT_EXCEEDS_CAPABILITIES as unsupported when deciding whether a display-compatible HDR rendition can be selected over an SDR alternative. Without matching renderer capability reporting, mixed HDR/SDR groups could therefore select SDR even though the runtime renderer would attempt the retained native DV decoder.
@@ -2688,3 +2688,16 @@ A second source pass resolved the renderer extension point and the important tun
 
 - AndroidX Media3 issue #3421 and its proposed upstream PR #3422 remain open as of 24 November 2026. The PR moves recovery into MediaCodecRenderer itself, records decoders that fail during decoding, and retries with another candidate; the author reports a real Philips/MediaTek HEVC reproduction recovering to the Android software decoder.
 - Nuvio's earlier engineering notes explicitly deferred an app-level decoder blacklist while this upstream change is under review. That decision is retained: do not add a second player-rebuild retry path on top of the existing renderer-priority fallback until PR #3422 is merged/rejected or a Nuvio-specific runtime decoder failure is reproduced. This avoids shipping a duplicate workaround with more player lifecycle risk than the upstream renderer-native approach.
+
+
+### Media3 CI #62 failure and Nuvio artifact compatibility restoration — 24 November 2026
+
+> This entry supersedes the earlier Media3 1.12.0-beta01 rollout note above. The 1.12 beta artifact path is not active until Nuvio's custom AARs are rebuilt against that exact version.
+
+- Run #62 failed during Android Kotlin compilation after 13m56s; it was not a runner timeout. The generic local ExoPlayer/FFmpeg AARs lacked Nuvio-specific methods used by the app: `setMapDV7ToHevc`, `isCenterMixActive`, `setCenterMixLevelDb`, `setAudioOutputChannels`, and `setDownmixNormalizationEnabled`.
+- The last known successful run #51 used Media3 1.8.0 and the five Nuvio AAR blobs recorded in the existing Media3 compatibility plan. The FFmpeg AAR was 9,198,662 bytes; the failed-path generic AAR was 3,587,450 bytes.
+- Run #61 confirmed that the source also needed a complete 1.8 API port. The repair restores the proven AAR set and version together, then adapts the newer source signatures: LoadControl/DefaultLoadControl, DefaultTrackSelector, MediaCodecVideoRenderer, MediaCodecUtil, Consumer, ElementaryStreamReader, and Decoder.
+- The software decoder follows the 1.8 polling contract; no `Decoder.Callback` API is referenced. Stuck-player classification remains available through reflection, without linking to a post-1.8 type.
+- A pre-Gradle compatibility guard verifies the shared version alias, all five AAR Git blob IDs, local AAR wiring, and affected 1.8 source signatures. The existing CI contract step runs this before Gradle.
+- The repair branch `fix/media3-nuvio-compatibility-20261124` is based on current `main-build-testing` head `5bf1cec323a2d621bb42561931cc2cc0d40a30fd`, not the one-commit-behind CI branch.
+- No build or CI run was started. Compilation remains unverified pending explicit authorization.
