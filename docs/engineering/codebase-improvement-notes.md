@@ -2800,3 +2800,34 @@ Those host-test source issues were repaired in the current `main-build-testing` 
 ### Verification boundary
 
 No Gradle build, APK build or CI run has been started for these new playback changes, as requested. The regression tests are committed but remain unexecuted. The exact original clone-NPE call site also remains unconfirmed until a reproduction exports the new `failureContext` and stacktrace fields. Do not report the playback issue or the branch as verified until those tests and a real-device playback attempt are run.
+
+
+## Cross-player playback architecture audit — 24 November 2026
+
+### Repositories and primary evidence reviewed
+
+- [Wholphin PR #481](https://github.com/damontecres/Wholphin/pull/481), merged 17 December 2025, moves libmpv commands from UI-thread calls to a dedicated `HandlerThread`/Looper. The author explicitly cites internal libmpv mutex waits blocking the UI thread. Nuvio already has a dedicated single-thread `NuvioLibmpv` coroutine dispatcher and routes most player commands through `executeMpv`; do not replace it with another queue/HandlerThread. The transferable review item is to audit every native entry point (initialization, observer registration, event/property access, surface operations, close) for confinement and lifecycle ordering.
+- [Just Player Pro](https://github.com/Zain-Imam/just-player-pro), current dual Media3/mpv Android player, was inspected at source level. Its `MpvPlayer` uses Media3's `Player` surface callbacks and directly calls `setOptionString("vo", "null")`, `setOptionString("force-window", "no")`, and `detachSurface()` in `surfaceDestroyed`. This is useful production prior art, but it repeats the upstream detach pattern and does not prove completion before return; do not copy it as a stronger teardown solution.
+- [mpv-android library source](https://github.com/abdallahmehiz/mpv-android/tree/library) was inspected at commit `ad0cee3dc001960086d089d9c5b2ccc9902b8339`, matching the 22 November 2026 publication date of the project's `mpv-android-lib:0.2.2` source artifact. In `lib/src/androidMain/jni/render.cpp`, `attachSurface` stores a JNI global reference and calls `mpv_set_option(..., "wid", ...)`; `detachSurface` sets `wid=0` and immediately deletes the JNI global reference. There is no wait, completion callback, event acknowledgement or VO-deinitialization barrier in this JNI method. `nativeDestroy` does join the event thread and call `mpv_terminate_destroy`, but that is full player destruction, not a surface-only detach primitive.
+- [Android SurfaceView API](https://developer.android.com/reference/android/view/SurfaceView) states that the SurfaceView's parent SurfaceControl lifetime follows the Surface lifetime and permits it to be used as a parent for app-owned child SurfaceControls. The current Nuvio implementation attaches mpv to an app-owned child layer (`Surface(layer)`), not `holder.surface`, and reparents that child to null before asynchronous detach/release. This is an important distinction: the standard `surfaceDestroyed` contract must not be applied mechanically to the child output without examining transaction ordering and ownership. `Transaction.apply()` submission is not, by itself, proof that SurfaceFlinger committed the reparent before the parent lifetime ends.
+- On API 24–28, Nuvio uses `TextureView`; returning `false` from `onSurfaceTextureDestroyed` transfers release responsibility to the app. The existing delayed release of the app-owned Surface/SurfaceTexture is consistent with that ownership model in principle, provided stale generations and final release cannot race it.
+
+### Conclusions and changes to the investigation
+
+1. Nuvio's single-thread dispatcher is already at least as strong as the threading direction adopted by Wholphin. The next improvement is not another thread abstraction; it is making initialization, callbacks, native surface ownership, stale work rejection and close part of one auditable serialized lifecycle.
+2. The pinned mpv JNI detach method does **not** expose a native completion primitive. Do not describe `detachSurface()` returning as proof that VO teardown is complete.
+3. The current API 29+ child-SurfaceControl design may intentionally avoid using the SurfaceView-owned surface directly. Its safety depends on child-layer reparent/transaction ordering and native ownership, which must be verified before changing callback synchronization or adding blocking.
+4. Do not import Just Player Pro's decoder/cache tuning as-is. Its README describes device measurements and workload-specific choices, but Nuvio's existing settings, API floor, content mix and custom renderer stack differ. Any candidate requires same-device A/B evidence and regression coverage.
+5. The libplacebo sync-file FD leak report/backport remains a separate native artifact-provenance check. The 0.1.12 PR's binary patch is not transferable to 0.2.2 without proving the exact shipped native libraries lack the fix.
+
+### Candidate improvements retained for evidence-led follow-up
+
+- SurfaceControl child-layer reparent commit/ownership and rapid recreation race tests.
+- Full native-call thread-confinement audit, including initialization and observer setup before declaring dispatcher ownership complete.
+- Confirmed native FD leak regression check against exact 0.2.2 AAR contents/build provenance.
+- Selective Media3 runtime decoder fallback only after upstream issue [#3421](https://github.com/androidx/media/issues/3421) / PR #3422 status or a Nuvio-specific reproducible runtime decoder failure changes the current deferral decision.
+- Keep Media3 1.8.0 custom AAR compatibility pinned until the entire AAR family can be rebuilt and linkage-checked together.
+
+### Verification boundary
+
+This was a source/research audit only. No production code, dependency, build, test, device run or CI workflow was changed or started. Exa Steve Main returned an authentication error during a later fetch; the alternate New main connection succeeded for the Maven artifact and mpv manual search. No Twitter/X review is claimed.
