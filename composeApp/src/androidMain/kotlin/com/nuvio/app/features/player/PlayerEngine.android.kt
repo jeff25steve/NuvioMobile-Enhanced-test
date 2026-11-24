@@ -5639,7 +5639,7 @@ private class DolbyVisionSoftMatchVideoRenderer(
         return if (decoderInfos.isEmpty()) {
             super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
         } else {
-            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context, decoderInfos, format)
+            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(decoderInfos, format)
         }
     }
 }

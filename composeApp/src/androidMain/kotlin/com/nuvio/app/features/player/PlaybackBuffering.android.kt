@@ -128,14 +128,14 @@ internal fun PlayerSettingsUiState.buildPlaybackLoadControl(localFileSource: Boo
         // and let the byte cap win over the time thresholds (upstream offline playback fix).
         localFileSource && !customPlaybackBuffersEnabled -> builder
             .setBackBuffer(0, false)
-            .setBufferDurationsMsForLocalPlayback(
+            .setBufferDurationsMs(
                 LOCAL_FILE_MIN_BUFFER_MS,
                 LOCAL_FILE_MAX_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS,
+                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
             )
             .setTargetBufferBytes(minOf(LOCAL_FILE_TARGET_BUFFER_MB * MB, heapLimitBytes).toInt())
-            .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(false)
+            .setPrioritizeTimeOverSizeThresholds(false)
         customPlaybackBuffersEnabled -> {
             val startMs = playbackStartBufferSeconds * 1000
             val rebufferMs = playbackRebufferSeconds * 1000
@@ -143,34 +143,23 @@ internal fun PlayerSettingsUiState.buildPlaybackLoadControl(localFileSource: Boo
             val maxMs = maxOf(playbackMaxBufferSeconds * 1000, minMs)
             builder
                 .setBackBuffer(playbackBackBufferSeconds * 1000, true)
-                .setBufferDurationsMsForStreaming(minMs, maxMs, startMs, rebufferMs)
-                .setBufferDurationsMsForLocalPlayback(minMs, maxMs, startMs, rebufferMs)
-                .setPrioritizeTimeOverSizeThresholdsForStreaming(false)
-                .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(false)
+                .setBufferDurationsMs(minMs, maxMs, startMs, rebufferMs)
                 .setTargetBufferBytes(minOf(playbackTargetBufferMb * MB, heapLimitBytes).toInt())
         }
         exoNativeMemoryEnabled -> builder
             .setBackBuffer(10_000, true)
-            .setBufferDurationsMsForStreaming(
+            .setBufferDurationsMs(
                 120_000,
                 600_000,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
             )
-            .setBufferDurationsMsForLocalPlayback(
-                120_000,
-                600_000,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_FOR_LOCAL_PLAYBACK_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_FOR_LOCAL_PLAYBACK_MS,
-            )
-            .setPrioritizeTimeOverSizeThresholdsForStreaming(false)
-            .setPrioritizeTimeOverSizeThresholdsForLocalPlayback(false)
             .setTargetBufferBytes(heapLimitBytes.toInt())
         else -> builder
             .setBackBuffer(10_000, true)
-            .setBufferDurationsMsForStreaming(
+            .setBufferDurationsMs(
                 DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                50_000,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
                 DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
             )
