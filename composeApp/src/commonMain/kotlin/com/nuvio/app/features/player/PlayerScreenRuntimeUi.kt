@@ -467,7 +467,9 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
                         if (message != null) {
                             scrubbingPositionMs = null
                             controlsVisible = !playerControlsLocked
-                            removeFailedStreamFromCache()
+                            if (shouldRemoveFailedPlaybackSourceFromCache(message)) {
+                                removeFailedStreamFromCache()
+                            }
                         }
                     },
                 )
