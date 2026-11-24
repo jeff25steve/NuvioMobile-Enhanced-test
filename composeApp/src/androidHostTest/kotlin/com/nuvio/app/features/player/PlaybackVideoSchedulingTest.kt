@@ -1,3 +1,8 @@
+@file:OptIn(
+    androidx.media3.common.util.UnstableApi::class,
+    androidx.media3.common.util.ExperimentalApi::class,
+)
+
 package com.nuvio.app.features.player
 
 import kotlin.test.Test
