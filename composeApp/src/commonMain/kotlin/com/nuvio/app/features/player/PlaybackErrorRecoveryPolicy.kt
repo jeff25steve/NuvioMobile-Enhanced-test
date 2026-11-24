@@ -1,7 +1,7 @@
 package com.nuvio.app.features.player
 
-private val playbackErrorCodePattern = Regex("""\\[(ERROR_CODE_[A-Z0-9_]+)]\\s*$""")
-private val playbackHttpStatusPattern = Regex("""\\bHTTP\\s+(\\d{3})\\b""", RegexOption.IGNORE_CASE)
+private val playbackErrorCodePattern = Regex("""\[(ERROR_CODE_[A-Z0-9_]+)]\s*$""")
+private val playbackHttpStatusPattern = Regex("""\bHTTP\s+(\d{3})\b""", RegexOption.IGNORE_CASE)
 
 private fun playbackErrorCode(message: String?): String? =
     message?.let { playbackErrorCodePattern.find(it.trim())?.groupValues?.get(1) }
