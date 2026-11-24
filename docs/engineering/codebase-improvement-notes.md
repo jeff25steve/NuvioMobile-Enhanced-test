@@ -2389,3 +2389,36 @@ A source-level review of the existing seek-preview pipeline found two concrete i
 - Regression tests were authored but not executed because Gradle test execution/compilation was not authorized under the no-build/no-CI constraint. The TDD RED result and GREEN result therefore remain unverified.
 - No Gradle tasks, compilation, build, CI, benchmark, APK/AAB generation, or physical-device playback was started.
 - Remote source review and branch-head verification are recorded with this change. Device validation is still required to compare preview accuracy on short and feature-length sources, verify memory pressure during repeated scrubbing, and check native-feed fallback behavior.
+
+## Android AV1 film-grain processing follows renderer capability — 23 November 2026
+
+The Android libmpv initializer forced `vd-lavc-film-grain=cpu` for every video output. That workaround was originally appropriate for older libplacebo builds: the GPU film-grain shader had an OpenGL ES vertical-flip defect on some Android targets when video was presented at 1:1 scale. It is no longer appropriate for the current bundled native library.
+
+### Verified dependency evidence
+
+- The repository pins `io.github.abdallahmehiz:mpv-android-lib:0.2.1`.
+- I inspected the upstream `0.2.1` release build workflow and its completed build-job log (13 November 2026). The actual Android artifact build reports **libplacebo 7.392.0**, not an assumed version inferred from a release date: https://github.com/abdallahmehiz/mpv-android/actions/runs/43492969458/job/132154520894
+- The upstream libplacebo 7.387.0 release includes the fix for AV1 film-grain vertical flipping on flipped render targets. The artifact's 7.392.0 is newer: https://github.com/haasn/libplacebo/releases/tag/v7.387.0
+- mpv's current option documentation says `vd-lavc-film-grain=auto` selects GPU synthesis only when the active video output advertises film-grain support; otherwise it retains CPU synthesis. Only `gpu-next` currently advertises that capability. The same documentation says GPU synthesis can reduce frame copies when hardware decoding is active: https://github.com/mpv-player/mpv/blob/master/DOCS/man/options.rst
+- The earlier Android OpenGL ES issue is documented in mpv #14651; it was fixed upstream in libplacebo 7.387.0: https://github.com/mpv-player/mpv/issues/14651
+- The current 4K AV1 Android issue #1320 still reports device-specific stutter even across multiple renderers and hardware-decoder modes. This change does not claim to solve every 4K AV1 performance problem: https://github.com/mpv-android/mpv-android/issues/1320
+
+### Changes
+
+- Added a renderer-aware film-grain policy: `gpu-next` uses mpv's capability-aware `auto` mode; the legacy `gpu` renderer remains explicitly on CPU synthesis.
+- Replaced the unconditional CPU override in the Android libmpv initializer with that policy.
+- Added the selected film-grain mode to the existing MPV initialization diagnostic and route option-setting failures through the existing MPV error logger.
+- Added common regression tests for both renderer paths.
+- Did not upgrade the native dependency: the existing 0.2.1 artifact is already verified to bundle libplacebo 7.392.0, so a dependency bump is unnecessary for this fix.
+- Left the ExoPlayer path, decoder selection, scaling filters, debanding, HDR routing, video output selection, iOS, and playback buffering unchanged.
+
+### Expected user-visible effect and limits
+
+For AV1 sources carrying film-grain metadata on the Android libmpv `gpu-next` path, grain synthesis can now run in the GPU renderer instead of always consuming CPU decode resources. On hardware-decoded streams, mpv documents that this can also avoid extra frame copies. The actual frame-time/CPU improvement depends on the device, codec path and source; no percentage or frame-drop reduction is claimed without a device benchmark. The legacy `gpu` output retains CPU grain synthesis to avoid requesting an unsupported GPU feature.
+
+### Verification boundary
+
+- Added two regression tests; they were not executed because no Gradle tasks, compilation, tests, builds or CI were authorized.
+- Re-fetched the changed production and test sources from the remote branch for static review. The historical upstream build log was inspected read-only; no upstream or project build was triggered.
+- Runtime validation is still required with AV1 grain/no-grain clips at 1:1 and scaled sizes on Android OpenGL ES devices, using both GPU Next and legacy GPU output. Compare dropped frames, CPU use, visual grain orientation and decoder path before calling this measured improvement.
+
