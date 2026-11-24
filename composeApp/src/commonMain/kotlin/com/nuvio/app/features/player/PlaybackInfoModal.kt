@@ -382,13 +382,13 @@ private fun PlaybackInfoContent(
         if (
             videoCodec.isNotBlank() && (
                 decoderFrameDrops >= 0L ||
-            outputFrameDrops >= 0L ||
-            delayedFrameCount >= 0L ||
-            mistimedFrameCount >= 0L ||
-            estimatedFrameNumber >= 0L ||
-            avSyncMs != null ||
-            displayFps != null ||
-            estimatedDisplayFps != null ||
+                outputFrameDrops >= 0L ||
+                delayedFrameCount >= 0L ||
+                mistimedFrameCount >= 0L ||
+                estimatedFrameNumber >= 0L ||
+                avSyncMs != null ||
+                displayFps != null ||
+                estimatedDisplayFps != null ||
                 presentationDelayMs != null
             )
         ) {
