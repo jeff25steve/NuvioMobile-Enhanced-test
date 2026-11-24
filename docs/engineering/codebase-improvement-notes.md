@@ -2422,3 +2422,34 @@ For AV1 sources carrying film-grain metadata on the Android libmpv `gpu-next` pa
 - Re-fetched the changed production and test sources from the remote branch for static review. The historical upstream build log was inspected read-only; no upstream or project build was triggered.
 - Runtime validation is still required with AV1 grain/no-grain clips at 1:1 and scaled sizes on Android OpenGL ES devices, using both GPU Next and legacy GPU output. Compare dropped frames, CPU use, visual grain orientation and decoder path before calling this measured improvement.
 
+
+
+## Android libmpv native refresh for current GPU-next frame handling — 24 November 2026
+
+### Verified current state and source freshness
+
+- The previous branch pinned `io.github.abdallahmehiz:mpv-android-lib:0.2.1`. Maven Central published **0.2.2 on 22 November 2026**, and its Android AAR is present as `mpv-android-lib-android-0.2.2.aar` (81,322,147 bytes). The Gradle module metadata resolves the Android variant through the existing root dependency coordinate; no coordinate or source API migration is required.
+- Upstream tag `v0.2.2` points to commit `ad0cee3dc001960086d089d9c5b2ccc9902b8339`. Its upstream GitHub Actions run **45005493369** completed successfully for armv7l, arm64, x86 and x86_64 on 22 November: https://github.com/abdallahmehiz/mpv-android/actions/runs/45005493369
+- The exact v0.2.1 → v0.2.2 source comparison contains four changed files: the build dependency downloader, two native patches, and the library build configuration. The patches add Vulkan 1.1 function loading through `vkGetInstanceProcAddr` and include `estimated-frame-number` in `MPV_EVENT_TICK` observed properties. The public Kotlin `MPV` interface is unchanged.
+- The v0.2.2 build script clones upstream mpv and libplacebo at their then-current default-branch heads (rather than pinning a release tag); FFmpeg is pinned to n9.0.2 in its CI build configuration. The 22 November successful build is newer than the 13 November v0.2.1 artifact build. **The exact mpv/libplacebo commit IDs and resulting libplacebo version for the 0.2.2 AAR were not available in the inspected build metadata, so no exact bundled native version is claimed.**
+- Upstream mpv 0.42.0 was released on 5 November 2026 and includes GPU-next fixes for upload synchronization and retaining hardware-decoded frames while the render queue holds them, plus deriving hardware-decoder surface-pool size from video-output requirements: https://github.com/mpv-player/mpv/releases/tag/v0.42.0
+- The latest 4K AV1 Android report found in this investigation is mpv-android issue #1320 (opened 31 August, last updated 9 September 2026). Its maintainer identified OpenGL rendering/memory-bandwidth overhead at 4K and GPU-next hardware-decoder inefficiency as contributing factors. This report predates mpv 0.42.0 and the v0.2.2 build; it is useful problem evidence, **not proof that the problem remains or is fixed in the refreshed artifact**: https://github.com/mpv-android/mpv-android/issues/1320
+
+### Changes
+
+- Updated the version catalog from `mpv-android-lib:0.2.1` to the published `0.2.2` Android library.
+- Kept Nuvio's existing `vo=gpu-next` / `vo=gpu` selection, `hwdec=auto` policy, SurfaceView lifecycle, render profiles, scaling filters, HDR handling, subtitles and playback buffering unchanged.
+- Did not force `mediacodec_embed`: mpv documents that this output omits important features including subtitle/OSD rendering and video filters, so it is not a safe replacement for Nuvio's current player pipeline.
+- Did not apply desktop-only zero-copy, D3D11, or HDR peak-detection tuning to Android. Those settings are not evidence-backed for this Android build.
+- The new native library contains an estimated-frame-number tick-property patch, but Nuvio does not currently consume that event; no new telemetry or user-facing diagnostic is claimed in this change.
+
+### Expected effect and limits
+
+The dependency refresh brings the app onto a newer upstream mpv/libplacebo snapshot, including the released GPU-next hardware-frame queue and upload-synchronization fixes. This is a concrete native-stack improvement relevant to GPU-next playback, but **no 4K AV1 frame-drop or frame-time improvement is claimed without same-device playback measurements**. Device/SoC-specific MediaCodec and memory-bandwidth limits can remain.
+
+### Verification boundary
+
+- Confirmed the 0.2.2 Maven Central Android variant, artifact size and Gradle metadata; inspected the upstream v0.2.1 → v0.2.2 diff, native build scripts, and the successful four-ABI upstream build run.
+- Updated the dependency pin and re-fetched the changed version catalog and this note from the remote branch for static review.
+- No Gradle task, dependency resolution, compilation, test, build, CI, benchmark, APK/AAB generation or physical-device playback was started, in accordance with the no-build/no-CI authorization boundary.
+- Required before claiming a measured playback win: compare 4K AV1 SDR and HDR clips on the same Android devices and display mode, record decoder/output dropped frames and render timing, and compare the prior 0.2.1 artifact with 0.2.2. Also verify audio/video sync, subtitle timing, seek/resume and non-AV1 playback.
