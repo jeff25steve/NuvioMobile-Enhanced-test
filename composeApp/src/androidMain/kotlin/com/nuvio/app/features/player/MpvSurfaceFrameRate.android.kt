@@ -34,8 +34,11 @@ internal fun mpvSurfaceFrameRateRequest(
         return MpvSurfaceFrameRateRequest(0f, seamlessOnly)
     }
 
-    val requestedRate = mediaFrameRate * playbackSpeed
-    if (!requestedRate.isFinite() || requestedRate <= 0.0 || requestedRate > Float.MAX_VALUE) {
+    val requestedRate = playbackSurfaceFrameRate(
+        mediaFrameRate = mediaFrameRate.toFloat(),
+        playbackSpeed = playbackSpeed.toFloat(),
+    )
+    if (!requestedRate.isFinite() || requestedRate <= 0f) {
         return MpvSurfaceFrameRateRequest(0f, seamlessOnly)
     }
 
@@ -44,7 +47,7 @@ internal fun mpvSurfaceFrameRateRequest(
         longRunningContent
 
     return MpvSurfaceFrameRateRequest(
-        frameRate = requestedRate.toFloat(),
+        frameRate = requestedRate,
         changeFrameRateStrategy = if (alwaysEligible) {
             Surface.CHANGE_FRAME_RATE_ALWAYS
         } else {
