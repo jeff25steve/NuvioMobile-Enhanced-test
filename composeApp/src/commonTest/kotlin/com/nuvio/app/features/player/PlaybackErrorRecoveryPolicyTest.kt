@@ -24,6 +24,7 @@ class PlaybackErrorRecoveryPolicyTest {
         assertFalse(shouldRefreshCredentialedPlaybackSource("HTTP 404 Not Found [ERROR_CODE_IO_BAD_HTTP_STATUS]"))
         assertFalse(shouldRefreshCredentialedPlaybackSource("HTTP 503 Unavailable [ERROR_CODE_IO_BAD_HTTP_STATUS]"))
         assertFalse(shouldRefreshCredentialedPlaybackSource("Network failed [ERROR_CODE_IO_NETWORK_CONNECTION_FAILED]"))
+        assertFalse(shouldRefreshCredentialedPlaybackSource("HTTP 503 Unavailable"))
     }
 
     @Test
