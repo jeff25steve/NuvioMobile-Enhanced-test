@@ -31,7 +31,7 @@
 
 ---
 
-### Task 1: Prove the pinned native API's teardown completion semantics
+### Task 1: Prove the pinned native API's teardown and SurfaceControl ownership semantics
 
 **Files:**
 - Inspect: `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/MpvSurfaceView.android.kt`
@@ -39,12 +39,14 @@
 - Update: `docs/superpowers/specs/2026-11-24-android-mpv-coordinated-surface-lifecycle-design.md`
 
 **Interfaces:**
-- Produces: a documented, source-backed answer to whether detach is synchronous, what native event/property proves VO deinitialization, and whether a safe completion signal is available.
+- Produces: a documented, source-backed answer to JNI detach semantics, the child SurfaceControl transaction lifetime, and whether any native or compositor completion signal is available.
 
-- [ ] Inspect pinned artifact source, JNI implementation and release provenance; do not infer behavior from Kotlin method signatures.
-- [ ] Compare the implementation with upstream mpv-android and Android SurfaceHolder/TextureView contracts.
-- [ ] Record exact source paths, revisions and evidence in the design doc.
-- [ ] If no reliable completion signal exists, stop implementation and report the blocking limitation with alternatives; do not proceed with sleeps or UI-thread blocking.
+- [x] Inspect pinned artifact source and release provenance. The 0.2.2 source artifact is published 22 November 2026 and the matching library branch head is `ad0cee3dc001960086d089d9c5b2ccc9902b8339`.
+- [x] Inspect JNI `render.cpp`: detach sets `wid=0`, deletes the JNI global Surface reference, and returns without a completion acknowledgement. Full `nativeDestroy` joins the event thread and destroys the core; it is not a surface-only completion primitive.
+- [x] Compare upstream mpv-android, Just Player Pro and Wholphin. Wholphin's merged PR #481 establishes a dedicated command thread to avoid UI-thread libmpv mutex waits; Nuvio already has the equivalent single-thread dispatcher, so do not add a duplicate HandlerThread.
+- [ ] Verify Android API 29+ child SurfaceControl reparent transaction ordering and native ownership. Nuvio wraps an app-owned child layer in `Surface(layer)`; it does not attach `holder.surface`. Prove whether the child remains valid until delayed detach completes and whether the parent can be destroyed before the reparent transaction commits.
+- [ ] Inspect whether mpv emits a documented event/property that proves VO teardown; do not treat `detachSurface()` return or `Transaction.apply()` return as completion.
+- [ ] Record the proof and update acceptance criteria. If neither the child-layer ownership model nor an event-based completion signal can be proven, stop and report the limitation; do not add arbitrary sleeps or an unbounded UI-thread wait.
 
 ### Task 2: Add deterministic lifecycle state-machine tests
 
