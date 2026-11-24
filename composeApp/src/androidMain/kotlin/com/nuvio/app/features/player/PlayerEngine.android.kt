@@ -1343,9 +1343,9 @@ private fun ExoPlayerSurface(
                 // Keep the complete failure frames when Android can format them. Some broken
                 // Throwable implementations can throw while materializing their stack trace;
                 // diagnostic formatting must never replace the original playback error.
-                runCatching {
+                try {
                     Log.e(PLAYER_DIAGNOSTIC_TAG, "playback stacktrace", error)
-                }.onFailure { diagnosticFailure ->
+                } catch (diagnosticFailure: RuntimeException) {
                     Log.w(
                         PLAYER_DIAGNOSTIC_TAG,
                         "stacktrace formatting failed type=${diagnosticFailure.javaClass.simpleName} " +
