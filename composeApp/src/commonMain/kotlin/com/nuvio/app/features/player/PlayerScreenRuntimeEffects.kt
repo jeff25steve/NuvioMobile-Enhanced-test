@@ -1020,7 +1020,11 @@ internal fun PlayerScreenRuntime.removeFailedStreamFromCache() {
 }
 
 internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message: String?): Boolean {
-    if (ServerStreams.isServerSourceId(activeProviderAddonId)) return retryServerSourceAfterError(message)
+    if (ServerStreams.isServerSourceId(activeProviderAddonId)) {
+        if (!shouldRetryServerSourceAfterPlaybackError(message)) return false
+        return retryServerSourceAfterError(message)
+    }
+    if (!shouldRefreshCredentialedPlaybackSource(message)) return false
     val failedUrl = activeSourceUrl
     if (!failedUrl.hasLikelyExpiringPlaybackCredentials()) return false
     if (credentialRefreshJob?.isActive == true) return true
