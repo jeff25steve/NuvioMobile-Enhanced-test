@@ -35,7 +35,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import com.nuvio.app.features.streams.redactedForLogs
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -73,11 +72,13 @@ import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.text.TextOutput
+import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -3915,8 +3916,14 @@ private class NuvioLibmpvView(
                     ?: node.nodeString("external-filename")?.substringAfterLast('/')
                     ?: node.nodeString("codec")
                 val language = node.nodeString("lang") ?: normalizeLanguageCode(rawLabel)
-                val label = rawLabel?.takeIf { it.isNotBlank() }
-                    ?: runBlocking { getString(Res.string.compose_player_track_number, index + 1) }
+                val label = resolvePlaybackTrackLabel(
+                    preferred = rawLabel,
+                    formatLabel = null,
+                    language = language,
+                    codec = node.nodeString("codec"),
+                    id = id.toString(),
+                    index = index,
+                )
                 LibmpvTrack(
                     id = id,
                     label = label,
@@ -4884,6 +4891,39 @@ private class AudioTrackCache {
     }
 }
 
+internal fun resolvePlaybackTrackLabel(
+    preferred: String?,
+    formatLabel: String?,
+    language: String?,
+    codec: String?,
+    id: String?,
+    index: Int,
+): String =
+    preferred?.takeIf { it.isNotBlank() }
+        ?: formatLabel?.takeIf { it.isNotBlank() }
+        ?: language?.takeIf { it.isNotBlank() }
+        ?: codec?.takeIf { it.isNotBlank() }
+        ?: id?.takeIf { it.isNotBlank() }
+        ?: (index.coerceAtLeast(0) + 1).toString()
+
+internal fun shouldUseSoftMatchDolbyVisionDecoder(
+    sampleMimeType: String?,
+    displaySupportsDolbyVision: Boolean,
+): Boolean =
+    displaySupportsDolbyVision && sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
+
+private fun displaySupportsDolbyVision(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+    val displayManager = context.getSystemService(Context.DISPLAY_SERVICE)
+        as? android.hardware.display.DisplayManager ?: return false
+    val display = displayManager.getDisplay(android.view.Display.DEFAULT_DISPLAY) ?: return false
+    if (!display.isHdr) return false
+    val hdrCapabilities = display.hdrCapabilities ?: return false
+    return hdrCapabilities.supportedHdrTypes.contains(
+        android.view.Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION,
+    )
+}
+
 private fun ExoPlayer.extractAudioTracks(context: Context): List<AudioTrack> {
     val tracks = mutableListOf<AudioTrack>()
     val trackNameProvider = CustomDefaultTrackNameProvider(context.resources)
@@ -4891,8 +4931,14 @@ private fun ExoPlayer.extractAudioTracks(context: Context): List<AudioTrack> {
     for (group in currentTracks.groups) {
         if (group.type != C.TRACK_TYPE_AUDIO) continue
         val format = group.mediaTrackGroup.getFormat(0)
-        val label = trackNameProvider.getTrackName(format).takeIf { it.isNotBlank() }
-            ?: runBlocking { getString(Res.string.compose_player_track_number, idx + 1) }
+        val label = resolvePlaybackTrackLabel(
+            preferred = trackNameProvider.getTrackName(format),
+            formatLabel = format.label,
+            language = format.language,
+            codec = format.codecs,
+            id = format.id,
+            index = idx,
+        )
         tracks.add(
             AudioTrack(
                 index = idx,
@@ -4969,7 +5015,14 @@ private fun ExoPlayer.extractSubtitleTracks(context: Context): List<SubtitleTrac
             SubtitleTrack(
                 index = idx,
                 id = format.id ?: idx.toString(),
-                label = trackNameProvider.getTrackName(format),
+                label = resolvePlaybackTrackLabel(
+                    preferred = trackNameProvider.getTrackName(format),
+                    formatLabel = format.label,
+                    language = format.language,
+                    codec = format.codecs,
+                    id = format.id,
+                    index = idx,
+                ),
                 language = format.language,
                 isSelected = group.isSelected,
                 isForced = inferForcedSubtitleTrack(
@@ -5372,6 +5425,31 @@ private class SubtitleOffsetRenderersFactory(
             allowedVideoJoiningTimeMs,
             out,
         )
+        // Preserve the platform renderer's position and the factory's codec configuration.
+        // Only decoder lookup is specialized; software/extension renderer priority is unchanged.
+        val platformRendererIndex = out.indexOfFirst {
+            it.javaClass == MediaCodecVideoRenderer::class.java
+        }
+        if (platformRendererIndex >= 0) {
+            val videoRendererBuilder = MediaCodecVideoRenderer.Builder(context)
+                .setCodecAdapterFactory(getCodecAdapterFactory())
+                .setMediaCodecSelector(mediaCodecSelector)
+                .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
+                .setEnableDecoderFallback(enableDecoderFallback)
+                .setEventHandler(eventHandler)
+                .setEventListener(eventListener)
+                .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
+                .experimentalSetLateThresholdToDropDecoderInputUs(
+                    MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US,
+                )
+                .setEarlySchedulingThresholdUs(
+                    MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US,
+                )
+            out[platformRendererIndex] = DolbyVisionSoftMatchVideoRenderer(
+                context = context,
+                builder = videoRendererBuilder,
+            )
+        }
         val softwareRendererIndex = softwareVideoRendererInsertionIndex(extensionRendererMode, out.size)
             ?: return
         out.add(
@@ -5384,6 +5462,52 @@ private class SubtitleOffsetRenderersFactory(
             ),
         )
     }
+
+private class DolbyVisionSoftMatchVideoRenderer(
+    private val context: Context,
+    builder: MediaCodecVideoRenderer.Builder,
+) : MediaCodecVideoRenderer(builder) {
+    private var requiresTunnelingDecoder: Boolean = false
+
+    override fun onEnabled(joining: Boolean, mayRenderStartOfStream: Boolean) {
+        requiresTunnelingDecoder = getConfiguration().tunneling
+        super.onEnabled(joining, mayRenderStartOfStream)
+    }
+
+    override fun onDisabled() {
+        try {
+            super.onDisabled()
+        } finally {
+            requiresTunnelingDecoder = false
+        }
+    }
+
+    override fun getDecoderInfos(
+        mediaCodecSelector: MediaCodecSelector,
+        format: Format,
+        requiresSecureDecoder: Boolean,
+    ): List<MediaCodecInfo> {
+        if (!shouldUseSoftMatchDolbyVisionDecoder(
+                sampleMimeType = format.sampleMimeType,
+                displaySupportsDolbyVision = displaySupportsDolbyVision(context),
+            )
+        ) {
+            return super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
+        }
+
+        val decoderInfos = MediaCodecUtil.getDecoderInfosSoftMatch(
+            mediaCodecSelector,
+            format,
+            requiresSecureDecoder,
+            requiresTunnelingDecoder,
+        )
+        return if (decoderInfos.isEmpty()) {
+            super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
+        } else {
+            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context, decoderInfos, format)
+        }
+    }
+}
 
     override fun buildAudioRenderers(
         context: Context,
