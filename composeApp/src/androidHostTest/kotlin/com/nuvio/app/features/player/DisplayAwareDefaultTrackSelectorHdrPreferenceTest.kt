@@ -2,16 +2,16 @@
 
 package com.nuvio.app.features.player
 
-import android.view.Display
 import android.net.Uri
+import android.view.Display
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
+import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
 import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser
-import androidx.media3.exoplayer.RendererCapabilities
 import org.junit.runner.RunWith
 import java.io.ByteArrayInputStream
 import org.robolectric.RobolectricTestRunner
@@ -70,6 +70,40 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
                 format = formats[1],
                 rendererSupportFlags = supports[1],
                 hasSupportedHdrFallback = false,
+            ),
+        )
+    }
+
+    @Test
+    fun hlsHlgVariantIsRecognizedOnlyByHlgDisplayCapabilities() {
+        val manifest = """
+            #EXTM3U
+            #EXT-X-STREAM-INF:BANDWIDTH=6000000,VIDEO-RANGE=HLG,CODECS="hvc1.2.4.L153.B0",RESOLUTION=3840x2160
+            hlg_hevc.m3u8
+            #EXT-X-STREAM-INF:BANDWIDTH=6000000,VIDEO-RANGE=SDR,CODECS="hvc1.1.4.L153.B0",RESOLUTION=3840x2160
+            sdr_hevc.m3u8
+        """.trimIndent()
+        val playlist = HlsPlaylistParser().parse(
+            Uri.parse("https://example.com/hlg-master.m3u8"),
+            ByteArrayInputStream(manifest.toByteArray()),
+        ) as HlsMultivariantPlaylist
+        val formats = playlist.variants.map { it.format }
+        val group = TrackGroup(*formats.toTypedArray())
+        val supports = IntArray(group.length) { C.FORMAT_HANDLED }
+
+        assertEquals(C.COLOR_TRANSFER_HLG, formats[0].colorInfo?.colorTransfer)
+        assertTrue(
+            hasSupportedDisplayHdrTrack(
+                group,
+                supports,
+                setOf(Display.HdrCapabilities.HDR_TYPE_HLG),
+            ),
+        )
+        assertFalse(
+            hasSupportedDisplayHdrTrack(
+                group,
+                supports,
+                setOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
             ),
         )
     }
