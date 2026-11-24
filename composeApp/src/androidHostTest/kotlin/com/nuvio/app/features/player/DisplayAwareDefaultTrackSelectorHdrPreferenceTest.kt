@@ -3,13 +3,17 @@
 package com.nuvio.app.features.player
 
 import android.view.Display
+import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.common.ColorInfo
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
+import androidx.media3.exoplayer.hls.playlist.HlsMultivariantPlaylist
+import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParser
 import androidx.media3.exoplayer.RendererCapabilities
 import org.junit.runner.RunWith
+import java.io.ByteArrayInputStream
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.Test
@@ -21,6 +25,39 @@ import kotlin.test.assertTrue
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
+    @Test
+    fun hlsPqAndSdrVariantsKeepTheirDisplayAwareSelectionBoundary() {
+        val manifest = """
+            #EXTM3U
+            #EXT-X-STREAM-INF:BANDWIDTH=6000000,AVERAGE-BANDWIDTH=6000000,VIDEO-RANGE=PQ,CODECS="hvc1.2.4.L153.B0",RESOLUTION=3840x2160,FRAME-RATE=23.976
+            hdr_hevc.m3u8
+            #EXT-X-STREAM-INF:BANDWIDTH=6000000,AVERAGE-BANDWIDTH=6000000,VIDEO-RANGE=SDR,CODECS="hvc1.1.4.L153.B0",RESOLUTION=3840x2160,FRAME-RATE=23.976
+            sdr_hevc.m3u8
+        """.trimIndent()
+        val playlist = HlsPlaylistParser().parse(
+            Uri.parse("https://example.com/master.m3u8"),
+            ByteArrayInputStream(manifest.toByteArray()),
+        ) as HlsMultivariantPlaylist
+        val formats = playlist.variants.map { it.format }
+
+        assertEquals(2, formats.size)
+        assertEquals(C.COLOR_TRANSFER_ST2084, formats[0].colorInfo?.colorTransfer)
+
+        val group = TrackGroup(*formats.toTypedArray())
+        val supports = IntArray(group.length) { C.FORMAT_HANDLED }
+        val hdr10Display = setOf(Display.HdrCapabilities.HDR_TYPE_HDR10)
+
+        assertTrue(hasSupportedDisplayHdrTrack(group, supports, hdr10Display))
+        assertTrue(hasSupportedSdrTrack(group, supports))
+        assertTrue(
+            shouldMaskSdrFormatForDisplay(
+                format = formats[1],
+                rendererSupportFlags = supports[1],
+                hasSupportedHdrFallback = true,
+            ),
+        )
+    }
+
     @Test
     fun unknownHdrCapabilitiesRemainUnknownRatherThanBecomingSdrOnly() {
         assertNull(displayHdrTypesFromCapabilities(null))
