@@ -9,7 +9,7 @@ class MpvSurfaceFrameRateTest {
     @Test
     fun seamlessPreferencesRequestExactSourceCadenceAtPlaybackSpeed() {
         val request = mpvSurfaceFrameRateRequest(
-            userPreference = DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESSS_ONLY,
+            userPreference = DisplayManager.MATCH_CONTENT_FRAMERATE_SEAMLESS_ONLY,
             mediaFrameRate = 23.976,
             playbackSpeed = 1.25,
             durationSeconds = 7_200.0,
