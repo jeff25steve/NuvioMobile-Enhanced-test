@@ -2748,7 +2748,7 @@ A second source pass resolved the renderer extension point and the important tun
 
 ### Evidence from the uploaded screenshot and app log
 
-The screenshot shows an ExoPlayer failure with `ERROR_CODE_UNSPECIFIED` and `Attempt to invoke virtual method 'java.lang.Object java.lang.Object.clone()' on a null object reference`. The 45,682-byte uploaded app log adds repeated ExoPlayer teardown/recreation, repeated stream-search activity, 320 Torrentio results and 8 Comet results, media-duration metadata, and an initial `startPositionMs=0`. It does not contain the complete exception frames; stream URLs are redacted and the export does not establish the device/API level or the exact failing renderer.
+The screenshot shows an ExoPlayer failure with `ERROR_CODE_UNSPECIFIED` and `Attempt to invoke virtual method 'java.lang.Object java.lang.Object.clone()' on a null object reference`. The roughly 45 KB uploaded app log adds repeated ExoPlayer teardown/recreation, repeated stream-search activity, 320 Torrentio results and 8 Comet results, media-duration metadata, and an initial `startPositionMs=0`. It does not contain the complete exception frames; stream URLs are redacted and the export does not establish the device/API level or the exact failing renderer.
 
 This is an unexpected player runtime error, not a confirmed HTTP, container or decoder-init failure. The absence of stack frames still prevents a definitive attribution of the null receiver.
 
@@ -2765,9 +2765,11 @@ The new common `PlaybackErrorRecoveryPolicy` applies these boundaries:
 - Automatic engine failover is limited to decoder, audio/video renderer and parsing failures. `ERROR_CODE_UNSPECIFIED` is surfaced instead of being hidden by an engine switch.
 - The reusable stream link is removed only for clearly stale HTTP statuses or a file-not-found error. Unknown runtime failures preserve the cached source.
 
-Messages without a Media3 error-code suffix retain the existing Libmpv recovery behavior. Regression tests cover the unspecified-error case, auth statuses, network errors, decoder/render failures, parsing failures and stale-link cache invalidation. These tests have been added but not run yet.
+Messages without a Media3 error-code suffix retain the existing Libmpv source-fallback and engine-failover behavior; signed-URL refresh remains restricted to explicit HTTP auth/expiry statuses. When automatic engine switching is enabled, source fallback is deferred only for decoder/renderer/parser errors that the alternate engine may address, so network errors still try another source. Regression tests cover the unspecified-error case, auth statuses, network errors, decoder/render failures, parsing failures and stale-link cache invalidation. These tests have been added but not run yet.
 
 ### The direct clone call and renderer-capability hardening
+
+The Kotlin coroutine reports [#1866](https://github.com/Kotlin/kotlinx.coroutines/issues/1866) and [#3031](https://github.com/Kotlin/kotlinx.coroutines/issues/3031) remain a separate hypothesis only if the captured stack includes coroutine stack-trace recovery / `Throwable.getStackTrace()`; their known platform report concerns older Android versions. They do not establish the source of this incident.
 
 The reviewed player implementation had one direct `.clone()` call: `DisplayAwareDefaultTrackSelector.selectAllTracks` cloned each Media3 renderer-format-support array before applying HDR filtering. This executes during track selection, close to the failure timing. Media3 1.8.0's `MappingTrackSelector` normally constructs non-null arrays, so the uploaded error still does not prove this is the failing call. However, this was an avoidable unguarded assumption in the player path.
 
