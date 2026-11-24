@@ -363,6 +363,7 @@ class DisplayAwareTrackSelectorTest {
         if (codecs != null) builder.setCodecs(codecs)
         return builder.build()
     }
+
     @Test
     fun missingRendererSupportArrayIsSafelyTreatedAsUnsupported() {
         val copied = copyRendererFormatSupport(null, expectedTrackCount = 3)
