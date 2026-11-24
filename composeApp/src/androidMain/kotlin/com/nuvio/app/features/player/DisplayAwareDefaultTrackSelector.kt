@@ -83,7 +83,10 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             val groupCount = maxOf(sourceGroups?.size ?: 0, mappedGroups?.length ?: 0)
             Array(groupCount) { groupIndex ->
                 val sourceSupport: IntArray? = sourceGroups?.getOrNull(groupIndex)
-                val expectedTrackCount = mappedGroups?.get(groupIndex)?.length ?: sourceSupport?.size ?: 0
+                val mappedTrackCount = mappedGroups?.let { groups ->
+                    if (groupIndex < groups.length) groups[groupIndex].length else null
+                }
+                val expectedTrackCount = mappedTrackCount ?: sourceSupport?.size ?: 0
                 if (sourceSupport == null && expectedTrackCount > 0) {
                     InAppLogger.warn(
                         "ExoPlayer/TrackSelector",
