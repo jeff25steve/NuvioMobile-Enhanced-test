@@ -5,6 +5,7 @@ ROOT_DIR="${1:-$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)}"
 CATALOG="$ROOT_DIR/gradle/libs.versions.toml"
 ANDROID_BUILD="$ROOT_DIR/composeApp/build.gradle.kts"
 SOURCE_ROOT="$ROOT_DIR/composeApp/src/androidMain/kotlin/com/nuvio/app/features/player"
+HOST_TEST_ROOT="$ROOT_DIR/composeApp/src/androidHostTest"
 
 fail() {
     printf 'FAIL: %s\n' "$1" >&2
@@ -14,6 +15,7 @@ fail() {
 [ -f "$CATALOG" ] || fail "Media3 version catalog is missing."
 [ -f "$ANDROID_BUILD" ] || fail "composeApp Gradle build file is missing."
 [ -d "$SOURCE_ROOT" ] || fail "Android player source directory is missing."
+[ -d "$HOST_TEST_ROOT" ] || fail "Android host-test source directory is missing."
 
 grep -Eq '^androidx-media3 = "1\.8\.0"$' "$CATALOG" \
     || fail "Nuvio custom Media3 AARs require the verified 1.8.0 dependency baseline."
@@ -27,7 +29,15 @@ if awk '/module = "androidx.media3:/ && $0 !~ /version.ref = "androidx-media3"/ 
 fi
 
 grep -Fq 'fileTree(mapOf("dir" to "libs", "include" to listOf("lib-*.aar")))' "$ANDROID_BUILD" \
-    || fail "The five local custom Media3 AARs are not wired into composeApp."
+    || fail "The local custom Media3 AARs are not wired into composeApp."
+grep -Fq 'exclude(group = "androidx.media3", module = "media3-common")' "$ANDROID_BUILD" \
+    || fail "The Maven Media3 common module must be excluded when the custom common AAR is present."
+grep -Fq 'exclude(group = "androidx.media3", module = "media3-extractor")' "$ANDROID_BUILD" \
+    || fail "The Maven Media3 extractor module must be excluded when the custom extractor AAR is present."
+grep -Fq 'implementation("com.google.guava:guava:33.3.1-android")' "$ANDROID_BUILD" \
+    || fail "The custom Media3 common/extractor AARs require the pinned Guava runtime."
+grep -Fq 'implementation("androidx.annotation:annotation-experimental:1.3.1")' "$ANDROID_BUILD" \
+    || fail "The custom Media3 AARs require annotation-experimental."
 
 while IFS=' ' read -r file expected; do
     [ -n "$file" ] || continue
@@ -41,7 +51,24 @@ lib-decoder-ffmpeg-release.aar 75ec0a868a99b87d3ee3e1ccd4d191c3a49560e4
 lib-decoder-mpegh-release.aar e2b019207b80c838a4dbb73976d8120ff101d18f
 lib-exoplayer-release.aar f55ad58cae1242d51036cf980a2332c50f620b50
 lib-ui-release.aar 073f9b6be8e8cc2f95a6934dfff5c232f61451af
+lib-common-release.aar 698c8940b9487ead519d0b4391b457514b1f4e14
+lib-extractor-release.aar 77f6cc09f13b291caf52b23ed3eb52dd111e93c8
 AARS
+
+if grep -R -n -E 'StuckPlayerException|androidx\.media3\.common\.Flags|androidx\.media3\.common\.util\.ExperimentalApi|endOfInputReached|Decoder\.Callback' "$HOST_TEST_ROOT"; then
+    fail "Android host tests contain Media3 APIs unavailable on the pinned 1.8.0 baseline."
+fi
+
+grep -Fq 'it.isFormatFunctionallySupported(format)' "$SOURCE_ROOT/PlayerEngine.android.kt" \
+    || fail "Dolby Vision support promotion must validate the decoder profile while ignoring under-reported performance level."
+grep -Fq 'sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && displaySupportsDolbyVision()' "$SOURCE_ROOT/PlayerEngine.android.kt" \
+    || fail "Display HDR capability queries must be lazy and limited to Dolby Vision formats."
+grep -Fq 'MediaCodecUtil.getDecoderInfosSortedByFormatSupport(decoderInfos, format)' "$SOURCE_ROOT/PlayerEngine.android.kt" \
+    || fail "Dolby Vision renderer must retain Media3 1.8 functional-support decoder ordering."
+grep -Fq 'displaySetBuffer.reset(displaySet, displaySetLength)' "$SOURCE_ROOT/bluray/BdavPgsReader.kt" \
+    || fail "BDAV PGS reader must reuse its display-set buffer."
+grep -Fq 'chunkBuffer.reset(chunk, chunkLength)' "$SOURCE_ROOT/bluray/BdavTrueHdReader.kt" \
+    || fail "BDAV TrueHD reader must reuse its chunk buffer."
 
 if grep -Fq 'StuckPlayerException' "$SOURCE_ROOT/PlaybackStallResume.android.kt"; then
     fail "PlaybackStallResume references a post-1.8.0 StuckPlayerException API."
@@ -65,4 +92,4 @@ done
 grep -Fq 'override fun onPositionReset(positionUs: Long, joining: Boolean)' "$SOURCE_ROOT/seekpreview/SeekPreviewFrameSource.android.kt" \
     || fail "Seek preview does not implement the Media3 1.8.0 renderer reset signature."
 
-printf 'PASS: Media3 1.8.0 catalog, minSdk 24, local AAR wiring/fingerprints and player API compatibility verified before Gradle.\n'
+printf 'PASS: Media3 1.8.0 catalog, minSdk 24, seven custom AAR fingerprints, dependency exclusions, Dolby Vision profile filtering, BDAV buffer reuse and host-test API compatibility verified before Gradle.\n'

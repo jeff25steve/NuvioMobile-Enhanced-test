@@ -1,10 +1,7 @@
 name: Android Startup Profile Benchmark CI Branch Runner
 
-# Push-triggered only on a fresh snapshot of main-build-testing; the source branch remains isolated.
-# The repair commit is verified from this isolated branch before any changes reach main-build-testing.
-# CI retry: compile repairs validated at source commit 13d920702e00c725c60cab914009edc7dbd3cf73.
-# CI retry: missing generated downloads resource import fixed in commit 456c8482e5ce7ef4673bdf313888271cfc4b4238.
-# The phone-runner contract test is POSIX-sh syntax checked before any Gradle task runs.
+# The CI branch is kept in sync with main-build-testing; the freshness guard runs before Gradle.
+# Phone-runner contracts and Android host regression tests run before native/release APK builds.
 # Negative AndroidJUnitRunner status codes retain explicit test-failure diagnostics.
 on:
   push:
@@ -179,6 +176,13 @@ jobs:
             return "$gradle_status"
           }
           EOF
+
+      - name: Run Android host regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/run-gradle-group.sh"
+          run_gradle_group "android-host-tests" :composeApp:testAndroidHostTest
 
       - name: Set up Rust Android targets
         id: rust-toolchain

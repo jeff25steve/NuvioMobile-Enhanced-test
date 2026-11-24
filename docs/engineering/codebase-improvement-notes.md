@@ -12,21 +12,58 @@
 
 These notes are cumulative. Re-check the live branch before using any item: later commits may already contain a fix.
 
-## Media3 custom AAR compatibility recovery (24 November 2026)
+## Media3 custom AAR compatibility recovery and player review (24 November 2026)
 
-The 1.12.0-beta01 experiment was not a safe upgrade for this player stack. Both live target branches had the same five generic 1.12 AAR fingerprints, while player source still called Nuvio-specific renderer/FFmpeg methods. CI run #62 failed at `:composeApp:compileAndroidMain` with nine unresolved custom methods covering Dolby Vision Profile 7 mapping, FFmpeg centre mix, output-channel selection and downmix normalisation. The earlier 1.8.0 attempt in run #61 also failed: the source still contained post-1.8 APIs (`StuckPlayerException`, the global `Flags` registry, newer `ElementaryStreamReader` callbacks and `Decoder.Callback`).
+### Compatibility baseline and why it is pinned
 
-The authoritative compatibility baseline is Nuvio's current `cmp-rewrite` source, which still pins Media3 1.8.0 and wires the five local custom AARs. The known-good fork benchmark run #52 built all four APK targets successfully with these Git blob fingerprints:
+AndroidX Media3's current stable release is 1.11.1; 1.12.0-beta01 is pre-release. NuvioMobile's current official `main` still uses Media3 1.8.0 with custom local AARs. Therefore 1.8.0 is the latest *verified Nuvio custom-binary baseline*, not the latest upstream Media3 release. Do not change the version alias alone: the Nuvio AARs contain APIs absent from generic upstream binaries, including Dolby Vision Profile 7 mapping and FFmpeg downmix controls. A safe 1.11.1/1.12 migration requires rebuilding and testing every affected custom AAR against the same Media3 source/API.
 
-- `lib-decoder-av1-release.aar`: `4caa18a79339cf5b0e7560b2c8068cffda478f01`
-- `lib-decoder-ffmpeg-release.aar`: `75ec0a868a99b87d3ee3e1ccd4d191c3a49560e4`
-- `lib-decoder-mpegh-release.aar`: `e2b019207b80c838a4dbb73976d8120ff101d18f`
-- `lib-exoplayer-release.aar`: `f55ad58cae1242d51036cf980a2332c50f620b50`
-- `lib-ui-release.aar`: `073f9b6be8e8cc2f95a6934dfff5c232f61451af`
+NuvioTV issue [#2098](https://github.com/NuvioMedia/NuvioTV/issues/2098) remains open and explicitly describes the static Media3 AAR strategy as a black-box maintenance problem. PR #2747 links a public Media3 fork branch for its common/extractor updates, but the other restored custom AARs are still pinned binaries without a fully reproducible source/build pipeline. This limits source-auditability and is a real reason not to claim A+ dependency maintainability.
 
-The recovery restores that complete known-good binary set and shared 1.8.0 version alias, then ports affected player source to actual 1.8.0 signatures. The software decoder retains its worker-thread/polling implementation but no longer implements the later callback API: AndroidX Media3 1.8.0 `DecoderVideoRenderer` polls `dequeueInputBuffer()` and `dequeueOutputBuffer()`. BDAV readers use `packetFinished(isEndOfInput)`, preserving end-of-input flushing. The 1.12-only renderer duration-to-progress flag is not represented as enabled on 1.8.0.
+The earlier 1.12.0-beta01 experiment was incompatible with the generic binaries then present on both target branches. CI run #62 failed at `:composeApp:compileAndroidMain` with nine missing Nuvio-specific APIs. The earlier 1.8.0 attempt in run #61 also failed because some source had not been fully ported back to 1.8.0 (`StuckPlayerException`, the newer `Flags` registry, `ElementaryStreamReader.endOfInputReached` and `Decoder.Callback`). The compatibility recovery restored the known-good custom AAR set and aligned affected source signatures.
 
-A focused pre-Gradle compatibility regression checks the version alias, minSdk, local AAR wiring, all five Git blob fingerprints and the affected 1.8.0 source signatures. It is invoked by the existing phone-benchmark contract suite rather than creating another build workflow. The earlier 1.12 plan is marked superseded; do not restart that upgrade without rebuilding and validating all five custom AARs against a newer Media3 API.
+### Latest official extractor/common fixes now available
+
+NuvioMobile merged [PR #2747](https://github.com/NuvioMedia/NuvioMobile/pull/2747) on 23 November. Its only changed files are the Media3 1.8.0 common and extractor AARs, built from the Nuvio Media3 fork branch `nuvio-mobile-exo-engine` at `87a95a878a`. The updated AAR fingerprints are:
+
+- `lib-common-release.aar`: `698c8940b9487ead519d0b4391b457514b1f4e14`
+- `lib-extractor-release.aar`: `77f6cc09f13b291caf52b23ed3eb52dd111e93c8`
+
+The port includes Matroska unknown-EBML recovery, zlib-compressed subtitle samples, stale Dolby Vision metadata handling in SDR, HLG SEI detection, DTS-HD MA/DTS:X identification, truncated-tail and nested-SeekHead/Cues recovery, plus BDAV 192-byte M2TS and HDMV TrueHD/PGS support and malformed DTS header guards. PR #2747 reports 133/133 Media3 host tests, 14/14 FFmpeg-generated playback/seek tests on a Xiaomi 15 (Android 16), and live NuvioMobile playback checks. These are upstream verification results, not claims that this fork has independently repeated the same device tests.
+
+The integration adds those two AARs, excludes the matching Maven `media3-common` and `media3-extractor` modules to avoid duplicate classes, and pins their Guava and annotation-experimental runtime dependencies. The other five custom AARs remain the known-good run #52 binaries; the separate newer ExoPlayer native-allocator AAR was not mixed in because its associated native-memory/VOD configuration is not ported in this fork.
+
+The fork's Blu-ray path has an important distinction: `BdavM2tsDataSource` strips the four-byte prefix from 192-byte BDAV packets before the extractor sees them, and `BdavTsPayloadReaderFactory` still routes HDMV PGS/TrueHD to the fork's custom readers. Therefore the upstream extractor's native 192-byte packet handling and default HDMV readers are not the active implementation on that custom path; the Matroska/DTS/HLG/Dolby Vision fixes still apply, and the local BDAV readers were independently aligned to the upstream zero-copy buffer pattern. Do not claim the upstream BDAV reader tests directly validate the fork's custom path.
+
+### Dolby Vision: source review of the uploaded Grok analysis
+
+The video's assertion that this branch does not override renderer decoder ordering is stale/incorrect for the reviewed commit. `PlayerEngine.android.kt` already has `DolbyVisionSoftMatchVideoRenderer.getDecoderInfos()`: on a Dolby Vision-capable display it calls `MediaCodecUtil.getDecoderInfosSoftMatch()` and `getDecoderInfosSortedByFormatSupport()`, preserving Media3 1.8's functional-support ordering. It preserves the secure-decoder and tunneling arguments and falls back to the superclass if the soft-match list is empty. The factory replaces only the platform MediaCodec renderer in-place; extension renderer ordering and the software renderer insertion path remain intact.
+
+It rebuilds that renderer with the selector, codec-adapter factory, joining time, decoder-fallback setting, event handler/listener, dropped-frame notification threshold and assumed minimum codec rate currently configured by this app. Optional experimental factory flags remain at their defaults here; if any are enabled later, they must be mirrored in the custom builder. The Grok warning is valid as a future-maintenance constraint, not evidence of a current mismatch in configured settings.
+
+AndroidX Media3 1.11.1 source confirms that its context-aware `getDecoderInfosSortedByFormatSupport(context, infos, format)` sorts by `MediaCodecInfo.isFormatFunctionallySupported(context, format)`, which explicitly ignores performance-capability limits. The pinned 1.8.0 equivalent uses `isFormatFunctionallySupported(format)` with the same profile-vs-performance distinction. The fork is not running Media3 1.11.1, but the renderer-ordering mechanism the video says is missing is already present on the 1.8.0 API. A remaining version gap is that 1.11.1's support evaluation is context-aware; moving to it still requires a complete custom-AAR rebuild.
+
+A second real inefficiency was found in the existing implementation: `getDecoderInfos()` eagerly evaluated `displaySupportsDolbyVision(context)` for every MIME type because it was passed as a Boolean argument. It now uses a lazy predicate that checks the MIME first, so SDR, HDR10, HLG and HEVC decoder lookups do not query display HDR capabilities. A regression test verifies the display-query lambda is not invoked for non-Dolby-Vision formats.
+
+The separate `supportsFormat()` promotion is intentionally limited to Dolby Vision Profile 8 PQ on a Dolby Vision display. A concrete edge case remained: it treated *any* native Dolby Vision MIME decoder as sufficient, even if that decoder did not functionally support the stream profile. The predicate now also requires `MediaCodecInfo.isFormatFunctionallySupported(format)`. Media3 1.8's implementation checks sample MIME/profile while deliberately skipping performance/level limits, which preserves the under-reported-level workaround but prevents a Profile 5-only decoder or HEVC fallback from incorrectly promoting Profile 8. Host tests cover native/profile-compatible, native/profile-incompatible and HEVC-fallback cases.
+
+Just Player issue [#761](https://github.com/moneytoo/Player/issues/761) is an open, single-device report from a Lenovo Tab P12 Pro/Snapdragon 870. It describes a Dolby Vision decoder that advertises Profile 8 only to FHD30 but decodes UHD DV successfully. The issue's workaround is a renderer `getDecoderInfos` ordering override. The current fork already implements that pattern; the remaining uncertainty is real-device validation on an under-reporting Dolby Vision device, not absence of the renderer override. Just Player commit `7941d07` is decoder diagnostics, not a merged fix.
+
+AndroidX issue [#3486](https://github.com/androidx/media/issues/3486) is closed with a verified Profile 7-to-HEVC/HDR10 fallback fix in Media3 main. This fork's custom AAR exposes the Nuvio Profile 7 mapping setting; do not confuse that with Profile 5 GPU tone mapping, which remains out of scope.
+
+### BDAV allocation and Media3 1.8 source compatibility
+
+The custom BDAV PGS and TrueHD readers were allocating a fresh byte array for every emitted display set/chunk and copying a TrueHD syncframe prefix. They now reuse `ParsableByteArray` wrappers over their existing buffers and a fixed syncframe scratch array, matching the allocation pattern in Nuvio's newer `HdmvPgsReader`/`HdmvTrueHdReader` implementations. Existing BDAV reader tests verify sample data, timestamps, chunking and seek reset behaviour.
+
+The 1.8.0 host-test sources previously still referenced post-1.8 APIs even though the app source had been ported. Those stale tests were corrected; the 1.12-only duration-to-progress flag test was removed because that flag does not exist on 1.8.0. The pre-Gradle compatibility guard now checks both production and host-test source, all seven AAR fingerprints, matching Maven exclusions, the Dolby Vision functional-profile predicate and BDAV buffer reuse. CI now runs `:composeApp:testAndroidHostTest` before native setup and the expensive release APK build.
+
+### Recovery boundary and remaining evidence gaps
+
+`setEnableDecoderFallback(true)` is enabled and covers decoder initialization failures. AndroidX [PR #3422](https://github.com/androidx/media/pull/3422), “Continue playback on another decoder when one fails mid-stream,” remains open and unmerged. Do not claim Media3's proposed renderer-native mid-stream recovery is present, and do not port an unmerged renderer recovery implementation speculatively.
+
+Media3 1.8.0 does not provide the newer `StuckPlayerException` API. The current pinned stack classifies its supported IO/EOF and read-position failures; it does not have the newer upstream no-progress exception classification. The obsolete host tests asserting that unavailable API were removed rather than faked. This is a documented limitation until the custom AAR stack can be upgraded safely or an upstream-compatible recovery API is released.
+
+The video is right that authored host tests are not device playback proof. Upstream PR #2747 has strong Xiaomi 15 extractor/device evidence, but it does not prove this fork's Dolby Vision under-report workaround on the Lenovo device in #761. Do not assign A+ field-quality or ship-confidence grades without a Dolby Vision-capable under-report device run, plus a separate SDR-only/HDR10/HLG device matrix. Existing player diagnostics already record decoder initialization, input format, video size, rendered first frame and dropped frames; use those logs rather than adding another parallel telemetry path.
 
 
 ## Engineering rules carried forward

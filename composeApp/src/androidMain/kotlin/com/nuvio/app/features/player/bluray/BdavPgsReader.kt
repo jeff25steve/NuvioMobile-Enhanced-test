@@ -24,6 +24,7 @@ internal class BdavPgsReader(
     private var displaySet = ByteArray(16 * 1024)
     private var displaySetLength = 0
     private var displaySetTimeUs = C.TIME_UNSET
+    private val displaySetBuffer = ParsableByteArray()
 
     override fun seek() {
         pendingLength = 0
@@ -67,7 +68,9 @@ internal class BdavPgsReader(
             position += segmentLength
         }
         pendingLength -= position
-        System.arraycopy(pending, position, pending, 0, pendingLength)
+        if (pendingLength > 0 && position > 0) {
+            System.arraycopy(pending, position, pending, 0, pendingLength)
+        }
         if (isEndOfInput) pendingLength = 0
     }
 
@@ -81,7 +84,8 @@ internal class BdavPgsReader(
         System.arraycopy(pending, position, displaySet, displaySetLength, length)
         displaySetLength += length
         if (type == SEGMENT_END) {
-            output.sampleData(ParsableByteArray(displaySet.copyOf(displaySetLength)), displaySetLength)
+            displaySetBuffer.reset(displaySet, displaySetLength)
+            output.sampleData(displaySetBuffer, displaySetLength)
             output.sampleMetadata(displaySetTimeUs, C.BUFFER_FLAG_KEY_FRAME, displaySetLength, 0, null)
             resetDisplaySet()
         }

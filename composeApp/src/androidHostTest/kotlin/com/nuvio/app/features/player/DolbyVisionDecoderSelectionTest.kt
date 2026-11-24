@@ -11,31 +11,27 @@ import kotlin.test.assertTrue
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class DolbyVisionDecoderSelectionTest {
     @Test
-    fun softMatchIsUsedOnlyForDolbyVisionOnDolbyVisionDisplay() {
-        assertTrue(
-            shouldUseSoftMatchDolbyVisionDecoder(
-                MimeTypes.VIDEO_DOLBY_VISION,
-                displaySupportsDolbyVision = true,
-            ),
-        )
+    fun displayCapabilitiesAreQueriedOnlyForDolbyVisionFormats() {
+        var displayQueryCount = 0
+        val supportsDolbyVision = {
+            displayQueryCount++
+            true
+        }
+
+        assertTrue(shouldUseSoftMatchDolbyVisionDecoder(MimeTypes.VIDEO_DOLBY_VISION, supportsDolbyVision))
+        assertEquals(1, displayQueryCount)
+
+        assertFalse(shouldUseSoftMatchDolbyVisionDecoder(MimeTypes.VIDEO_H265, supportsDolbyVision))
+        assertFalse(shouldUseSoftMatchDolbyVisionDecoder(null, supportsDolbyVision))
+        assertEquals(1, displayQueryCount)
+
         assertFalse(
-            shouldUseSoftMatchDolbyVisionDecoder(
-                MimeTypes.VIDEO_DOLBY_VISION,
-                displaySupportsDolbyVision = false,
-            ),
+            shouldUseSoftMatchDolbyVisionDecoder(MimeTypes.VIDEO_DOLBY_VISION) {
+                displayQueryCount++
+                false
+            },
         )
-        assertFalse(
-            shouldUseSoftMatchDolbyVisionDecoder(
-                MimeTypes.VIDEO_H265,
-                displaySupportsDolbyVision = true,
-            ),
-        )
-        assertFalse(
-            shouldUseSoftMatchDolbyVisionDecoder(
-                null,
-                displaySupportsDolbyVision = true,
-            ),
-        )
+        assertEquals(2, displayQueryCount)
     }
 
     @Test
@@ -111,6 +107,28 @@ class DolbyVisionDecoderSelectionTest {
                 MimeTypes.VIDEO_H265,
                 "dvhe.08.06",
                 C.COLOR_TRANSFER_ST2084,
+            ),
+        )
+    }
+
+    @Test
+    fun onlyProfileCompatibleNativeDolbyVisionDecodersCanPromoteSoftMatchSupport() {
+        assertTrue(
+            isFunctionallySupportedNativeDolbyVisionDecoder(
+                MimeTypes.VIDEO_DOLBY_VISION,
+                functionallySupportsFormat = true,
+            ),
+        )
+        assertFalse(
+            isFunctionallySupportedNativeDolbyVisionDecoder(
+                MimeTypes.VIDEO_DOLBY_VISION,
+                functionallySupportsFormat = false,
+            ),
+        )
+        assertFalse(
+            isFunctionallySupportedNativeDolbyVisionDecoder(
+                MimeTypes.VIDEO_H265,
+                functionallySupportsFormat = true,
             ),
         )
     }

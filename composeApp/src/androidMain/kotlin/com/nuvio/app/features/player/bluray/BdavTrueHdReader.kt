@@ -55,6 +55,8 @@ internal class BdavTrueHdReader(
     private var chunkLength = 0
     private var chunkUnits = 0
     private var chunkTimeUs = C.TIME_UNSET
+    private val chunkBuffer = ParsableByteArray()
+    private val syncframePrefixScratch = ByteArray(Ac3Util.TRUEHD_SYNCFRAME_PREFIX_LENGTH)
 
     override fun seek() {
         packetLength = 0
@@ -83,8 +85,10 @@ internal class BdavTrueHdReader(
     }
 
     override fun packetFinished(isEndOfInput: Boolean) {
-        readPacket()
-        packetLength = 0
+        if (packetLength > 0) {
+            readPacket()
+            packetLength = 0
+        }
         if (isEndOfInput) flushChunk()
     }
 
@@ -123,7 +127,8 @@ internal class BdavTrueHdReader(
             )
             formatEmitted = true
         }
-        val samples = Ac3Util.parseTrueHdSyncframeAudioSampleCount(packet.copyOfRange(position, position + Ac3Util.TRUEHD_SYNCFRAME_PREFIX_LENGTH))
+        System.arraycopy(packet, position, syncframePrefixScratch, 0, Ac3Util.TRUEHD_SYNCFRAME_PREFIX_LENGTH)
+        val samples = Ac3Util.parseTrueHdSyncframeAudioSampleCount(syncframePrefixScratch)
         if (samples > 0 && sampleRate > 0) unitDurationUs = samples * C.MICROS_PER_SECOND / sampleRate
         synced = true
     }
@@ -138,7 +143,8 @@ internal class BdavTrueHdReader(
 
     private fun flushChunk() {
         if (chunkUnits > 0 && formatEmitted) {
-            output.sampleData(ParsableByteArray(chunk.copyOf(chunkLength)), chunkLength)
+            chunkBuffer.reset(chunk, chunkLength)
+            output.sampleData(chunkBuffer, chunkLength)
             output.sampleMetadata(chunkTimeUs, C.BUFFER_FLAG_KEY_FRAME, chunkLength, 0, null)
         }
         resetChunk()

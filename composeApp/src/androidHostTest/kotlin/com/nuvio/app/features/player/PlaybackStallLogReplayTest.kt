@@ -1,7 +1,6 @@
 package com.nuvio.app.features.player
 
 import androidx.media3.common.PlaybackException
-import androidx.media3.common.util.StuckPlayerException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSourceException
 import java.io.EOFException
@@ -23,28 +22,13 @@ import org.robolectric.annotation.Config
 class PlaybackStallLogReplayTest {
 
     @Test
-    fun media3StuckPlayerNoProgressIsClassifiedForSafeRecovery() {
-        val stuck = PlaybackException(
-            "Player stopped making progress",
-            StuckPlayerException(
-                StuckPlayerException.STUCK_PLAYING_NO_PROGRESS,
-                10_000,
-            ),
+    fun unrelatedPlaybackErrorsAreNotMisclassifiedAsRecoverableStreamStalls() {
+        val failure = PlaybackException(
+            "Unclassified decoder failure",
+            null,
             PlaybackException.ERROR_CODE_UNSPECIFIED,
         )
-
-        assertEquals(PlaybackSourceFailure.StuckPlayback, stuck.toPlaybackSourceFailure())
-    }
-
-    @Test
-    fun media3SuppressedPlayerIsNotTreatedAsARecoverableStreamStall() {
-        val stuck = PlaybackException(
-            "Playback suppressed",
-            StuckPlayerException(StuckPlayerException.STUCK_SUPPRESSED, 600_000),
-            PlaybackException.ERROR_CODE_UNSPECIFIED,
-        )
-
-        assertEquals(PlaybackSourceFailure.None, stuck.toPlaybackSourceFailure())
+        assertEquals(PlaybackSourceFailure.None, failure.toPlaybackSourceFailure())
     }
 
     @Test

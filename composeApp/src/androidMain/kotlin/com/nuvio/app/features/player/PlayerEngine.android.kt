@@ -4905,9 +4905,9 @@ internal fun resolvePlaybackTrackLabel(
 
 internal fun shouldUseSoftMatchDolbyVisionDecoder(
     sampleMimeType: String?,
-    displaySupportsDolbyVision: Boolean,
+    displaySupportsDolbyVision: () -> Boolean,
 ): Boolean =
-    displaySupportsDolbyVision && sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
+    sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION && displaySupportsDolbyVision()
 
 internal fun isDolbyVisionProfile8PqFormat(
     sampleMimeType: String?,
@@ -4958,6 +4958,16 @@ internal fun promoteDolbyVisionSoftMatchCapabilities(
         RendererCapabilities.getDecoderSupport(baseCapabilities),
     )
 }
+
+/**
+ * A native Dolby Vision decoder must support the stream profile, but an under-reported level
+ * must not disqualify it. Media3's functional-support check intentionally ignores performance
+ * limits while still validating the profile; HEVC fallback decoders are not native DV decoders.
+ */
+internal fun isFunctionallySupportedNativeDolbyVisionDecoder(
+    codecMimeType: String,
+    functionallySupportsFormat: Boolean,
+): Boolean = codecMimeType == MimeTypes.VIDEO_DOLBY_VISION && functionallySupportsFormat
 
 private fun displaySupportsDolbyVision(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
@@ -5610,7 +5620,12 @@ private class DolbyVisionSoftMatchVideoRenderer(
             format,
             format.drmInitData != null,
             /* requiresTunnelingDecoder= */ false,
-        ).any { it.codecMimeType == MimeTypes.VIDEO_DOLBY_VISION }
+        ).any {
+                isFunctionallySupportedNativeDolbyVisionDecoder(
+                    codecMimeType = it.codecMimeType,
+                    functionallySupportsFormat = it.isFormatFunctionallySupported(format),
+                )
+            }
         return promoteDolbyVisionSoftMatchCapabilities(
             baseCapabilities,
             hasNativeDolbyVisionDecoder,
@@ -5622,10 +5637,9 @@ private class DolbyVisionSoftMatchVideoRenderer(
         format: Format,
         requiresSecureDecoder: Boolean,
     ): List<MediaCodecInfo> {
-        if (!shouldUseSoftMatchDolbyVisionDecoder(
-                sampleMimeType = format.sampleMimeType,
-                displaySupportsDolbyVision = displaySupportsDolbyVision(context),
-            )
+        if (!shouldUseSoftMatchDolbyVisionDecoder(format.sampleMimeType) {
+                displaySupportsDolbyVision(context)
+            }
         ) {
             return super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
         }
