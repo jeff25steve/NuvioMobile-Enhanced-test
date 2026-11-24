@@ -56,19 +56,22 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
     }
 
     override fun selectAllTracks(
+        definitions: Array<ExoTrackSelection.Definition?>,
         mappedTrackInfo: MappingTrackSelector.MappedTrackInfo,
         rendererFormatSupports: Array<Array<IntArray>>,
         rendererMixedMimeTypeAdaptationSupports: IntArray,
         params: DefaultTrackSelector.Parameters,
-    ): Array<ExoTrackSelection.Definition?> {
+    ) {
         val displayHdrTypes = supportedHdrTypes
         if (!shouldApplyDisplayHdrFiltering(displayHdrTypes, params.forceLowestBitrate)) {
-            return super.selectAllTracks(
+            super.selectAllTracks(
+                definitions,
                 mappedTrackInfo,
                 rendererFormatSupports,
                 rendererMixedMimeTypeAdaptationSupports,
                 params,
             )
+            return
         }
 
         // Work on a copy: renderer capabilities are owned by Media3 and must not be mutated.
@@ -120,7 +123,8 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             }
         }
 
-        return super.selectAllTracks(
+        super.selectAllTracks(
+            definitions,
             mappedTrackInfo,
             adjustedSupports,
             rendererMixedMimeTypeAdaptationSupports,
@@ -140,8 +144,8 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
         val updated = readDisplayHdrTypes()
         if (updated != supportedHdrTypes) {
             supportedHdrTypes = updated
-            // TrackSelector.invalidate() is thread-safe and re-evaluates with current parameters.
-            invalidate()
+            // TrackSelector.invalidate(null) is thread-safe and re-evaluates with current parameters.
+            invalidate(null)
         }
     }
 
