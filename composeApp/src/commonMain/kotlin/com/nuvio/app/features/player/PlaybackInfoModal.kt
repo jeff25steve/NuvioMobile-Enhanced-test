@@ -45,6 +45,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import nuvio.composeapp.generated.resources.Res
@@ -364,6 +365,58 @@ private fun PlaybackInfoContent(
             }
         }
 
+        val decoderFrameDrops = playbackInfo.longValue("decoderFrameDrops")
+        val outputFrameDrops = playbackInfo.longValue("outputFrameDrops")
+        val delayedFrameCount = playbackInfo.longValue("delayedFrameCount")
+        val mistimedFrameCount = playbackInfo.longValue("mistimedFrameCount")
+        val estimatedFrameNumber = playbackInfo.longValue("estimatedFrameNumber")
+        val avSyncMs = playbackInfo.nullableDoubleValue("avSyncMs")
+        val displayFps = playbackInfo.nullableDoubleValue("displayFps")
+        val estimatedDisplayFps = playbackInfo.nullableDoubleValue("estimatedDisplayFps")
+        val presentationDelayMs = playbackInfo.nullableDoubleValue("presentationDelayMs")
+        if (
+            decoderFrameDrops >= 0L ||
+            outputFrameDrops >= 0L ||
+            delayedFrameCount >= 0L ||
+            mistimedFrameCount >= 0L ||
+            estimatedFrameNumber >= 0L ||
+            avSyncMs != null ||
+            displayFps != null ||
+            estimatedDisplayFps != null ||
+            presentationDelayMs != null
+        ) {
+            SectionHeader(title = "Video Rendering")
+            if (decoderFrameDrops >= 0L) {
+                InfoRow(label = "Decoder-dropped Frames", value = decoderFrameDrops.toString())
+            }
+            if (outputFrameDrops >= 0L) {
+                InfoRow(label = "Output-dropped Frames", value = outputFrameDrops.toString())
+            }
+            if (delayedFrameCount >= 0L) {
+                InfoRow(label = "Estimated Delayed Frames", value = delayedFrameCount.toString())
+            }
+            if (mistimedFrameCount >= 0L) {
+                InfoRow(label = "Mistimed Frames", value = mistimedFrameCount.toString())
+            }
+            if (estimatedFrameNumber >= 0L) {
+                InfoRow(label = "Estimated Current Frame", value = "~${estimatedFrameNumber}")
+            }
+            avSyncMs?.let { value ->
+                val sign = if (value >= 0.0) "+" else ""
+                InfoRow(label = "A/V Sync Difference", value = "${sign}${value.formatPlaybackNumber()} ms")
+            }
+            displayFps?.let { value ->
+                InfoRow(label = "Display Refresh Rate", value = "${value.formatPlaybackNumber()} Hz")
+            }
+            estimatedDisplayFps?.let { value ->
+                InfoRow(label = "Measured Display Refresh", value = "${value.formatPlaybackNumber()} Hz")
+            }
+            presentationDelayMs?.let { value ->
+                val sign = if (value >= 0.0) "+" else ""
+                InfoRow(label = "Video Presentation Delay", value = "${sign}${value.formatPlaybackNumber()} ms")
+            }
+        }
+
         val audioCodec = playbackInfo.stringValue("audioCodec")
         if (audioCodec.isNotBlank()) {
             SectionHeader(title = "Audio Stream")
@@ -457,6 +510,12 @@ private fun JsonObject.intValue(key: String): Int =
 
 private fun JsonObject.doubleValue(key: String): Double =
     get(key)?.jsonPrimitive?.doubleOrNull ?: 0.0
+
+private fun JsonObject.longValue(key: String): Long =
+    get(key)?.jsonPrimitive?.longOrNull ?: -1L
+
+private fun JsonObject.nullableDoubleValue(key: String): Double? =
+    get(key)?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() }
 
 private fun Long.formatPlaybackBitrate(): String {
     val mbps = this / 1_000_000.0
