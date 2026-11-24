@@ -69,7 +69,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun pinTopAndBottomPlacementPersistsAndControlsHomeOrder() {
+    fun pinTopAndBottomPlacementPersistsAndControlsHomeOrder() = runTest {
         val addons = listOf(addon(listOf("popular", "latest", "trending")))
         HomeCatalogSettingsRepository.syncCatalogs(addons)
         val topKey = "test:movie:latest"
@@ -83,7 +83,7 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun hiddenRowsCanBeReorderedWithoutChangingVisibleRowsOrVisibility() {
+    fun hiddenRowsCanBeReorderedWithoutChangingVisibleRowsOrVisibility() = runTest {
         HomeCatalogSettingsRepository.syncCatalogs(
             listOf(addon(listOf("popular", "latest", "trending"))),
         )
@@ -113,18 +113,18 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
-    fun rowPlacementIsExcludedFromProfileSyncPayload() {
+    fun rowPlacementIsExcludedFromProfileSyncPayload() = runTest {
         HomeCatalogSettingsRepository.syncCatalogs(listOf(addon()))
         HomeCatalogSettingsRepository.setRowPlacement("test:movie:popular", HomeCatalogRowPlacement.PINNED_BOTTOM)
 
         val payload = HomeCatalogSettingsRepository.exportToSyncPayload()
         val serialized = Json.encodeToString(SyncHomeCatalogPayload.serializer(), payload)
 
-        assertTrue("\\"row_placement\\"" !in serialized)
+        assertTrue("row_placement" !in serialized)
     }
 
     @Test
-    fun applyingRemoteSettingsPreservesLocalRowPlacement() {
+    fun applyingRemoteSettingsPreservesLocalRowPlacement() = runTest {
         HomeCatalogSettingsRepository.syncCatalogs(listOf(addon()))
         HomeCatalogSettingsRepository.setRowPlacement("test:movie:popular", HomeCatalogRowPlacement.PINNED_BOTTOM)
 

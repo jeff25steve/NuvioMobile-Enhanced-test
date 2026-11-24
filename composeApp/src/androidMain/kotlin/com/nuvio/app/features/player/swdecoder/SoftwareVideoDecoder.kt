@@ -221,6 +221,9 @@ internal fun setOutputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dat
     outputBuffer.decoderPrivate = dataSpace.toLong()
 }
 
+internal fun outputFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer): Int =
+    outputBuffer.decoderPrivate.toInt()
+
 internal fun setPrivateSurfaceFrameDataSpace(outputBuffer: VideoDecoderOutputBuffer, dataSpace: Int) {
     // In surface-YUV mode Media3 does not consume colorspace; decoderPrivate owns the AVFrame handle.
     outputBuffer.colorspace = dataSpace

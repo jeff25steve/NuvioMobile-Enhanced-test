@@ -158,6 +158,17 @@ class PlaybackDiagnosticsTest {
     }
 
     @Test
+    fun unexpectedPlaybackFailuresAreIdentifiedWithoutStackTraceFormatting() {
+        val error = androidx.media3.exoplayer.ExoPlaybackException.createForUnexpected(
+            IllegalStateException("renderer setup failed"),
+            androidx.media3.common.PlaybackException.ERROR_CODE_UNSPECIFIED,
+        )
+
+        assertTrue(error.playbackFailureDiagnosticContext().contains("type=unexpected"))
+        assertTrue(error.playbackFailureDiagnosticContext().contains("renderer=none"))
+    }
+
+    @Test
     fun droppedVideoFrameCountRemainsSourceScopedAcrossPrepareAttempts() {
         val diagnostics = PlaybackDiagnostics()
         diagnostics.beginAttempt(100L)

@@ -66,6 +66,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.decoder.ffmpeg.FfmpegAudioRenderer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.ForwardingRenderer
 import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.RendererCapabilities
@@ -1330,6 +1331,7 @@ private fun ExoPlayerSurface(
                     "error attempt=${playbackDiagnostics.attempt} " +
                         "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)} " +
                         "code=${error.errorCodeName} sourceFailure=${error.toPlaybackSourceFailure()} " +
+                        "failureContext=${error.playbackFailureDiagnosticContext()} " +
                         "cause=${error.cause?.javaClass?.simpleName ?: "none"} " +
                         "positionMs=${exoPlayer.currentPosition.coerceAtLeast(0L)} " +
                         "bufferedAheadMs=${bufferedAheadDurationMs(exoPlayer.currentPosition, exoPlayer.bufferedPosition)} " +
@@ -1337,6 +1339,19 @@ private fun ExoPlayerSurface(
                         "message=${diagnosticPlayerMessage(error.message)} " +
                         "causeChain=${diagnosticThrowableChain(error)}",
                 )
+
+                // Keep the complete failure frames when Android can format them. Some broken
+                // Throwable implementations can throw while materializing their stack trace;
+                // diagnostic formatting must never replace the original playback error.
+                runCatching {
+                    Log.e(PLAYER_DIAGNOSTIC_TAG, "playback stacktrace", error)
+                }.onFailure { diagnosticFailure ->
+                    Log.w(
+                        PLAYER_DIAGNOSTIC_TAG,
+                        "stacktrace formatting failed type=${diagnosticFailure.javaClass.simpleName} " +
+                            "message=${diagnosticPlayerMessage(diagnosticFailure.message)}",
+                    )
+                }
 
                 if (liveEdgeRejoin?.tryRejoin(error, exoPlayer) == true) {
                     InAppLogger.warn("ExoPlayer/Android", "Live stream fell behind its window; rejoining the live edge")
@@ -5816,6 +5831,24 @@ private fun diagnosticThrowableChain(value: Throwable): String =
             "${error.javaClass.simpleName}:${diagnosticPlayerMessage(error.message)}"
         }
         .let(::diagnosticPlayerMessage)
+
+/** Renderer/source classification from Media3, without relying on unstable stack-trace text. */
+@androidx.annotation.OptIn(UnstableApi::class)
+internal fun PlaybackException.playbackFailureDiagnosticContext(): String {
+    val exoError = this as? ExoPlaybackException ?: return "type=non-exoplayer"
+    val typeName = when (exoError.type) {
+        ExoPlaybackException.TYPE_SOURCE -> "source"
+        ExoPlaybackException.TYPE_RENDERER -> "renderer"
+        ExoPlaybackException.TYPE_UNEXPECTED -> "unexpected"
+        ExoPlaybackException.TYPE_REMOTE -> "remote"
+        else -> "unknown"
+    }
+    val format = exoError.rendererFormat
+    return "type=$typeName renderer=${exoError.rendererName ?: "none"} " +
+        "rendererIndex=${exoError.rendererIndex} " +
+        "mime=${format?.sampleMimeType ?: "none"} codecs=${format?.codecs ?: "none"} " +
+        "formatSupport=${exoError.rendererFormatSupport}"
+}
 
 internal class SubtitleRequestHeaderDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,

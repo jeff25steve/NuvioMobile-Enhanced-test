@@ -58,7 +58,7 @@ class AdjustableLruCacheEvictorTest {
         cache.add(span("first", length = 60L, touchedAt = 1L))
         cache.add(span("second", length = 30L, touchedAt = 2L))
 
-        evictor.onStartFile(cache.cache, "incoming", 0L, C.LENGTH_UNSET)
+        evictor.onStartFile(cache.cache, "incoming", 0L, C.LENGTH_UNSET.toLong())
 
         assertEquals(90L, cache.cacheSpace)
         assertEquals(setOf("first", "second"), cache.keys)

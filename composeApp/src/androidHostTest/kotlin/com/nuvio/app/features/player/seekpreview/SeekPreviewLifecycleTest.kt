@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player.seekpreview
 
+import android.graphics.Bitmap
 import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicReference
@@ -145,8 +146,8 @@ class SeekPreviewLifecycleTest {
 
     @Test
     fun cancellingPendingFrameUnblocksWaiterAndClearsPendingReference() {
-        val future = CompletableFuture<String>()
-        val pending = AtomicReference<CompletableFuture<String>?>(future)
+        val future = CompletableFuture<Bitmap>()
+        val pending = AtomicReference<CompletableFuture<Bitmap>?>(future)
 
         cancelPendingSeekPreviewFrame(pending)
 

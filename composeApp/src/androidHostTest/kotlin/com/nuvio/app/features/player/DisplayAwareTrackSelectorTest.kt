@@ -37,7 +37,7 @@ class DisplayAwareTrackSelectorTest {
 
     @Test
     fun missingHdrCapabilitiesOnAnAvailableDisplayMeansSdrOnly() {
-        val hdrTypes = displayHdrTypesFromCapabilities(null)
+        val hdrTypes = displayHdrTypesFromCapabilities(null).orEmpty()
         assertTrue(hdrTypes.isEmpty())
         assertTrue(
             shouldMaskHdrFormatForDisplay(
@@ -54,7 +54,7 @@ class DisplayAwareTrackSelectorTest {
         assertTrue(
             displayHdrTypesFromCapabilities(
                 intArrayOf(Display.HdrCapabilities.HDR_TYPE_HDR10),
-            ).contains(Display.HdrCapabilities.HDR_TYPE_HDR10),
+            ).orEmpty().contains(Display.HdrCapabilities.HDR_TYPE_HDR10),
         )
     }
 

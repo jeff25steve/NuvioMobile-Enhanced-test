@@ -4,58 +4,50 @@ package com.nuvio.app.features.player
 
 import androidx.media3.common.Timeline
 import androidx.media3.exoplayer.DefaultLoadControl
-import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.source.MediaSource
-import androidx.media3.exoplayer.upstream.Allocator
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class LiveStartLoadControlTest {
     @Test
-    fun allocatorLookupIsForwardedWithThePlayerIdentity() {
-        val delegate = RecordingLoadControl()
+    fun allocatorIsDelegatedWithoutChangingTheConfiguredAllocator() {
+        val delegate = DefaultLoadControl()
         val wrapper = LiveStartLoadControl(delegate)
-        val playerId = PlayerId("live-player")
 
-        wrapper.getAllocator(playerId)
-
-        assertSame(playerId, delegate.allocatorPlayerId)
+        assertSame(delegate.allocator, wrapper.allocator)
     }
 
     @Test
-    fun preloadingDecisionIsForwardedWithThePlayerIdentity() {
+    fun preloadingDecisionIsDelegatedWithTheMedia3EighteenSignature() {
+        val timeline = Timeline.EMPTY
+        val mediaPeriodId = MediaSource.MediaPeriodId("preload-test")
         val delegate = RecordingLoadControl()
         val wrapper = LiveStartLoadControl(delegate)
-        val playerId = PlayerId("preload-player")
 
-        wrapper.shouldContinuePreloading(
-            playerId,
-            Timeline.EMPTY,
-            MediaSource.MediaPeriodId("preload-test"),
-            0L,
-        )
-
-        assertSame(playerId, delegate.preloadingPlayerId)
+        assertTrue(wrapper.shouldContinuePreloading(timeline, mediaPeriodId, 2_500L))
+        assertSame(timeline, delegate.preloadingTimeline)
+        assertSame(mediaPeriodId, delegate.preloadingMediaPeriodId)
+        assertEquals(2_500L, delegate.preloadingBufferedDurationUs)
     }
 
     private class RecordingLoadControl : DefaultLoadControl() {
-        var allocatorPlayerId: PlayerId? = null
+        var preloadingTimeline: Timeline? = null
             private set
-        var preloadingPlayerId: PlayerId? = null
+        var preloadingMediaPeriodId: MediaSource.MediaPeriodId? = null
             private set
-
-        override fun getAllocator(playerId: PlayerId): Allocator {
-            allocatorPlayerId = playerId
-            return super.getAllocator(playerId)
-        }
+        var preloadingBufferedDurationUs: Long? = null
+            private set
 
         override fun shouldContinuePreloading(
-            playerId: PlayerId,
             timeline: Timeline,
             mediaPeriodId: MediaSource.MediaPeriodId,
             bufferedDurationUs: Long,
         ): Boolean {
-            preloadingPlayerId = playerId
+            preloadingTimeline = timeline
+            preloadingMediaPeriodId = mediaPeriodId
+            preloadingBufferedDurationUs = bufferedDurationUs
             return true
         }
     }

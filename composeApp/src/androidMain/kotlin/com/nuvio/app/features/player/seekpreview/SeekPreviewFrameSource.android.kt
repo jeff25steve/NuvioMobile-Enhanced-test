@@ -74,7 +74,7 @@ private const val SeekToleranceUs = 2_000_000L
 private const val GrabberMinBufferMs = 1_000
 private const val GrabberMaxBufferMs = 2_000
 
-private inline fun <T> decodeSeekPreviewThumbnailWhileOpen(
+internal inline fun <T> decodeSeekPreviewThumbnailWhileOpen(
     isClosed: () -> Boolean,
     decode: () -> T?,
 ): T? {

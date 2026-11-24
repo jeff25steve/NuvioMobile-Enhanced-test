@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player.swdecoder
 
+import androidx.media3.decoder.VideoDecoderOutputBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
