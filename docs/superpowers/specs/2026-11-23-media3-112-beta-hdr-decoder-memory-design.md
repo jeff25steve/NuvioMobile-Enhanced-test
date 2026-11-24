@@ -1,3 +1,5 @@
+> **Superseded on 24 November 2026.** This proposal to adopt Media3 1.12.0-beta01 was not retained. The live project uses the verified Media3 1.8.0 custom AAR set (see `gradle/libs.versions.toml` and `scripts/tests/test-media3-custom-aar-compatibility.sh`). Do not implement this design or upgrade Maven artifacts independently. A future Media3 upgrade requires rebuilding and fingerprinting the complete custom AAR family, then validating API 24 compatibility and playback before adoption.
+
 # Media3 1.12.0-beta01 HDR, decoder and memory improvements — design
 
 ## Intent
