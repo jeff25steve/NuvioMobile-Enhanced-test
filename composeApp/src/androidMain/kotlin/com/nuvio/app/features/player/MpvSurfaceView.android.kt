@@ -2,6 +2,7 @@ package com.nuvio.app.features.player
 
 import android.content.Context
 import android.graphics.SurfaceTexture
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.util.Log
 import android.view.Surface
@@ -32,6 +33,13 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     protected val released = AtomicBoolean(false)
     private var destroyJob: Job? = null
     private var surfaceAttached = false
+    private val frameRateLock = Any()
+    private var activeVideoLayer: SurfaceControl? = null
+    private var latestFrameRateRequest = MpvSurfaceFrameRateRequest(
+        0f,
+        Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
+    )
+    private var appliedFrameRateRequest: MpvSurfaceFrameRateRequest? = null
 
     protected abstract fun initOptions()
     protected abstract fun observeProperties()
@@ -45,6 +53,47 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         mpv.setOptionString("idle", "once")
         observeProperties()
         addView(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) createSurfaceView() else createTextureView())
+    }
+
+    protected fun updateMpvSurfaceFrameRateHint(
+        mediaFrameRate: Double,
+        playbackSpeed: Double,
+        durationSeconds: Double,
+        isPlaying: Boolean,
+        liveStream: Boolean,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val request = mpvSurfaceFrameRateRequest(
+            userPreference = context.videoFrameRateUserPreference(),
+            mediaFrameRate = mediaFrameRate,
+            playbackSpeed = playbackSpeed,
+            durationSeconds = durationSeconds,
+            isPlaying = isPlaying,
+            liveStream = liveStream,
+        )
+        synchronized(frameRateLock) {
+            latestFrameRateRequest = request
+            applyMpvSurfaceFrameRateLocked()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun applyMpvSurfaceFrameRateLocked() {
+        val layer = activeVideoLayer ?: return
+        val request = latestFrameRateRequest
+        if (appliedFrameRateRequest == request) return
+        runCatching {
+            SurfaceControl.Transaction().use { transaction ->
+                transaction.setFrameRate(
+                    layer,
+                    request.frameRate,
+                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                    request.changeFrameRateStrategy,
+                ).apply()
+            }
+        }.onSuccess {
+            appliedFrameRateRequest = request
+        }.onFailure(::logFailure)
     }
 
     protected fun executeMpv(block: () -> Unit) {
@@ -86,6 +135,15 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     fun releaseMpv() {
         if (!released.compareAndSet(false, true)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            synchronized(frameRateLock) {
+                latestFrameRateRequest = MpvSurfaceFrameRateRequest(
+                    0f,
+                    Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
+                )
+                applyMpvSurfaceFrameRateLocked()
+            }
+        }
         surfaceReady.cancel()
         destroyJob = mpvScope.launch {
             try {
@@ -111,6 +169,13 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     .setBufferSize(frame.width(), frame.height())
                     .build()
                 output = Surface(layer)
+                synchronized(frameRateLock) {
+                    activeVideoLayer = layer
+                    appliedFrameRateRequest = null
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        applyMpvSurfaceFrameRateLocked()
+                    }
+                }
                 SurfaceControl.Transaction().use {
                     it.setLayer(layer, 1).setVisibility(layer, true).apply()
                 }
@@ -125,6 +190,12 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             override fun surfaceDestroyed(holder: SurfaceHolder) {
                 val oldLayer = layer
                 val oldOutput = output
+                synchronized(frameRateLock) {
+                    if (activeVideoLayer == oldLayer) {
+                        activeVideoLayer = null
+                        appliedFrameRateRequest = null
+                    }
+                }
                 SurfaceControl.Transaction().use { it.reparent(oldLayer, null).apply() }
                 detach {
                     oldOutput.release()
