@@ -2,7 +2,6 @@ package com.nuvio.app.features.player
 
 import android.content.Context
 import android.graphics.SurfaceTexture
-import android.hardware.display.DisplayManager
 import android.os.Build
 import android.util.Log
 import android.view.Surface
