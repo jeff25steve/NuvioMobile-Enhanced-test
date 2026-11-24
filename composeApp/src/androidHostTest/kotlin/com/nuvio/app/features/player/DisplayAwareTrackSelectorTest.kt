@@ -10,6 +10,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.TrackGroup
 import androidx.media3.exoplayer.RendererCapabilities
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -362,4 +363,22 @@ class DisplayAwareTrackSelectorTest {
         if (codecs != null) builder.setCodecs(codecs)
         return builder.build()
     }
+    @Test
+    fun missingRendererSupportArrayIsSafelyTreatedAsUnsupported() {
+        val copied = copyRendererFormatSupport(null, expectedTrackCount = 3)
+
+        assertEquals(3, copied.size)
+        assertTrue(copied.all { it == C.FORMAT_UNSUPPORTED_TYPE })
+    }
+
+    @Test
+    fun rendererSupportArrayIsCopiedAndPaddedWithoutSharingMutableStorage() {
+        val original = intArrayOf(primaryDecoderSupport)
+        val copied = copyRendererFormatSupport(original, expectedTrackCount = 2)
+
+        copied[0] = C.FORMAT_UNSUPPORTED_TYPE
+        assertEquals(primaryDecoderSupport, original[0])
+        assertEquals(C.FORMAT_UNSUPPORTED_TYPE, copied[1])
+    }
+
 }
