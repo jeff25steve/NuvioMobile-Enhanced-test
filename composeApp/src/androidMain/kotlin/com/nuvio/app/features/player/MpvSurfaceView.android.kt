@@ -61,7 +61,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         isPlaying: Boolean,
         liveStream: Boolean,
     ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         val request = mpvSurfaceFrameRateRequest(
             userPreference = context.videoFrameRateUserPreference(),
             mediaFrameRate = mediaFrameRate,
@@ -76,19 +76,29 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.S)
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun applyMpvSurfaceFrameRateLocked() {
         val layer = activeVideoLayer ?: return
         val request = latestFrameRateRequest
         if (appliedFrameRateRequest == request) return
         runCatching {
             SurfaceControl.Transaction().use { transaction ->
-                transaction.setFrameRate(
-                    layer,
-                    request.frameRate,
-                    Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
-                    request.changeFrameRateStrategy,
-                ).apply()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    transaction.setFrameRate(
+                        layer,
+                        request.frameRate,
+                        Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                        request.changeFrameRateStrategy,
+                    )
+                } else {
+                    // API 30 supports the seamless-only overload; the non-seamless strategy
+                    // overload was added in API 31.
+                    transaction.setFrameRate(
+                        layer,
+                        request.frameRate,
+                        Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
+                    )
+                }.apply()
             }
         }.onSuccess {
             appliedFrameRateRequest = request
@@ -134,7 +144,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     fun releaseMpv() {
         if (!released.compareAndSet(false, true)) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             synchronized(frameRateLock) {
                 latestFrameRateRequest = MpvSurfaceFrameRateRequest(
                     0f,
@@ -171,7 +181,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 synchronized(frameRateLock) {
                     activeVideoLayer = layer
                     appliedFrameRateRequest = null
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         applyMpvSurfaceFrameRateLocked()
                     }
                 }
