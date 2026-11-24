@@ -80,7 +80,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             } else {
                 null
             }
-            val groupCount = sourceGroups?.size ?: mappedGroups?.length ?: 0
+            val groupCount = maxOf(sourceGroups?.size ?: 0, mappedGroups?.length ?: 0)
             Array(groupCount) { groupIndex ->
                 val sourceSupport: IntArray? = sourceGroups?.getOrNull(groupIndex)
                 val expectedTrackCount = mappedGroups?.get(groupIndex)?.length ?: sourceSupport?.size ?: 0
