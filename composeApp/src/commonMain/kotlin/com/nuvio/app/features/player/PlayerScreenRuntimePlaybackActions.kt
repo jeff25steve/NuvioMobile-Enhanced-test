@@ -530,10 +530,10 @@ internal fun PlayerScreenRuntime.switchPlaybackEngine() {
 }
 
 /**
- * Switches to the opposite playback engine after a playback error, when the
- * "auto-switch engine on playback error" setting is enabled. Applies whichever engine is
- * selected; fires at most once per source, after the engine's own retries, and never after a
- * manual engine switch.
+ * Switches engines only for decoder, renderer or parsing failures when automatic failover is
+ * enabled. Network errors and unspecified runtime failures are not evidence that another engine
+ * can fix the problem. Applies whichever engine is selected; fires once per source and never
+ * after a manual engine switch.
  *
  * @return true when the failover was started and the caller should swallow the error.
  */
