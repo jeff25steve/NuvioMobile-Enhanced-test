@@ -50,8 +50,8 @@ awk '
   END { exit failed }
 ' "$VERSION_CATALOG" || fail "Every androidx.media3 module must use the shared androidx-media3 version alias"
 
-check_contains "$BUILD_GRADLE" 'fileTree("libs")'
-check_contains "$BUILD_GRADLE" 'include("lib-*.aar")'
+check_contains "$BUILD_GRADLE" 'fileTree(mapOf("dir" to "libs"'
+check_contains "$BUILD_GRADLE" '"include" to listOf("lib-*.aar")'
 check_contains "$BUILD_GRADLE" 'exclude(group = "androidx.media3", module = "media3-exoplayer")'
 check_contains "$BUILD_GRADLE" 'exclude(group = "androidx.media3", module = "media3-ui")'
 
