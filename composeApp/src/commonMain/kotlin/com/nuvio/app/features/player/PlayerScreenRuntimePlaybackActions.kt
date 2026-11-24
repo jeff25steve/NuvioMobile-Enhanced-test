@@ -539,7 +539,9 @@ internal fun PlayerScreenRuntime.switchPlaybackEngine() {
  */
 internal fun PlayerScreenRuntime.maybeFailoverPlaybackEngine(
     resolvedAutoEngine: AndroidPlaybackEngine?,
+    message: String?,
 ): Boolean {
+    if (!shouldFailoverPlaybackEngine(message)) return false
     if (!playerSettingsUiState.autoSwitchPlaybackEngineOnError) return false
     if (engineFailoverDisarmed) return false
     val sourceIdentity = activePlaybackIdentity
