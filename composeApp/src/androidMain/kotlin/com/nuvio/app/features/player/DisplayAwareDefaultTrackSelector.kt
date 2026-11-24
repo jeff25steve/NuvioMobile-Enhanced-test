@@ -73,8 +73,17 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
 
         // Work on a copy: renderer capabilities are owned by Media3 and must not be mutated.
         val adjustedSupports = Array(rendererFormatSupports.size) { rendererIndex ->
-            Array(rendererFormatSupports[rendererIndex].size) { groupIndex ->
-                rendererFormatSupports[rendererIndex][groupIndex].clone()
+            val sourceGroups: Array<IntArray>? = rendererFormatSupports.getOrNull(rendererIndex)
+            val mappedGroups = if (rendererIndex < mappedTrackInfo.rendererCount) {
+                mappedTrackInfo.getTrackGroups(rendererIndex)
+            } else {
+                null
+            }
+            val groupCount = sourceGroups?.size ?: mappedGroups?.length ?: 0
+            Array(groupCount) { groupIndex ->
+                val sourceSupport: IntArray? = sourceGroups?.getOrNull(groupIndex)
+                val expectedTrackCount = mappedGroups?.get(groupIndex)?.length ?: sourceSupport?.size ?: 0
+                copyRendererFormatSupport(sourceSupport, expectedTrackCount)
             }
         }
 
@@ -153,6 +162,16 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             // Unknown display state must not be treated as proof that HDR is unsupported.
             null
         }
+    }
+}
+
+internal fun copyRendererFormatSupport(
+    rendererSupportFlags: IntArray?,
+    expectedTrackCount: Int,
+): IntArray {
+    require(expectedTrackCount >= 0)
+    return IntArray(expectedTrackCount) { trackIndex ->
+        rendererSupportFlags?.getOrNull(trackIndex) ?: C.FORMAT_UNSUPPORTED_TYPE
     }
 }
 
