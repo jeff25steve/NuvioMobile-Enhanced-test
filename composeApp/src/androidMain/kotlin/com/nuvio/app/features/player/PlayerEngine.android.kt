@@ -406,6 +406,7 @@ actual fun PlatformPlayerSurface(
                 animeLineSharpenEnabled = animeContent && playerSettings.androidAnimeLineSharpenEnabled,
                 animeContent = animeContent,
                 preferredSubtitleLanguage = playerSettings.preferredSubtitleLanguage,
+                liveStream = liveStream,
                 onControllerReady = surfaceOnControllerReady,
                 onSnapshot = surfaceOnSnapshot,
                 onError = surfaceOnError,
@@ -2434,6 +2435,7 @@ private fun LibmpvPlayerSurface(
     animeLineSharpenEnabled: Boolean,
     animeContent: Boolean,
     preferredSubtitleLanguage: String?,
+    liveStream: Boolean,
     onControllerReady: (PlayerEngineController) -> Unit,
     onSnapshot: (PlayerPlaybackSnapshot) -> Unit,
     onError: (String?) -> Unit,
@@ -2547,6 +2549,7 @@ private fun LibmpvPlayerSurface(
                     mpvPaused.set(value)
                     if (!value) coroutineScope.launch(Dispatchers.Main.immediate) { audioFocus.request() }
                 }
+                if (property == "pause" || property == "eof-reached") view.updateSurfaceFrameRateHint()
                 if (property == "eof-reached" || property == "pause" || property == "paused-for-cache" || property == "seeking") {
                     dispatchSnapshot(updateKeepScreenOn = true)
                 }
@@ -2560,6 +2563,9 @@ private fun LibmpvPlayerSurface(
             override fun eventProperty(property: String, value: Double) {
                 if (property == "duration" || property == "time-pos" || property == "speed") {
                     dispatchSnapshot()
+                }
+                if (property == "duration" || property == "speed" || property == "current-tracks/video/demux-fps") {
+                    view.updateSurfaceFrameRateHint()
                 }
             }
             override fun eventProperty(property: String, value: MPVNode) {
@@ -2595,6 +2601,7 @@ private fun LibmpvPlayerSurface(
                     MPV.mpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
                         if (eventId == MPV.mpvEvent.MPV_EVENT_FILE_LOADED) {
                             view.onFileLoaded()
+                            view.updateSurfaceFrameRateHint()
                             view.attachStartupSubtitles()
                         }
                         coroutineScope.launch(Dispatchers.Main.immediate) {
@@ -2809,6 +2816,7 @@ private fun LibmpvPlayerSurface(
                     initialDebandEnabled = debandEnabled,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
+                    liveStream = liveStream,
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
                         context = viewContext,
                         upscaleEnabled = animeUpscaleEnabled,
@@ -2874,6 +2882,7 @@ private class NuvioLibmpvView(
     private val hardwareDecodingEnabled: Boolean,
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,
+    private val liveStream: Boolean,
 ) : MpvSurfaceView(context, videoOutput.mpvValue) {
     @Volatile
     private var activeAnimeShaderPaths = animeShaderPaths
@@ -3006,6 +3015,21 @@ private class NuvioLibmpvView(
     private var appliedAssScale = 1.0
     private var appliedSubPos: Int? = null
 
+    fun updateSurfaceFrameRateHint() = executeMpv {
+        val mediaFrameRate = mpv.getPropertyDouble("current-tracks/video/demux-fps") ?: 0.0
+        val playbackSpeed = mpv.getPropertyDouble("speed") ?: 1.0
+        val durationSeconds = mpv.getPropertyDouble("duration") ?: 0.0
+        val isPaused = mpv.getPropertyBoolean("pause") ?: true
+        val isEnded = mpv.getPropertyBoolean("eof-reached") ?: false
+        updateMpvSurfaceFrameRateHint(
+            mediaFrameRate = mediaFrameRate,
+            playbackSpeed = playbackSpeed,
+            durationSeconds = durationSeconds,
+            isPlaying = !isPaused && !isEnded,
+            liveStream = liveStream,
+        )
+    }
+
     fun updateStyledSubtitle() {
         executeMpv {
             val codec = mpv.getPropertyString("current-tracks/sub/codec").orEmpty()
@@ -3096,6 +3120,7 @@ private class NuvioLibmpvView(
             "time-pos" to MPV.mpvFormat.MPV_FORMAT_DOUBLE,
             "demuxer-cache-time" to MPV.mpvFormat.MPV_FORMAT_DOUBLE,
             "speed" to MPV.mpvFormat.MPV_FORMAT_DOUBLE,
+            "current-tracks/video/demux-fps" to MPV.mpvFormat.MPV_FORMAT_DOUBLE,
             "video-params/w" to MPV.mpvFormat.MPV_FORMAT_INT64,
             "video-params/h" to MPV.mpvFormat.MPV_FORMAT_INT64,
             "video-out-params/w" to MPV.mpvFormat.MPV_FORMAT_INT64,
