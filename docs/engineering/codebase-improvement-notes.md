@@ -2831,3 +2831,15 @@ No Gradle build, APK build or CI run has been started for these new playback cha
 ### Verification boundary
 
 This was a source/research audit only. No production code, dependency, build, test, device run or CI workflow was changed or started. Exa Steve Main returned an authentication error during a later fetch; the alternate New main connection succeeded for the Maven artifact and mpv manual search. No Twitter/X review is claimed.
+
+
+### Newly confirmed libmpv cold-start main-thread work
+
+A follow-up source trace found a separate, directly actionable startup issue in the same player path:
+
+- `LibmpvPlayerSurface` calls `Utils.copyAssets(viewContext)` and `initialize(...)` directly inside `AndroidView(factory = ...)`. Android's official Compose interop documentation guarantees that the AndroidView factory runs on the UI thread.
+- The exact pinned mpv-android 0.2.2 Android source (`lib/src/androidMain/kotlin/is/xyz/mpv/MPV.android.kt`, upstream commit `ad0cee3dc001960086d089d9c5b2ccc9902b8339`) constructs the native core in the `MPV` initializer: it calls `nativeCreate(context)`, `nativeInit()`, starts the event session, then configures options. Nuvio's `MpvSurfaceView.mpv` is lazy, so the first `mpv.setConfigDir(...)` access in `initialize()` constructs this object on the UI thread.
+- Nuvio then runs `initOptions()` and `observeProperties()` synchronously on that same caller thread. These execute multiple JNI/libmpv calls. `Utils.copyAssets` opens/copies the CA bundle, deletes an obsolete file and writes `fonts.conf` synchronously before native initialization.
+- This is not merely a generic best-practice concern: it is a concrete UI-thread initialization path. It is especially relevant to cold-start latency and startup jank. Wholphin's merged [PR #481](https://github.com/damontecres/Wholphin/pull/481) documents momentary main-thread blocking from libmpv internal mutex waits and moves ordinary player commands to a dedicated HandlerThread. Nuvio already has a dedicated single-thread coroutine dispatcher, so the correct candidate is to route MPV construction, asset preparation, pre-init options, init, observer registration and all subsequent native operations through that existing dispatcher—not create a second thread.
+- The view itself and Android SurfaceView/TextureView callbacks must still be created/registered on the UI thread. Startup must enqueue native initialization before any attach/load/property work, and it must publish a deterministic initialized/failed state so callbacks cannot call an uninitialized MPV instance. A failed initialization must fail pending work and avoid hanging `surfaceReady` or silently attempting attach.
+- This is a candidate for the first production improvement after deterministic tests are added. Do not change initialization until tests cover callback-before-init-completion, init failure, release-during-init, queued load/attach ordering and repeated initialize/release. No test or build was run.
