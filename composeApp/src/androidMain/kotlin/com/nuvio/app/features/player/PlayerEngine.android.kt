@@ -435,7 +435,7 @@ private fun AndroidPlaybackEngine.initialAndroidEngine(): ResolvedAndroidPlaybac
         AndroidPlaybackEngine.Libmpv -> ResolvedAndroidPlaybackEngine.Libmpv
     }
 
-@androidx.annotation.OptIn(UnstableApi::class, androidx.media3.common.util.ExperimentalApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun ExoPlayerSurface(
     sourceUrl: String,
@@ -5639,7 +5639,7 @@ private class DolbyVisionSoftMatchVideoRenderer(
         return if (decoderInfos.isEmpty()) {
             super.getDecoderInfos(mediaCodecSelector, format, requiresSecureDecoder)
         } else {
-            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(context, decoderInfos, format)
+            MediaCodecUtil.getDecoderInfosSortedByFormatSupport(decoderInfos, format)
         }
     }
 }

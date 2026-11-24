@@ -1,5 +1,8 @@
 # Media3 1.12.0-beta01 HDR and decoder improvements Implementation Plan
 
+> **Superseded on 24 November 2026.** The 1.12.0-beta01 path is incompatible with the Nuvio custom AAR set currently used by the project. Do not execute this plan as current work. The compatibility recovery is tracked in `docs/engineering/codebase-improvement-notes.md` and aligns source with Nuvio's 1.8.0 custom AAR baseline. A future Media3 upgrade requires rebuilding and verifying all custom AARs first.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Adopt Media3 1.12.0-beta01 on the testing branch to improve HLS HDR metadata handling, Dolby Vision decoder compatibility and sample-buffer memory use.

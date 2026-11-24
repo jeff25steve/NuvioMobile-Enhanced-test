@@ -532,14 +532,10 @@ private class ExoFrameGrabber(
             super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs)
         }
 
-        override fun onPositionReset(
-            positionUs: Long,
-            joining: Boolean,
-            sampleStreamIsResetToKeyFrame: Boolean,
-        ) {
+        override fun onPositionReset(positionUs: Long, joining: Boolean) {
             frameRenderedSinceReset = false
             frameNeedsRendering.set(true)
-            super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame)
+            super.onPositionReset(positionUs, joining)
         }
 
         private fun setRotation(value: Effect?) {

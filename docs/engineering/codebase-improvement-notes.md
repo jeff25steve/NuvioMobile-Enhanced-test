@@ -12,6 +12,23 @@
 
 These notes are cumulative. Re-check the live branch before using any item: later commits may already contain a fix.
 
+## Media3 custom AAR compatibility recovery (24 November 2026)
+
+The 1.12.0-beta01 experiment was not a safe upgrade for this player stack. Both live target branches had the same five generic 1.12 AAR fingerprints, while player source still called Nuvio-specific renderer/FFmpeg methods. CI run #62 failed at `:composeApp:compileAndroidMain` with nine unresolved custom methods covering Dolby Vision Profile 7 mapping, FFmpeg centre mix, output-channel selection and downmix normalisation. The earlier 1.8.0 attempt in run #61 also failed: the source still contained post-1.8 APIs (`StuckPlayerException`, the global `Flags` registry, newer `ElementaryStreamReader` callbacks and `Decoder.Callback`).
+
+The authoritative compatibility baseline is Nuvio's current `cmp-rewrite` source, which still pins Media3 1.8.0 and wires the five local custom AARs. The known-good fork benchmark run #52 built all four APK targets successfully with these Git blob fingerprints:
+
+- `lib-decoder-av1-release.aar`: `4caa18a79339cf5b0e7560b2c8068cffda478f01`
+- `lib-decoder-ffmpeg-release.aar`: `75ec0a868a99b87d3ee3e1ccd4d191c3a49560e4`
+- `lib-decoder-mpegh-release.aar`: `e2b019207b80c838a4dbb73976d8120ff101d18f`
+- `lib-exoplayer-release.aar`: `f55ad58cae1242d51036cf980a2332c50f620b50`
+- `lib-ui-release.aar`: `073f9b6be8e8cc2f95a6934dfff5c232f61451af`
+
+The recovery restores that complete known-good binary set and shared 1.8.0 version alias, then ports affected player source to actual 1.8.0 signatures. The software decoder retains its worker-thread/polling implementation but no longer implements the later callback API: AndroidX Media3 1.8.0 `DecoderVideoRenderer` polls `dequeueInputBuffer()` and `dequeueOutputBuffer()`. BDAV readers use `packetFinished(isEndOfInput)`, preserving end-of-input flushing. The 1.12-only renderer duration-to-progress flag is not represented as enabled on 1.8.0.
+
+A focused pre-Gradle compatibility regression checks the version alias, minSdk, local AAR wiring, all five Git blob fingerprints and the affected 1.8.0 source signatures. It is invoked by the existing phone-benchmark contract suite rather than creating another build workflow. The earlier 1.12 plan is marked superseded; do not restart that upgrade without rebuilding and validating all five custom AARs against a newer Media3 API.
+
+
 ## Engineering rules carried forward
 
 - Treat the target branch and its actual callers as the source of truth; compare upstream, do not copy it blindly.

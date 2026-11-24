@@ -14,8 +14,6 @@ import androidx.media3.decoder.VideoDecoderOutputBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.ArrayDeque
-import java.util.concurrent.Executor
-import java.util.concurrent.RejectedExecutionException
 
 internal const val FFMPEG_INPUT_PADDING_SIZE = 64
 internal const val SOFTWARE_DECODER_RESULT_OK = 0
@@ -391,8 +389,6 @@ internal class SoftwareVideoDecoder(
 
     private var dequeuedInputBuffer: DecoderInputBuffer? = null
     @Volatile private var pendingInputBuffer: DecoderInputBuffer? = null
-    private var callback: Decoder.Callback? = null
-    private var callbackExecutor: Executor? = null
     private var exception: SoftwareVideoDecoderException? = null
     private var outputStartTimeUs: Long = C.TIME_UNSET
     private var flushRequested = false
@@ -470,13 +466,6 @@ internal class SoftwareVideoDecoder(
         }
     }
 
-    override fun setCallback(callback: Decoder.Callback, executor: Executor) {
-        synchronized(lock) {
-            this.callback = callback
-            callbackExecutor = executor
-        }
-    }
-
     override fun flush() {
         synchronized(lock) {
             if (released) return
@@ -501,8 +490,6 @@ internal class SoftwareVideoDecoder(
         synchronized(lock) {
             if (released) return
             released = true
-            callback = null
-            callbackExecutor = null
             dequeuedInputBuffer?.clear()
             dequeuedInputBuffer = null
             while (queuedInputBuffers.isNotEmpty()) queuedInputBuffers.removeFirst().clear()
@@ -644,7 +631,6 @@ internal class SoftwareVideoDecoder(
                 lastPacketTimestampUs = input.timeUs
                 pendingInputBuffer = null
                 synchronized(lock) { recycleInputBufferLocked(input) }
-                dispatchInputBufferAvailable()
             }
             SOFTWARE_DECODER_RESULT_AGAIN -> Unit
             SOFTWARE_DECODER_RESULT_SKIP -> {
@@ -652,7 +638,6 @@ internal class SoftwareVideoDecoder(
                 // never produces a frame; do not count it twice here.
                 pendingInputBuffer = null
                 synchronized(lock) { recycleInputBufferLocked(input) }
-                dispatchInputBufferAvailable()
             }
         }
     }
@@ -776,19 +761,16 @@ internal class SoftwareVideoDecoder(
     }
 
     private fun queueOutputBuffer(outputBuffer: VideoDecoderOutputBuffer) {
-        var notify = false
         synchronized(lock) {
             if (released || flushRequested) {
                 recycleOutputBufferLocked(outputBuffer)
             } else {
-                notify = queuedOutputBuffers.isEmpty()
                 outputBuffer.skippedOutputBufferCount = skippedOutputBufferCount
                 skippedOutputBufferCount = 0
                 queuedOutputBuffers.addLast(outputBuffer)
             }
             lock.notifyAll()
         }
-        if (notify) dispatchOutputBufferAvailable()
     }
 
     private fun recycleOutputBuffer(outputBuffer: VideoDecoderOutputBuffer) {
@@ -815,7 +797,7 @@ internal class SoftwareVideoDecoder(
     private fun isFlushRequested(): Boolean = synchronized(lock) { flushRequested || released }
 
     private fun fail(error: SoftwareVideoDecoderException, ignoreIfFlushing: Boolean = true) {
-        val notifyError = synchronized(lock) {
+        synchronized(lock) {
             val staleDecode = flushRequested && ignoreIfFlushing
             if (!staleDecode && exception == null) exception = error
             if (!staleDecode) flushRequested = false
@@ -829,9 +811,7 @@ internal class SoftwareVideoDecoder(
                 flow.reset()
             }
             lock.notifyAll()
-            !staleDecode
         }
-        if (notifyError) dispatchOutputBufferAvailable()
     }
 
     private fun processFlush() {
@@ -850,30 +830,10 @@ internal class SoftwareVideoDecoder(
         }
         // Wake the renderer after the flush barrier: the worker may just have returned
         // the input buffer that was in flight when flush() was requested.
-        dispatchInputBufferAvailable()
     }
 
     private fun maybeThrowExceptionLocked() {
         exception?.let { throw it }
-    }
-
-    private fun dispatchInputBufferAvailable() = dispatchCallback(input = true)
-
-    private fun dispatchOutputBufferAvailable() = dispatchCallback(input = false)
-
-    private fun dispatchCallback(input: Boolean) {
-        val pair = synchronized(lock) {
-            if (released || flushRequested) null else callback to callbackExecutor
-        } ?: return
-        val target = pair.first ?: return
-        val executor = pair.second ?: return
-        try {
-            executor.execute {
-                if (input) target.onInputBufferAvailable() else target.onOutputBufferAvailable()
-            }
-        } catch (_: RejectedExecutionException) {
-            // Renderer is shutting down; its lifecycle will release this decoder.
-        }
     }
 
     private data class Work(
