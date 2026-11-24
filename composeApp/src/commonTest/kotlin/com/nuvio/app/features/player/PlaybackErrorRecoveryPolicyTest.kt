@@ -57,6 +57,19 @@ class PlaybackErrorRecoveryPolicyTest {
     }
 
     @Test
+    fun engineFailoverTakesPriorityOnlyWhenItCanHandleTheError() {
+        val decoderError = "Decoder initialization failed [ERROR_CODE_DECODER_INIT_FAILED]"
+        val networkError = "Unable to connect [ERROR_CODE_IO_NETWORK_CONNECTION_FAILED]"
+        val unexpectedError = "Unexpected runtime error [ERROR_CODE_UNSPECIFIED]"
+
+        assertTrue(shouldDeferSourceFallbackToEngineFailover(true, false, decoderError))
+        assertFalse(shouldDeferSourceFallbackToEngineFailover(true, false, networkError))
+        assertFalse(shouldDeferSourceFallbackToEngineFailover(true, false, unexpectedError))
+        assertFalse(shouldDeferSourceFallbackToEngineFailover(false, false, decoderError))
+        assertFalse(shouldDeferSourceFallbackToEngineFailover(true, true, decoderError))
+    }
+
+    @Test
     fun legacyLibmpvMessagesKeepTheirExistingRecoveryBehavior() {
         val error = "mpv could not open the file"
 
