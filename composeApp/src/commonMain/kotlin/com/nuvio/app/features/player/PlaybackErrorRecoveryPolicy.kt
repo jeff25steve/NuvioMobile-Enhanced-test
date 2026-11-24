@@ -11,12 +11,10 @@ private fun playbackHttpStatus(message: String?): Int? =
 
 /** Refresh a signed URL only when the server actually rejected or expired it. */
 internal fun shouldRefreshCredentialedPlaybackSource(message: String?): Boolean {
-    // Libmpv does not expose Media3 error codes; preserve its existing signed-URL refresh path.
-    if (playbackErrorCode(message) == null) return true
-    return when (playbackHttpStatus(message)) {
-        401, 403, 410 -> true
-        else -> false
-    }
+    val status = playbackHttpStatus(message)
+    if (status != null) return status == 401 || status == 403 || status == 410
+    // Libmpv does not expose Media3 error codes or a status for many transport failures.
+    return playbackErrorCode(message) == null
 }
 
 /** Local server URLs can be retried for source/transport errors, but not player runtime crashes. */
