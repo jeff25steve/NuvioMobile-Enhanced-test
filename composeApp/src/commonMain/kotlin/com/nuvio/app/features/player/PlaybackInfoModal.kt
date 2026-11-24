@@ -367,6 +367,11 @@ private fun PlaybackInfoContent(
 
         val decoderFrameDrops = playbackInfo.longValue("decoderFrameDrops")
         val outputFrameDrops = playbackInfo.longValue("outputFrameDrops")
+        val outputFrameDropsLabel = if (engine.equals("ExoPlayer", ignoreCase = true)) {
+            "Dropped Video Frames (Session)"
+        } else {
+            "Output-dropped Frames"
+        }
         val delayedFrameCount = playbackInfo.longValue("delayedFrameCount")
         val mistimedFrameCount = playbackInfo.longValue("mistimedFrameCount")
         val estimatedFrameNumber = playbackInfo.longValue("estimatedFrameNumber")
@@ -392,7 +397,7 @@ private fun PlaybackInfoContent(
                 InfoRow(label = "Decoder-dropped Frames", value = decoderFrameDrops.toString())
             }
             if (outputFrameDrops >= 0L) {
-                InfoRow(label = "Output-dropped Frames", value = outputFrameDrops.toString())
+                InfoRow(label = outputFrameDropsLabel, value = outputFrameDrops.toString())
             }
             if (delayedFrameCount >= 0L) {
                 InfoRow(label = "Estimated Delayed Frames", value = delayedFrameCount.toString())
