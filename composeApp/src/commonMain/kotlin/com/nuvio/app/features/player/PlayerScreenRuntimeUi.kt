@@ -460,7 +460,7 @@ internal fun PlayerScreenRuntime.RenderPlayerRuntimeUi(
                         }
                         // Engine failover is decided here, driven by its own player setting;
                         // the engine's own decoder/MIME retries have already been tried.
-                        if (message != null && maybeFailoverPlaybackEngine(resolvedAutoEngine)) {
+                        if (message != null && maybeFailoverPlaybackEngine(resolvedAutoEngine, message)) {
                             return@PlatformPlayerSurface
                         }
                         errorMessage = message
