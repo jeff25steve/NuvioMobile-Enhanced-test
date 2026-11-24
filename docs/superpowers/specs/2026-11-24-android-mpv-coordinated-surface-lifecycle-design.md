@@ -22,6 +22,8 @@ Replace the current loosely coordinated libmpv surface teardown with one lifecyc
 
 ## Goals
 
+0. Move native MPV construction and startup configuration off the UI thread using the existing single-thread dispatcher; the Android View itself and its callbacks remain UI-thread-owned.
+
 1. Ensure all native libmpv calls affecting lifecycle are serialized on the existing libmpv execution context.
 2. Prevent stale surface attach, resize or property operations from executing after surface destruction or final release begins.
 3. Ensure final player close happens only after the active surface has been safely detached and owned surface resources released.
@@ -52,6 +54,8 @@ Rejected as insufficient. Upstream itself documents that changing `vo` may not w
 Selected. Retain the existing dispatcher and native player, but make one lifecycle owner authoritative for surface state and final release. Every attach/resize/detach operation is ordered; a generation token invalidates stale queued operations; release transitions atomically to a terminal state and closes mpv only after teardown completes. Surface callbacks use a non-blocking handoff protocol that must satisfy Android's callback contract. No arbitrary sleeps and no main-thread `runBlocking`.
 
 ## Architecture decisions
+
+- The current `AndroidView(factory)` runs on the UI thread and currently calls `Utils.copyAssets()` plus `MpvSurfaceView.initialize()` synchronously. The pinned `MPV.android.kt` constructor performs `nativeCreate()`, `nativeInit()`, and event-session initialization; Nuvio then runs all initial options and property observation synchronously. This is a confirmed cold-start main-thread workload. Move this native initialization/configuration to the existing `mpvDispatcher`, not a new thread. Enqueue it before adding the child surface view or before any operation that can attach/load; use explicit initialized/failed state so early callbacks queue safely and failures complete pending work deterministically.
 
 - Model lifecycle states explicitly (at minimum: uninitialized, active-without-surface, surface-attached, releasing, released); exact state representation is an implementation decision.
 - Associate every surface creation with a monotonically increasing generation or equivalent identity token.
