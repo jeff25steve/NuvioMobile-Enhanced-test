@@ -23,7 +23,7 @@ class DolbyVisionDecoderSelectionTest {
         )
         assertFalse(
             shouldUseSoftMatchDolbyVisionDecoder(
-                MimeTypes.VIDEO_HEVC,
+                MimeTypes.VIDEO_H265,
                 displaySupportsDolbyVision = true,
             ),
         )
