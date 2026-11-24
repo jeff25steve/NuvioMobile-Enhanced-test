@@ -2451,6 +2451,10 @@ run_instrumentation() {
     if [ "$rule" = BaselineProfile ]; then
       fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt, profile-installer-receiver.txt, profile-process-timeline.txt, profile-collection-logcat.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption, missing target-process discovery and an ART profile-save failure."
     fi
+    status_code="$(grep -Eo 'INSTRUMENTATION_STATUS_CODE: -[0-9]+' "$RUN_DIR/instrumentation.log" | tail -n 1 || true)"
+    if [ -n "$status_code" ]; then
+      fail "The test reported a failure (AndroidJUnitRunner reported $status_code). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt."
+    fi
     fail "Instrumentation failed (exit code $result). See $RUN_DIR/instrumentation.log, foreground-before.txt, foreground-after.txt and profile-flush-diagnostics.txt. These captures help separate a marker timeout, an external foreground interruption and an ART profile-save failure."
   fi
   cat "$RUN_DIR/instrumentation.log"

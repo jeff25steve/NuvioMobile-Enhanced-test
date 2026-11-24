@@ -395,8 +395,10 @@ grep -Fq 'StartupReadiness.targetScrollableMarker(device, marker)' "$HOME_BROWSE
   echo "FAIL: Home browse must re-resolve package-owned scroll nodes and verify scrollability." >&2
   exit 1
 }
-grep -Fq 'StartupReadiness.targetMarkerHasVisibleBounds(device, marker)' "$HOME_BROWSE_READINESS_SOURCE" || {
-  echo "FAIL: Home shelf discovery must wait until the target row has visible screen bounds." >&2
+grep -Eq 'StartupReadiness\.targetMarkerHasVisibleBounds\(device, [A-Za-z_][A-Za-z0-9_]*\)' "$HOME_BROWSE_READINESS_SOURCE" &&
+  grep -Fq 'Rect bounds = object.getVisibleBounds();' "$READINESS_SOURCE" &&
+  grep -Fq 'return bounds.width() > 0 && bounds.height() > 0;' "$READINESS_SOURCE" || {
+  echo "FAIL: Home shelf discovery must wait until the target row has non-empty visible screen bounds." >&2
   exit 1
 }
 grep -Fq 'HomeBrowseReadiness.scrollRequired(' "$GENERATOR_SOURCE" && \

@@ -74,6 +74,19 @@ private const val SeekToleranceUs = 2_000_000L
 private const val GrabberMinBufferMs = 1_000
 private const val GrabberMaxBufferMs = 2_000
 
+private inline fun <T> decodeSeekPreviewThumbnailWhileOpen(
+    isClosed: () -> Boolean,
+    decode: () -> T?,
+): T? {
+    if (isClosed()) return null
+    val decoded = decode() ?: return null
+    return if (isClosed()) null else decoded
+}
+
+private fun cancelPendingSeekPreviewFrame(pending: AtomicReference<CompletableFuture<Bitmap>?>) {
+    pending.getAndSet(null)?.cancel(true)
+}
+
 internal fun shouldReadSeekPreviewFrame(hasActiveRequest: Boolean, isReleased: Boolean): Boolean =
     hasActiveRequest && !isReleased
 
@@ -519,10 +532,14 @@ private class ExoFrameGrabber(
             super.renderOutputBufferV21(codec, index, presentationTimeUs, releaseTimeNs)
         }
 
-        override fun onPositionReset(positionUs: Long, joining: Boolean) {
+        override fun onPositionReset(
+            positionUs: Long,
+            joining: Boolean,
+            sampleStreamIsResetToKeyFrame: Boolean,
+        ) {
             frameRenderedSinceReset = false
             frameNeedsRendering.set(true)
-            super.onPositionReset(positionUs, joining)
+            super.onPositionReset(positionUs, joining, sampleStreamIsResetToKeyFrame)
         }
 
         private fun setRotation(value: Effect?) {

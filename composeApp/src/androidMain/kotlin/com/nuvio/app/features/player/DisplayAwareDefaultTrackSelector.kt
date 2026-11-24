@@ -47,11 +47,11 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
     }
 
     init {
-        if (displayManager != null) {
-            displayListenerRegistered = runCatching {
-                displayManager.registerDisplayListener(displayListener, displayListenerHandler)
+        displayListenerRegistered = displayManager?.let { manager ->
+            runCatching {
+                manager.registerDisplayListener(displayListener, displayListenerHandler)
             }.isSuccess
-        }
+        } ?: false
         supportedHdrTypes = readDisplayHdrTypes()
     }
 

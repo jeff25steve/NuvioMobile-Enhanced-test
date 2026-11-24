@@ -9,6 +9,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.decoder.Decoder
 import androidx.media3.decoder.DecoderException
 import androidx.media3.decoder.DecoderInputBuffer
+import androidx.media3.decoder.DecoderOutputBuffer
 import androidx.media3.decoder.VideoDecoderOutputBuffer
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -373,7 +374,7 @@ internal class SoftwareVideoDecoder(
     private val format: Format,
     threads: Int,
 ) : Decoder<DecoderInputBuffer, VideoDecoderOutputBuffer, SoftwareVideoDecoderException>,
-    VideoDecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
+    DecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
 
     private val codecName = codecNameFor(format.sampleMimeType)
         ?: throw SoftwareVideoDecoderException("Unsupported software video format: " + format.sampleMimeType)
