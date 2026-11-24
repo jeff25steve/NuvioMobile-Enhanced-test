@@ -1253,6 +1253,8 @@ private fun ExoPlayerSurface(
             exoPlayer.pause()
         }
 
+        var errorDisplayMessageJob: Job? = null
+
         fun reportPlayerError(error: PlaybackException) {
             val fallbackDecoderPriority = decoderPriorityFallbackAfterFailure(
                 configuredPriority = playerSettings.decoderPriority,
@@ -1295,7 +1297,12 @@ private fun ExoPlayerSurface(
                     "message=${diagnosticPlayerMessage(error.localizedMessage ?: error.message)} " +
                     "cause=${error.cause?.let(::diagnosticThrowableChain) ?: "none"}",
             )
-            latestOnError.value(runBlocking { error.toDisplayMessage() })
+            // Player callbacks run on the playback application looper. Resource-backed
+            // error text is suspend work; never block that looper while resolving it.
+            errorDisplayMessageJob?.cancel()
+            errorDisplayMessageJob = coroutineScope.launch {
+                latestOnError.value(error.toDisplayMessage())
+            }
         }
 
         val listener = object : Player.Listener {
@@ -1353,11 +1360,13 @@ private fun ExoPlayerSurface(
                     )
                     if (returnToDiscFeature("extra failed")) {
                         latestOnError.value(null)
-                        Toast.makeText(
-                            context,
-                            runBlocking { getString(Res.string.player_disc_title_failed) },
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                        coroutineScope.launch {
+                            Toast.makeText(
+                                context,
+                                getString(Res.string.player_disc_title_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                         return
                     }
                 }
@@ -1848,6 +1857,7 @@ private fun ExoPlayerSurface(
             alwaysFrameRateController = null
             playerViewRef?.keepScreenOn = false
             subtitleSelectionJob?.cancel()
+            errorDisplayMessageJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
         }
     }
