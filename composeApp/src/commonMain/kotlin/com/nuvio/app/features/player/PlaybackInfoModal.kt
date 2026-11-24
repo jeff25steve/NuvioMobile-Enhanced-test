@@ -375,7 +375,8 @@ private fun PlaybackInfoContent(
         val estimatedDisplayFps = playbackInfo.nullableDoubleValue("estimatedDisplayFps")
         val presentationDelayMs = playbackInfo.nullableDoubleValue("presentationDelayMs")
         if (
-            decoderFrameDrops >= 0L ||
+            videoCodec.isNotBlank() && (
+                decoderFrameDrops >= 0L ||
             outputFrameDrops >= 0L ||
             delayedFrameCount >= 0L ||
             mistimedFrameCount >= 0L ||
@@ -383,7 +384,8 @@ private fun PlaybackInfoContent(
             avSyncMs != null ||
             displayFps != null ||
             estimatedDisplayFps != null ||
-            presentationDelayMs != null
+                presentationDelayMs != null
+            )
         ) {
             SectionHeader(title = "Video Rendering")
             if (decoderFrameDrops >= 0L) {
