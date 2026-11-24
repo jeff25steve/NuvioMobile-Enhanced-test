@@ -4302,7 +4302,9 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(
             append(',')
             appendJsonString("filename", filename)
             append(',')
-            append("\"outputFrameDrops\":").append(droppedVideoFrameCount.coerceAtLeast(0L)).append(',')
+            append("\"outputFrameDrops\":")
+                .append(if (videoFormat != null) droppedVideoFrameCount.coerceAtLeast(0L) else -1L)
+                .append(',')
 
             if (videoFormat != null) {
                 val videoCodec = videoFormat.codecs ?: videoFormat.sampleMimeType.orEmpty()
