@@ -79,6 +79,9 @@ fi
 if grep -Fq 'ExperimentalApi::class' "$SOURCE_ROOT/PlayerEngine.android.kt"; then
     fail "PlayerEngine opts into an ExperimentalApi type absent from Media3 1.8.0."
 fi
+if grep -R -n -E 'enableMedia3VideoRendererDurationToProgress|FLAG_VIDEO_RENDERER_DURATION_TO_PROGRESS|androidx\.media3\.common\.Flags' "$ROOT_DIR/composeApp/src/androidMain"; then
+    fail "Android source still references the Media3 1.12-only renderer duration-to-progress flag."
+fi
 if grep -Eq 'Decoder\.Callback|setCallback\(|onInputBufferAvailable|onOutputBufferAvailable' "$SOURCE_ROOT/swdecoder/SoftwareVideoDecoder.kt"; then
     fail "SoftwareVideoDecoder must use Media3 1.8.0's polled Decoder interface, not callback APIs."
 fi
