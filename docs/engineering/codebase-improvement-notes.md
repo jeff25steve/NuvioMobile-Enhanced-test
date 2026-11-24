@@ -2746,21 +2746,46 @@ A second source pass resolved the renderer extension point and the important tun
 
 ## Playback clone-NPE report and host-test gate repair — 24 November 2026
 
-### User-visible failure and what is actually established
+### Evidence from the uploaded screenshot and app log
 
-A supplied player screenshot shows ExoPlayer's error surface with `ERROR_CODE_UNSPECIFIED` and the message `Attempt to invoke virtual method 'java.lang.Object java.lang.Object.clone()' on a null object reference`. This is a real runtime exception, not an unsupported-codec classification. The visible screenshot contains no stack frames, stream URL, device/API level, Media3 error type, renderer identity or original cause chain; it is therefore insufficient to identify the exact call site or prescribe a decoder workaround.
+The screenshot shows an ExoPlayer failure with `ERROR_CODE_UNSPECIFIED` and `Attempt to invoke virtual method 'java.lang.Object java.lang.Object.clone()' on a null object reference`. The 45,682-byte uploaded app log adds repeated ExoPlayer teardown/recreation, repeated stream-search activity, 320 Torrentio results and 8 Comet results, media-duration metadata, and an initial `startPositionMs=0`. It does not contain the complete exception frames; stream URLs are redacted and the export does not establish the device/API level or the exact failing renderer.
 
-The mobile source at the reviewed commit confirms that `AndroidPlaybackEngine.Auto` enters ExoPlayer at the platform surface. The higher-level Auto resolver chooses libmpv for anime and ExoPlayer for other content (with HDR/Dolby Vision taking precedence); this mobile surface has no general-purpose "any ExoPlayer failure -> libmpv" switch. Decoder-priority retry is intentionally restricted to Media3 decoder error codes. The screenshot's unspecified error does not meet that condition. Do not misclassify it as a codec failure or switch engines on arbitrary NPEs/HTTP failures. If a user-visible message says it switched to libmpv, verify the installed APK's commit and the resolved engine log; that behavior is not in the reviewed mobile implementation.
+This is an unexpected player runtime error, not a confirmed HTTP, container or decoder-init failure. The absence of stack frames still prevents a definitive attribution of the null receiver.
 
-### Stack-trace clone hypothesis: evidence and limits
+### Recovery-path defect found and corrected in source
 
-Kotlin kotlinx.coroutines issues [#1866](https://github.com/Kotlin/kotlinx.coroutines/issues/1866) and [#3031](https://github.com/Kotlin/kotlinx.coroutines/issues/3031) document an Android `Object.clone()` NPE in `Throwable.getStackTrace()` during coroutine stack-trace recovery when a custom Throwable overrides `fillInStackTrace()` without initializing the stack trace. The #3031 discussion narrows the known platform bug to older Android versions after an initially broader device report. This is a plausible mechanism only if the crash stack includes `kotlinx.coroutines.internal.StackTraceRecoveryKt` / `Throwable.getStackTrace` and a problematic Throwable implementation; the screenshot alone does not establish that. The project minimum SDK is 24, which also makes blindly applying the old Android 5/6 workaround unjustified.
+The actual common UI error pipeline is credential refresh, then auto-source fallback, then `maybeFailoverPlaybackEngine`. The previous note claiming that the mobile surface had no general-purpose engine switch was incorrect: when `autoSwitchPlaybackEngineOnError` is enabled, the existing method switched to the opposite engine for any non-null error message, without checking the Media3 error category. That explains why an unspecified ExoPlayer failure could result in a Libmpv switch.
 
-ExoPlayer's `PlaybackException` can wrap an `ExoPlaybackException` with source/renderer/unexpected/remote type metadata and, for renderer failures, renderer name/index/format. Error logging now records this structured context and attempts to write the complete throwable stack through a guarded `Log.e` call. If a Throwable implementation itself breaks stack formatting, the guard records the formatter failure without replacing the original player error. Use the resulting `PLAYER_DIAGNOSTIC_TAG`, `ExoPlayer/Android` and `Player/Android` logs to identify the exact failing frame before changing decoder selection or coroutine configuration.
+There was a second overly broad policy: a URL containing recognized credential query parameters could trigger a forced addon refresh on any player error, even when the failure was an internal renderer/runtime exception. The source-fallback path and final cache invalidation also did not distinguish a broken source from a broken player.
+
+The new common `PlaybackErrorRecoveryPolicy` applies these boundaries:
+- Signed URL refresh is limited to HTTP 401, 403 and 410.
+- Server-source retry is limited to source/transport and parsing failures.
+- Next-source fallback is limited to source, parsing, decoder and renderer failures.
+- Automatic engine failover is limited to decoder, audio/video renderer and parsing failures. `ERROR_CODE_UNSPECIFIED` is surfaced instead of being hidden by an engine switch.
+- The reusable stream link is removed only for clearly stale HTTP statuses or a file-not-found error. Unknown runtime failures preserve the cached source.
+
+Messages without a Media3 error-code suffix retain the existing Libmpv recovery behavior. Regression tests cover the unspecified-error case, auth statuses, network errors, decoder/render failures, parsing failures and stale-link cache invalidation. These tests have been added but not run yet.
+
+### The direct clone call and renderer-capability hardening
+
+The reviewed player implementation had one direct `.clone()` call: `DisplayAwareDefaultTrackSelector.selectAllTracks` cloned each Media3 renderer-format-support array before applying HDR filtering. This executes during track selection, close to the failure timing. Media3 1.8.0's `MappingTrackSelector` normally constructs non-null arrays, so the uploaded error still does not prove this is the failing call. However, this was an avoidable unguarded assumption in the player path.
+
+The selector now copies each capability array into a correctly sized array, treats missing/truncated entries as `FORMAT_UNSUPPORTED_TYPE`, and records a targeted warning when a mapped renderer group has no support array. All subsequent HDR fallback checks use the defensive copy. Host regression tests cover null arrays, padding and copy isolation. This prevents a missing capability array from crashing the HDR-selection pass and allows Media3 to continue with other valid renderer candidates.
+
+### Initial-position reset and the upstream Media3 issue
+
+The app log records `startPositionMs=0`. The Android player previously called `setMediaItem(item, 0)` (or the equivalent `setMediaSource(source, 0)`) whenever a nullable start position was present, even though zero is exactly Media3's default start. The player now uses the default `setMediaItem`/`setMediaSource` path for null, zero and negative values, and supplies an explicit start position only for positive resume positions. This removes an unnecessary position reset during ordinary playback startup.
+
+This is also relevant to upstream Media3 issue [#2965](https://github.com/androidx/media/issues/2965), which reports a separate early-seek NPE in `DecoderVideoRenderer.processOutputBuffer` when a decoder extension is sought before the first output frame. The upstream fix [d661699](https://github.com/androidx/media/commit/d661699d1ad2bdfb21d0c1cbe02d69685efb2261) restores format propagation after a position reset and was cherry-picked to the 1.9 release line. Its reported stack is a `Preconditions.checkNotNull` failure, not the `Object.clone()` message in this incident, so it is related evidence rather than a proven match. This repository remains on its custom-AAR-compatible Media3 1.8.0 baseline; no dependency bump was made. The zero-position change does not eliminate the upstream risk for positive resume seeks with a decoder extension. A later Media3 upgrade still requires rebuilding/validating the custom AAR set.
+
+### Diagnostics now reach the exported app log
+
+The `ExoPlayer/Android` error event now includes Media3 failure type, renderer identity/format context, cause chain and a bounded stack-frame summary in `InAppLogger`, not only in Android Logcat. Stack-trace access is guarded against `Throwable.getStackTrace()` itself throwing, so a diagnostic failure cannot replace the original playback error. A host test covers a Throwable whose stack-trace accessor throws. The existing Logcat diagnostic remains in place.
 
 ### CI run #66: actual failure and source repairs
 
-Run #66 (24 November 2026) failed at `:composeApp:compileAndroidHostTest`, before native or release APK compilation. The new host-test gate exposed stale test code, not a production Android compile regression. Compiler diagnostics identified:
+Run #66 (24 November 2026) failed at `:composeApp:compileAndroidHostTest`, before native or release APK compilation. The host-test gate exposed stale test code, not a production Android playback compilation regression. Compiler diagnostics identified:
 - Home catalog tests invoking suspend sync methods outside `runTest`, plus a malformed serialized-key assertion.
 - A cache-evictor test passing `C.LENGTH_UNSET` as Int where the Media3 1.8.0 callback expects Long.
 - Display HDR tests not handling the nullable capability set.
@@ -2768,8 +2793,8 @@ Run #66 (24 November 2026) failed at `:composeApp:compileAndroidHostTest`, befor
 - Seek-preview tests reaching a file-private helper and using a String future where the lifecycle helper owns Bitmap futures.
 - Software-decoder tests missing the 1.8.0 output-buffer import and getter for the per-frame dataspace metadata stored in `decoderPrivate`.
 
-The host tests and narrowly required internal test surface were aligned to the actual 1.8.0 API. The broad host-test gate remains enabled; do not remove it merely to make CI green. No new build/CI run is authorized by this investigation, so these source repairs remain unverified until the user authorizes the next run.
+Those host-test source issues were repaired in the current `main-build-testing` line. The broad host-test gate remains enabled; do not remove it merely to make CI green.
 
-### Verification boundary and next action
+### Verification boundary
 
-No decoder priority, hardware-decoding mode, buffering thresholds, MPV configuration or source fallback policy was changed based on the screenshot. The exact runtime root cause remains open until a complete Logcat/InAppLogger excerpt shows the `ExoPlaybackException.type`, renderer context and stack frames. A clean host-test compile is also not yet verified because the project instructions prohibit starting builds/CI without explicit authorization.
+No Gradle build, APK build or CI run has been started for these new playback changes, as requested. The regression tests are committed but remain unexecuted. The exact original clone-NPE call site also remains unconfirmed until a reproduction exports the new `failureContext` and stacktrace fields. Do not report the playback issue or the branch as verified until those tests and a real-device playback attempt are run.
