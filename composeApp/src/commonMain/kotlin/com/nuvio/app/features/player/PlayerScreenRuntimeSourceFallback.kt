@@ -65,9 +65,10 @@ internal fun PlayerScreenRuntime.showErrorUnlessSourceFallback(message: String?)
 }
 
 /**
- * When the auto-selected source fails before playback starts, quietly plays the next source that
- * auto source selection would pick, up to the configured number of further sources. It never
- * applies to a source the user picked, and it excludes the engine switch on error.
+ * When an auto-selected source fails before playback starts, quietly plays the next source
+ * that auto source selection would pick, up to the configured limit. It never applies to a source
+ * the user picked, and yields to engine failover only when the error is decoder/renderer/parser
+ * related; transport failures continue through source fallback.
  *
  * Returns `true` when a fallback was started and the error must not be shown yet.
  */
