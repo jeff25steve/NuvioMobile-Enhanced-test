@@ -3360,6 +3360,18 @@ private class NuvioLibmpvView(
             val fps = mpv.getPropertyDouble("container-fps") ?: 0.0
             val estimatedOutputFps = mpvPlaybackEstimatedFps(mpv.getPropertyDouble("estimated-vf-fps")) ?: 0.0
             val hwdecCurrent = mpv.getPropertyString("hwdec-current").orEmpty()
+            val decoderFrameDrops = mpv.getPropertyLong("decoder-frame-drop-count")?.takeIf { it >= 0L }
+            val outputFrameDrops = mpv.getPropertyLong("frame-drop-count")?.takeIf { it >= 0L }
+            val delayedFrameCount = mpv.getPropertyLong("vo-delayed-frame-count")?.takeIf { it >= 0L }
+            val mistimedFrameCount = mpv.getPropertyLong("mistimed-frame-count")?.takeIf { it >= 0L }
+            val estimatedFrameNumber = mpv.getPropertyLong("estimated-frame-number")?.takeIf { it >= 0L }
+            val avSyncMs = mpv.getPropertyDouble("avsync")?.takeIf { it.isFinite() }?.times(1_000.0)
+            val displayFps = mpv.getPropertyDouble("display-fps")?.takeIf { it.isFinite() && it > 0.0 }
+            val estimatedDisplayFps = mpv.getPropertyDouble("estimated-display-fps")
+                ?.takeIf { it.isFinite() && it > 0.0 }
+            val presentationDelayMs = mpv.getPropertyDouble("vo-presentation-delay")
+                ?.takeIf { it.isFinite() }
+                ?.times(1_000.0)
 
             for (node in nodes) {
                 if (node.nodeString("type") == "video" && node.nodeBoolean("selected") != false) {
@@ -3453,6 +3465,15 @@ private class NuvioLibmpvView(
                 append("\"estimatedOutputFps\":").append(estimatedOutputFps).append(',')
                 appendJsonString("hwdecCurrent", hwdecCurrent)
                 append(',')
+                append("\"decoderFrameDrops\":").append(decoderFrameDrops ?: -1L).append(',')
+                append("\"outputFrameDrops\":").append(outputFrameDrops ?: -1L).append(',')
+                append("\"delayedFrameCount\":").append(delayedFrameCount ?: -1L).append(',')
+                append("\"mistimedFrameCount\":").append(mistimedFrameCount ?: -1L).append(',')
+                append("\"estimatedFrameNumber\":").append(estimatedFrameNumber ?: -1L).append(',')
+                append("\"avSyncMs\":").append(avSyncMs?.toString() ?: "null").append(',')
+                append("\"displayFps\":").append(displayFps?.toString() ?: "null").append(',')
+                append("\"estimatedDisplayFps\":").append(estimatedDisplayFps?.toString() ?: "null").append(',')
+                append("\"presentationDelayMs\":").append(presentationDelayMs?.toString() ?: "null").append(',')
                 appendJsonString("audioCodec", audioCodec)
                 append(',')
                 appendJsonString("audioDecoder", audioDecoder)
@@ -3487,6 +3508,16 @@ private class NuvioLibmpvView(
                         append(mpv.getPropertyString("audio-codec") ?: "unknown")
                         append(" hwdec=")
                         append(mpv.getPropertyString("hwdec-current") ?: "unknown")
+                        append(" decoderDrops=")
+                        append(mpv.getPropertyLong("decoder-frame-drop-count") ?: -1L)
+                        append(" outputDrops=")
+                        append(mpv.getPropertyLong("frame-drop-count") ?: -1L)
+                        append(" delayedFrames=")
+                        append(mpv.getPropertyLong("vo-delayed-frame-count") ?: -1L)
+                        append(" mistimedFrames=")
+                        append(mpv.getPropertyLong("mistimed-frame-count") ?: -1L)
+                        append(" avSync=")
+                        append(mpv.getPropertyDouble("avsync") ?: Double.NaN)
                         append(" videoParams=")
                         append(mpv.getPropertyNode("video-params")?.toMpvNodeSummary() ?: "unknown")
                         append(" audioParams=")
