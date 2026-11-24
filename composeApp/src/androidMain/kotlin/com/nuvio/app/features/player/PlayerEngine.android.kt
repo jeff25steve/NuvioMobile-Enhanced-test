@@ -967,6 +967,7 @@ private fun ExoPlayerSurface(
             initializedAudioDecoderName,
             playerChapters,
             exoMediaInfoCache,
+            playbackDiagnostics.droppedVideoFrameCount,
         ).copy(animeEnhancement = animeEnhancementStatus)
             .let { base ->
                 val session = bluraySession
@@ -1723,6 +1724,7 @@ private fun ExoPlayerSurface(
                         "intervalMs=$elapsedMs positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "decoder=${initializedVideoDecoderName ?: "unknown"}",
                 )
+                dispatchExoPlayerSnapshot()
             }
 
             override fun onVideoFrameProcessingOffset(
@@ -4116,9 +4118,15 @@ private class ExoMediaInfoCache {
     private var audioFormat: androidx.media3.common.Format? = null
     private var videoDecoder: String? = null
     private var audioDecoder: String? = null
+    private var droppedVideoFrameCount: Long = -1L
     private var json: String? = null
 
-    fun get(player: ExoPlayer, videoDecoder: String?, audioDecoder: String?): String {
+    fun get(
+        player: ExoPlayer,
+        videoDecoder: String?,
+        audioDecoder: String?,
+        droppedVideoFrameCount: Long,
+    ): String {
         val currentTracks = player.currentTracks
         val currentMediaItem = player.currentMediaItem
         val currentVideoFormat = player.videoFormat
@@ -4131,17 +4139,19 @@ private class ExoMediaInfoCache {
             currentVideoFormat === videoFormat &&
             currentAudioFormat === audioFormat &&
             videoDecoder == this.videoDecoder &&
-            audioDecoder == this.audioDecoder
+            audioDecoder == this.audioDecoder &&
+            droppedVideoFrameCount == this.droppedVideoFrameCount
         ) {
             return cached
         }
-        val built = player.buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder)
+        val built = player.buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder, droppedVideoFrameCount)
         tracks = currentTracks
         mediaItem = currentMediaItem
         videoFormat = currentVideoFormat
         audioFormat = currentAudioFormat
         this.videoDecoder = videoDecoder
         this.audioDecoder = audioDecoder
+        this.droppedVideoFrameCount = droppedVideoFrameCount
         json = built
         return built
     }
@@ -4234,6 +4244,7 @@ private fun ExoPlayer.snapshot(
     audioDecoder: String?,
     chapters: List<PlayerChapter> = emptyList(),
     mediaInfoCache: ExoMediaInfoCache? = null,
+    droppedVideoFrameCount: Long = 0L,
 ): PlayerPlaybackSnapshot {
     val (videoWidth, videoHeight) = videoDimensions()
     val isLoading = playbackState == Player.STATE_IDLE || playbackState == Player.STATE_BUFFERING
@@ -4249,8 +4260,8 @@ private fun ExoPlayer.snapshot(
         playbackSpeed = playbackParameters.speed,
         videoWidth = videoWidth,
         videoHeight = videoHeight,
-        mediaInfoJson = mediaInfoCache?.get(this, videoDecoder, audioDecoder)
-            ?: buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder),
+        mediaInfoJson = mediaInfoCache?.get(this, videoDecoder, audioDecoder, droppedVideoFrameCount)
+            ?: buildExoPlayerMediaInfoJson(videoDecoder, audioDecoder, droppedVideoFrameCount),
         chapters = chapters,
     )
 }
@@ -4267,7 +4278,11 @@ private fun ExoPlayer.videoDimensions(): Pair<Int, Int> {
 }
 
 
-private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDecoder: String?): String {
+private fun ExoPlayer.buildExoPlayerMediaInfoJson(
+    videoDecoder: String?,
+    audioDecoder: String?,
+    droppedVideoFrameCount: Long,
+): String {
     return try {
         val videoFormat = selectedPlaybackInfoFormat(C.TRACK_TYPE_VIDEO)
         val audioFormat = selectedPlaybackInfoFormat(C.TRACK_TYPE_AUDIO)
@@ -4286,6 +4301,7 @@ private fun ExoPlayer.buildExoPlayerMediaInfoJson(videoDecoder: String?, audioDe
             append(',')
             appendJsonString("filename", filename)
             append(',')
+            append("\"outputFrameDrops\":").append(droppedVideoFrameCount.coerceAtLeast(0L)).append(',')
 
             if (videoFormat != null) {
                 val videoCodec = videoFormat.codecs ?: videoFormat.sampleMimeType.orEmpty()
