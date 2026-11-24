@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.source.TrackGroupArray
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.ExoTrackSelection
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector
+import com.nuvio.app.core.logging.InAppLogger
 
 /**
  * Keeps ExoPlayer's automatic video selection aligned with the HDR formats the default display
@@ -83,6 +84,12 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             Array(groupCount) { groupIndex ->
                 val sourceSupport: IntArray? = sourceGroups?.getOrNull(groupIndex)
                 val expectedTrackCount = mappedGroups?.get(groupIndex)?.length ?: sourceSupport?.size ?: 0
+                if (sourceSupport == null && expectedTrackCount > 0) {
+                    InAppLogger.warn(
+                        "ExoPlayer/TrackSelector",
+                        "missing renderer capabilities renderer=$rendererIndex group=$groupIndex tracks=$expectedTrackCount",
+                    )
+                }
                 copyRendererFormatSupport(sourceSupport, expectedTrackCount)
             }
         }
@@ -93,7 +100,7 @@ internal class DisplayAwareDefaultTrackSelector(context: Context) : DefaultTrack
             val groups = mappedTrackInfo.getTrackGroups(rendererIndex)
             for (groupIndex in 0 until groups.length) {
                 val group = groups[groupIndex]
-                val groupSupports = rendererFormatSupports[rendererIndex][groupIndex]
+                val groupSupports = adjustedSupports[rendererIndex][groupIndex]
                 // TrackGroup contains alternative formats for the same content. An SDR track in
                 // a different group may be a different camera angle/feed, not a valid fallback.
                 val hasSdrFallback = hasSupportedSdrTrack(group, groupSupports)
