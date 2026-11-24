@@ -401,6 +401,9 @@ actual fun PlatformPlayerSurface(
                 resizeMode = resizeMode,
                 videoOutput = playerSettings.androidLibmpvVideoOutput,
                 renderQuality = playerSettings.androidLibmpvRenderQuality,
+                upscaler = playerSettings.androidLibmpvUpscaler,
+                downscaler = playerSettings.androidLibmpvDownscaler,
+                chromaScaler = playerSettings.androidLibmpvChromaScaler,
                 debandEnabled = playerSettings.androidLibmpvDebandEnabled,
                 hardwareDecodingEnabled = playerSettings.androidLibmpvHardwareDecodingEnabled,
                 yuv420pEnabled = playerSettings.androidLibmpvYuv420pEnabled,
@@ -1315,14 +1318,6 @@ private fun ExoPlayerSurface(
                 dispatchExoPlayerSnapshot()
             }
 
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                updateAlwaysFrameRateState(playWhenReady = playWhenReady)
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                updateAlwaysFrameRateState(playbackState = playbackState)
-            }
-
             override fun onPlayerError(error: PlaybackException) {
                 syncPlayerViewKeepScreenOn()
                 InAppLogger.error(
@@ -1447,6 +1442,7 @@ private fun ExoPlayerSurface(
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                updateAlwaysFrameRateState(playbackState = playbackState)
                 val stateName = when (playbackState) {
                     Player.STATE_IDLE -> "IDLE"
                     Player.STATE_BUFFERING -> "BUFFERING"
@@ -1486,6 +1482,7 @@ private fun ExoPlayerSurface(
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                updateAlwaysFrameRateState(playWhenReady = playWhenReady)
                 if (playWhenReady) audioFocus.request()
             }
 
@@ -2436,6 +2433,9 @@ private fun LibmpvPlayerSurface(
     resizeMode: PlayerResizeMode,
     videoOutput: AndroidLibmpvVideoOutput,
     renderQuality: AndroidLibmpvRenderQuality,
+    upscaler: AndroidLibmpvScalingFilter,
+    downscaler: AndroidLibmpvScalingFilter,
+    chromaScaler: AndroidLibmpvScalingFilter,
     debandEnabled: Boolean,
     hardwareDecodingEnabled: Boolean,
     yuv420pEnabled: Boolean,
@@ -2819,9 +2819,9 @@ private fun LibmpvPlayerSurface(
                     context = viewContext,
                     videoOutput = videoOutput,
                     initialRenderQuality = renderQuality,
-                    initialUpscaler = playerSettings.androidLibmpvUpscaler,
-                    initialDownscaler = playerSettings.androidLibmpvDownscaler,
-                    initialChromaScaler = playerSettings.androidLibmpvChromaScaler,
+                    initialUpscaler = upscaler,
+                    initialDownscaler = downscaler,
+                    initialChromaScaler = chromaScaler,
                     initialDebandEnabled = debandEnabled,
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
@@ -2849,11 +2849,7 @@ private fun LibmpvPlayerSurface(
             update = { view ->
                 playerViewRef = view
                 view.setRenderQuality(renderQuality)
-                view.setScalingFilters(
-                    playerSettings.androidLibmpvUpscaler,
-                    playerSettings.androidLibmpvDownscaler,
-                    playerSettings.androidLibmpvChromaScaler,
-                )
+                view.setScalingFilters(upscaler, downscaler, chromaScaler)
                 view.setDebandEnabled(debandEnabled)
                 view.applyResizeMode(resizeMode)
             },
@@ -2883,11 +2879,11 @@ private tailrec fun Context.findActivity(): Activity? =
 private class NuvioLibmpvView(
     context: Context,
     private val videoOutput: AndroidLibmpvVideoOutput,
-    initialRenderQuality: AndroidLibmpvRenderQuality,
-    initialUpscaler: AndroidLibmpvScalingFilter,
-    initialDownscaler: AndroidLibmpvScalingFilter,
-    initialChromaScaler: AndroidLibmpvScalingFilter,
-    initialDebandEnabled: Boolean,
+    private val initialRenderQuality: AndroidLibmpvRenderQuality,
+    private val initialUpscaler: AndroidLibmpvScalingFilter,
+    private val initialDownscaler: AndroidLibmpvScalingFilter,
+    private val initialChromaScaler: AndroidLibmpvScalingFilter,
+    private val initialDebandEnabled: Boolean,
     private val hardwareDecodingEnabled: Boolean,
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,

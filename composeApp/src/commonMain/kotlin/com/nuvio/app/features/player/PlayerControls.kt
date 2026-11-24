@@ -187,7 +187,7 @@ internal fun PlayerControlsShell(
     modifier: Modifier = Modifier,
     seekPreview: SeekPreviewController? = null,
     onTimelineTouchChange: (Boolean) -> Unit = {},
-    onTimelineScrubbingChange: (Boolean, Double?) -> Unit = {},
+    onTimelineScrubbingChange: (Boolean, Double?) -> Unit = { _, _ -> },
     foldLayout: Boolean = false,
     gestureController: PlayerGestureController? = null,
     onWake: () -> Unit = {},
@@ -419,6 +419,7 @@ internal fun PlayerControlsShell(
                     onQualityClick = onQualityClick,
                     seekPreview = seekPreview,
                     onTimelineTouchChange = onTimelineTouchChange,
+                    onTimelineScrubbingChange = onTimelineScrubbingChange,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -998,6 +999,7 @@ private fun ProgressControls(
     onQualityClick: (() -> Unit)? = null,
     seekPreview: SeekPreviewController? = null,
     onTimelineTouchChange: (Boolean) -> Unit = {},
+    onTimelineScrubbingChange: (Boolean, Double?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     val aspectRatioPainter = appIconPainter(AppIconResource.PlayerAspectRatio)
@@ -1261,7 +1263,7 @@ internal fun PlayerSeekBar(
     seekPreview: SeekPreviewController? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onTouchChange: (Boolean) -> Unit = {},
-    onScrubbingChange: (Boolean, Double?) -> Unit = {},
+    onScrubbingChange: (Boolean, Double?) -> Unit = { _, _ -> },
     /** The legacy layout draws the time pills beside its action pill instead. */
     showTimeRow: Boolean = true,
 ) {

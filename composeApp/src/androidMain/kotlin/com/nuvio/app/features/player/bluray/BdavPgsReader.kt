@@ -56,7 +56,7 @@ internal class BdavPgsReader(
         pendingLength += length
     }
 
-    override fun packetFinished(isEndOfInput: Boolean) {
+    override fun packetFinished() {
         var position = 0
         while (position + SEGMENT_HEADER_LENGTH <= pendingLength) {
             val type = pending[position].toInt() and 0xFF
@@ -68,7 +68,10 @@ internal class BdavPgsReader(
         }
         pendingLength -= position
         System.arraycopy(pending, position, pending, 0, pendingLength)
-        if (isEndOfInput) pendingLength = 0
+    }
+
+    override fun endOfInputReached() {
+        pendingLength = 0
     }
 
     private fun onSegment(type: Int, position: Int, length: Int) {

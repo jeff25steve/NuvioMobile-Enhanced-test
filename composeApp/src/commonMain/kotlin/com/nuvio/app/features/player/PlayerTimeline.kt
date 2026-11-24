@@ -162,7 +162,7 @@ internal fun PlayerTimeline(
     enabled: Boolean = true,
     seekPreview: SeekPreviewController? = null,
     onTouchChange: (Boolean) -> Unit = {},
-    onScrubbingChange: (Boolean, Double?) -> Unit = {},
+    onScrubbingChange: (Boolean, Double?) -> Unit = { _, _ -> },
     /** Each chapter after the first gets a mark where it starts. */
     chapters: List<PlayerChapter> = emptyList(),
 ) {

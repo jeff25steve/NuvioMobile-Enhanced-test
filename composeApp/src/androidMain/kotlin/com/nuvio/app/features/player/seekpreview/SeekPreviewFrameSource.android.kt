@@ -74,6 +74,19 @@ private const val SeekToleranceUs = 2_000_000L
 private const val GrabberMinBufferMs = 1_000
 private const val GrabberMaxBufferMs = 2_000
 
+private inline fun <T> decodeSeekPreviewThumbnailWhileOpen(
+    isClosed: () -> Boolean,
+    decode: () -> T?,
+): T? {
+    if (isClosed()) return null
+    val decoded = decode() ?: return null
+    return if (isClosed()) null else decoded
+}
+
+private fun cancelPendingSeekPreviewFrame(pending: AtomicReference<CompletableFuture<Bitmap>?>) {
+    pending.getAndSet(null)?.cancel(true)
+}
+
 internal fun shouldReadSeekPreviewFrame(hasActiveRequest: Boolean, isReleased: Boolean): Boolean =
     hasActiveRequest && !isReleased
 
