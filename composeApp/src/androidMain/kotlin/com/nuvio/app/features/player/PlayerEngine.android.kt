@@ -2576,6 +2576,7 @@ private fun LibmpvPlayerSurface(
                         InAppLogger.info("MPV/Android", "track-list updated")
                         view.refreshTracks(context)
                         view.updateStyledSubtitle()
+                        view.updateSurfaceFrameRateHint()
                         dispatchSnapshot()
                     }
                     "video-params" -> InAppLogger.info("MPV/Android", "videoParams=${value.toMpvNodeSummary()}")
