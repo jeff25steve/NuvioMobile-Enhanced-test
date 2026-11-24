@@ -2765,7 +2765,7 @@ The new common `PlaybackErrorRecoveryPolicy` applies these boundaries:
 - Automatic engine failover is limited to decoder, audio/video renderer and parsing failures. `ERROR_CODE_UNSPECIFIED` is surfaced instead of being hidden by an engine switch.
 - The reusable stream link is removed only for clearly stale HTTP statuses or a file-not-found error. Unknown runtime failures preserve the cached source.
 
-Messages without a Media3 error-code suffix retain the existing Libmpv recovery behavior, including signed-URL refresh. Media3-coded ExoPlayer errors refresh credentialed URLs only for HTTP 401, 403 and 410. When automatic engine switching is enabled, source fallback is deferred only for decoder/renderer/parser errors that the alternate engine may address, so network errors still try another source. Regression tests cover the unspecified-error case, auth statuses, network errors, decoder/render failures, parsing failures and stale-link cache invalidation. These tests have been added but not run yet.
+Messages without a Media3 error-code suffix retain Libmpv recovery for non-HTTP errors. Explicit HTTP statuses are still classified across engines, and only 401, 403 and 410 refresh credentialed URLs. When automatic engine switching is enabled, source fallback is deferred only for decoder/renderer/parser errors that the alternate engine may address, so network errors still try another source. Regression tests cover the unspecified-error case, auth statuses, network errors, decoder/render failures, parsing failures and stale-link cache invalidation. These tests have been added but not run yet.
 
 ### The direct clone call and renderer-capability hardening
 
