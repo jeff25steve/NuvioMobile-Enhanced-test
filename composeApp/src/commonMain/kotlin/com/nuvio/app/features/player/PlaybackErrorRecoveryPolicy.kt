@@ -43,6 +43,13 @@ internal fun shouldFailoverPlaybackEngine(message: String?): Boolean {
         code.startsWith("ERROR_CODE_PARSING_")
 }
 
+internal fun shouldDeferSourceFallbackToEngineFailover(
+    autoSwitchEnabled: Boolean,
+    isIos: Boolean,
+    message: String?,
+): Boolean =
+    !isIos && autoSwitchEnabled && shouldFailoverPlaybackEngine(message)
+
 /** Keep valid URLs in the reuse cache when the player itself fails. */
 internal fun shouldRemoveFailedPlaybackSourceFromCache(message: String?): Boolean {
     val code = playbackErrorCode(message) ?: return true
