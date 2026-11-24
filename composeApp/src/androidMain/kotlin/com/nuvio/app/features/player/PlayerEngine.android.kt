@@ -5439,12 +5439,6 @@ private class SubtitleOffsetRenderersFactory(
                 .setEventHandler(eventHandler)
                 .setEventListener(eventListener)
                 .setMaxDroppedFramesToNotify(MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY)
-                .experimentalSetLateThresholdToDropDecoderInputUs(
-                    MediaCodecVideoRenderer.DEFAULT_LATE_THRESHOLD_TO_DROP_DECODER_INPUT_US,
-                )
-                .setEarlySchedulingThresholdUs(
-                    MediaCodecVideoRenderer.DEFAULT_EARLY_SCHEDULING_THRESHOLD_US,
-                )
             out[platformRendererIndex] = DolbyVisionSoftMatchVideoRenderer(
                 context = context,
                 builder = videoRendererBuilder,
