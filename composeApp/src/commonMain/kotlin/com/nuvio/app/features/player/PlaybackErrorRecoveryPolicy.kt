@@ -11,7 +11,10 @@ private fun playbackHttpStatus(message: String?): Int? =
 
 /** Refresh a signed URL only when the server actually rejected or expired it. */
 internal fun shouldRefreshCredentialedPlaybackSource(message: String?): Boolean =
-    playbackHttpStatus(message) in setOf(401, 403, 410)
+    when (playbackHttpStatus(message)) {
+        401, 403, 410 -> true
+        else -> false
+    }
 
 /** Local server URLs can be retried for source/transport errors, but not player runtime crashes. */
 internal fun shouldRetryServerSourceAfterPlaybackError(message: String?): Boolean {
@@ -43,6 +46,8 @@ internal fun shouldFailoverPlaybackEngine(message: String?): Boolean {
 /** Keep valid URLs in the reuse cache when the player itself fails. */
 internal fun shouldRemoveFailedPlaybackSourceFromCache(message: String?): Boolean {
     val code = playbackErrorCode(message) ?: return true
-    return playbackHttpStatus(message) in setOf(401, 403, 404, 410) ||
-        code == "ERROR_CODE_IO_FILE_NOT_FOUND"
+    return when (playbackHttpStatus(message)) {
+        401, 403, 404, 410 -> true
+        else -> code == "ERROR_CODE_IO_FILE_NOT_FOUND"
+    }
 }
