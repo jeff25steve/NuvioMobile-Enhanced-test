@@ -56,6 +56,22 @@ class DisplayAwareDefaultTrackSelectorHdrPreferenceTest {
                 hasSupportedHdrFallback = true,
             ),
         )
+        // On an SDR-only display, keep the same SDR variant and mask the PQ alternative.
+        assertTrue(
+            shouldMaskHdrFormatForDisplay(
+                format = formats[0],
+                rendererSupportFlags = supports[0],
+                supportedHdrTypes = emptySet(),
+                hasSdrFallback = true,
+            ),
+        )
+        assertFalse(
+            shouldMaskSdrFormatForDisplay(
+                format = formats[1],
+                rendererSupportFlags = supports[1],
+                hasSupportedHdrFallback = false,
+            ),
+        )
     }
 
     @Test
