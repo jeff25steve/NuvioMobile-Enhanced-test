@@ -5838,7 +5838,7 @@ private fun diagnosticThrowableChain(value: Throwable): String =
         }
         .let(::diagnosticPlayerMessage)
 
-private fun diagnosticThrowableStackTrace(value: Throwable): String =
+internal fun diagnosticThrowableStackTrace(value: Throwable): String =
     generateSequence(value) { it.cause }
         .take(4)
         .joinToString(" <- ") { error ->
