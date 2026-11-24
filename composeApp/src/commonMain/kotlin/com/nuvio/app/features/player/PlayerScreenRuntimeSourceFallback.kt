@@ -72,6 +72,7 @@ internal fun PlayerScreenRuntime.showErrorUnlessSourceFallback(message: String?)
  * Returns `true` when a fallback was started and the error must not be shown yet.
  */
 internal fun PlayerScreenRuntime.tryFallbackToNextSourceAfterError(message: String?): Boolean {
+    if (!shouldTryNextSourceAfterPlaybackError(message)) return false
     if (sourceFallbackJob?.isActive == true) return true
     val settings = playerSettingsUiState
     if (!settings.streamAutoPlayFallbackActive) return false
