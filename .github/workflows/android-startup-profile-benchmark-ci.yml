@@ -1,13 +1,13 @@
 name: Android Startup Profile Benchmark CI Branch Runner
 
-# Push-triggered only on this isolated branch; main-build-testing remains manual-only.
+# Push-triggered only on a fresh snapshot of main-build-testing; the source branch remains isolated.
 # The repair commit is verified from this isolated branch before any changes reach main-build-testing.
 # CI retry: compile repairs validated at source commit 13d920702e00c725c60cab914009edc7dbd3cf73.
 # CI retry: missing generated downloads resource import fixed in commit 456c8482e5ce7ef4673bdf313888271cfc4b4238.
 on:
   push:
     branches:
-      - ci/review-playback-startup-hardening-20261121
+      - ci/main-build-testing-20261124
   workflow_dispatch:
 
 permissions:
