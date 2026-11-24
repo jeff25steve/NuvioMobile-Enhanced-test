@@ -68,6 +68,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.ForwardingRenderer
 import androidx.media3.exoplayer.Renderer
+import androidx.media3.exoplayer.RendererCapabilities
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.audio.AudioRendererEventListener
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
@@ -4912,6 +4913,56 @@ internal fun shouldUseSoftMatchDolbyVisionDecoder(
 ): Boolean =
     displaySupportsDolbyVision && sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
 
+internal fun isDolbyVisionProfile8PqFormat(
+    sampleMimeType: String?,
+    codecs: String?,
+    colorTransfer: Int?,
+): Boolean {
+    if (
+        sampleMimeType != MimeTypes.VIDEO_DOLBY_VISION ||
+        colorTransfer != C.COLOR_TRANSFER_ST2084
+    ) return false
+
+    return codecs.orEmpty()
+        .split(',')
+        .asSequence()
+        .map { it.trim().lowercase() }
+        .any { it.startsWith("dvhe.08.") || it.startsWith("dvh1.08.") }
+}
+
+internal fun shouldPromoteDolbyVisionProfile8Support(
+    sampleMimeType: String?,
+    codecs: String?,
+    colorTransfer: Int?,
+    displaySupportsDolbyVision: Boolean,
+): Boolean = displaySupportsDolbyVision &&
+    isDolbyVisionProfile8PqFormat(sampleMimeType, codecs, colorTransfer)
+
+/**
+ * Promotes only the format-support bit. Adaptive, tunnelling, hardware and decoder preference
+ * capabilities continue to come from Media3's original renderer calculation.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+internal fun promoteDolbyVisionSoftMatchCapabilities(
+    baseCapabilities: Int,
+    hasNativeDolbyVisionDecoder: Boolean,
+): Int {
+    val formatSupport = RendererCapabilities.getFormatSupport(baseCapabilities)
+    if (
+        !hasNativeDolbyVisionDecoder ||
+        (formatSupport != C.FORMAT_UNSUPPORTED_SUBTYPE &&
+            formatSupport != C.FORMAT_EXCEEDS_CAPABILITIES)
+    ) return baseCapabilities
+
+    return RendererCapabilities.create(
+        C.FORMAT_HANDLED,
+        RendererCapabilities.getAdaptiveSupport(baseCapabilities),
+        RendererCapabilities.getTunnelingSupport(baseCapabilities),
+        RendererCapabilities.getHardwareAccelerationSupport(baseCapabilities),
+        RendererCapabilities.getDecoderSupport(baseCapabilities),
+    )
+}
+
 private fun displaySupportsDolbyVision(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
     val displayManager = context.getSystemService(Context.DISPLAY_SERVICE)
@@ -5536,6 +5587,38 @@ private class DolbyVisionSoftMatchVideoRenderer(
         } finally {
             requiresTunnelingDecoder = false
         }
+    }
+
+    override fun supportsFormat(
+        mediaCodecSelector: MediaCodecSelector,
+        format: Format,
+    ): Int {
+        val baseCapabilities = super.supportsFormat(mediaCodecSelector, format)
+        // Avoid a DisplayManager query for ordinary SDR, HDR10, HLG and non-DV tracks.
+        if (
+            !isDolbyVisionProfile8PqFormat(
+                sampleMimeType = format.sampleMimeType,
+                codecs = format.codecs,
+                colorTransfer = format.colorInfo?.colorTransfer,
+            ) ||
+            !displaySupportsDolbyVision(context)
+        ) {
+            return baseCapabilities
+        }
+
+        // Media3's static supportsFormat lookup filters soft-matched decoders by the device's
+        // advertised profile/level. The runtime renderer lookup above deliberately retains them.
+        // Keep the two paths coherent for Profile 8 PQ when a native DV decoder is present.
+        val hasNativeDolbyVisionDecoder = MediaCodecUtil.getDecoderInfosSoftMatch(
+            mediaCodecSelector,
+            format,
+            format.drmInitData != null,
+            /* requiresTunnelingDecoder= */ false,
+        ).any { it.codecMimeType == MimeTypes.VIDEO_DOLBY_VISION }
+        return promoteDolbyVisionSoftMatchCapabilities(
+            baseCapabilities,
+            hasNativeDolbyVisionDecoder,
+        )
     }
 
     override fun getDecoderInfos(
