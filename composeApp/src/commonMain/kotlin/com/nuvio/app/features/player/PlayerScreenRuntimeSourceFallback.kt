@@ -76,7 +76,7 @@ internal fun PlayerScreenRuntime.tryFallbackToNextSourceAfterError(message: Stri
     if (sourceFallbackJob?.isActive == true) return true
     val settings = playerSettingsUiState
     if (!settings.streamAutoPlayFallbackActive) return false
-    if (!isIos && settings.autoSwitchPlaybackEngineOnError) return false
+    if (shouldDeferSourceFallbackToEngineFailover(settings.autoSwitchPlaybackEngineOnError, isIos, message)) return false
     if (initialLoadCompleted) return false
     val failedUrl = activeSourceUrl
     if (failedUrl.isBlank() || failedUrl != autoSelectedSourceUrl) return false
