@@ -33,7 +33,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private var destroyJob: Job? = null
     private var surfaceAttached = false
     private val frameRateLock = Any()
-    private var activeVideoLayer: SurfaceControl? = null
+    private var activeVideoLayer: Any? = null
     private var latestFrameRateRequest = MpvSurfaceFrameRateRequest(
         0f,
         Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
@@ -78,7 +78,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     @RequiresApi(Build.VERSION_CODES.R)
     private fun applyMpvSurfaceFrameRateLocked() {
-        val layer = activeVideoLayer ?: return
+        val layer = activeVideoLayer as? SurfaceControl ?: return
         val request = latestFrameRateRequest
         if (appliedFrameRateRequest == request) return
         runCatching {
