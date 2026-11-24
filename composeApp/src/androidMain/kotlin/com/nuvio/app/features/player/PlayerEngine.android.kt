@@ -3050,6 +3050,7 @@ private class NuvioLibmpvView(
             "MPV/Android",
             "Initializing libmpv vo=${videoOutput.mpvValue} hwdec=${if (hardwareDecodingEnabled) "auto" else "no"} yuv420p=$yuv420pEnabled " +
                 "renderQuality=${initialRenderQuality.name} deband=$initialDebandEnabled " +
+                "filmGrain=${mpvFilmGrainMode(videoOutput)} " +
                 "animeShaders=${animeShaderPaths.joinToString(",") { it.substringAfterLast('/') }.ifEmpty { "none" }}",
         )
         // Runtime profiles are destructive; save their previous values so quality changes can restore them.
@@ -3072,7 +3073,8 @@ private class NuvioLibmpvView(
         mpv.setOptionString("demuxer-max-back-bytes", "${libmpvCacheBytes()}").logIfMpvError("demuxer-max-back-bytes")
         // Room above 100% for the player's amplification (+10 dB is about 316%).
         mpv.setOptionString("volume-max", "$LIBMPV_MAX_VOLUME_PERCENT").logIfMpvError("volume-max")
-        mpv.setOptionString("vd-lavc-film-grain", "cpu")
+        mpv.setOptionString("vd-lavc-film-grain", mpvFilmGrainMode(videoOutput))
+            .logIfMpvError("vd-lavc-film-grain")
         mpv.setOptionString("sub-ass-override", "no")
         if (animeShaderPaths.isNotEmpty()) {
             mpv.setOptionString("glsl-shaders", animeShaderPaths.joinToString(":")).logIfMpvError("glsl-shaders")
