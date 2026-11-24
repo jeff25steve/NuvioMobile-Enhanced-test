@@ -83,7 +83,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         if (appliedFrameRateRequest == request) return
         runCatching {
             SurfaceControl.Transaction().use { transaction ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val updatedTransaction = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     transaction.setFrameRate(
                         layer,
                         request.frameRate,
@@ -98,7 +98,8 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                         request.frameRate,
                         Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE,
                     )
-                }.apply()
+                }
+                updatedTransaction.apply()
             }
         }.onSuccess {
             appliedFrameRateRequest = request
