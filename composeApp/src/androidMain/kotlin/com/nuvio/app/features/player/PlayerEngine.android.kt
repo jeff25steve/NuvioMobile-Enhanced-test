@@ -6245,7 +6245,7 @@ internal fun diagnosticThrowableStackTrace(value: Throwable): String =
         .take(4)
         .joinToString(" <- ") { error ->
             val frames = try {
-                error.getStackTrace().take(18).joinToString(",") { frame ->
+                error.stackTrace.take(18).joinToString(",") { frame ->
                     "${frame.className}.${frame.methodName}:${frame.lineNumber}"
                 }.ifBlank { "empty" }
             } catch (diagnosticFailure: Throwable) {
