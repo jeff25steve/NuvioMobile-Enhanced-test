@@ -9,8 +9,6 @@ import androidx.media3.common.Player
  */
 internal class VideoFrameOutputGapWatchdog {
     private var currentAttempt: Int = 0
-    private var lastFrameElapsedMs: Long? = null
-    private var lastFramePositionMs: Long? = null
     private var lastFramePresentationTimeUs: Long? = null
     private var lastKnownFrameRate: Float = Float.NaN
     private var activeGapStartedAtMs: Long? = null
@@ -20,8 +18,6 @@ internal class VideoFrameOutputGapWatchdog {
     @Synchronized
     fun beginAttempt(attempt: Int) {
         currentAttempt = attempt
-        lastFrameElapsedMs = null
-        lastFramePositionMs = null
         lastFramePresentationTimeUs = null
         lastKnownFrameRate = Float.NaN
         activeGapStartedAtMs = null
@@ -44,8 +40,6 @@ internal class VideoFrameOutputGapWatchdog {
             presentationTimeUs < 0L
         ) return
 
-        lastFrameElapsedMs = elapsedRealtimeMs
-        lastFramePositionMs = playbackPositionMs
         lastFramePresentationTimeUs = presentationTimeUs
         lastKnownFrameRate = frameRate
         activeGapStartedAtMs = elapsedRealtimeMs
@@ -72,7 +66,7 @@ internal class VideoFrameOutputGapWatchdog {
         if (
             attempt != currentAttempt ||
             reportedGap ||
-            lastFrameElapsedMs == null ||
+            lastFramePresentationTimeUs == null ||
             lastKnownFrameRate < MIN_DIAGNOSTIC_FRAME_RATE ||
             !lastKnownFrameRate.isFinite() ||
             timeoutMs <= 0L ||
