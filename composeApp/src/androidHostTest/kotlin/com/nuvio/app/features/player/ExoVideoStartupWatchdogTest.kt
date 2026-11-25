@@ -55,6 +55,73 @@ class ExoVideoStartupWatchdogTest {
         assertTrue(watchdog.shouldReportNoFirstFrame(4, 21_000L, true, Player.STATE_READY, true, timeoutMs))
     }
 
+
+    @Test
+    fun frameGapRequiresAFirstFrameAndKnownVideoFrameRate() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(10)
+
+        assertFalse(watchdog.shouldReportGap(10, 0L, 0L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        watchdog.recordFrame(10, 1_000L, 1_000L, 1_000_000L, 0f)
+        assertFalse(watchdog.shouldReportGap(10, 8_000L, 8_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+
+        watchdog.beginAttempt(11)
+        watchdog.recordFrame(11, 1_000L, 1_000L, 1_000_000L, 24f)
+        assertFalse(watchdog.shouldReportGap(11, 6_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(11, 6_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L).not())
+    }
+
+    @Test
+    fun frameGapReportsOnlyWhenPlaybackPositionContinuesAdvancing() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(12)
+        watchdog.recordFrame(12, 1_000L, 1_000L, 1_000_000L, 24f)
+
+        assertFalse(watchdog.shouldReportGap(12, 7_000L, 1_500L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(12, 7_000L, 3_100L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+    }
+
+    @Test
+    fun frameGapDoesNotCountPausedBufferingOrAudioOnlyTime() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(13)
+        watchdog.recordFrame(13, 1_000L, 1_000L, 1_000_000L, 24f)
+
+        assertFalse(watchdog.shouldReportGap(13, 3_000L, 3_000L, false, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(13, 8_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(13, 10_000L, 3_000L, true, Player.STATE_BUFFERING, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(13, 16_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(13, 17_000L, 3_000L, true, Player.STATE_READY, false, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(13, 23_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(13, 24_000L, 5_100L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+    }
+
+    @Test
+    fun aNewFrameRestartsTheGapWindowAndAllowsAnotherReport() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(14)
+        watchdog.recordFrame(14, 1_000L, 1_000L, 1_000_000L, 24f)
+
+        assertTrue(watchdog.shouldReportGap(14, 6_000L, 3_500L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(14, 9_000L, 6_500L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+
+        watchdog.recordFrame(14, 9_500L, 7_000L, 7_000_000L, 24f)
+        assertFalse(watchdog.shouldReportGap(14, 14_000L, 11_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(14, 15_000L, 13_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+    }
+
+    @Test
+    fun staleFrameCallbacksCannotUpdateANewerAttempt() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(15)
+        watchdog.recordFrame(15, 1_000L, 1_000L, 1_000_000L, 24f)
+        watchdog.beginAttempt(16)
+        watchdog.recordFrame(15, 50_000L, 50_000L, 50_000_000L, 24f)
+
+        assertFalse(watchdog.shouldReportGap(15, 60_000L, 60_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(16, 60_000L, 60_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+    }
+
     @Test
     fun firstFrameIdentityMustMatchTheCurrentPrepareAttempt() {
         val diagnostics = PlaybackDiagnostics()
