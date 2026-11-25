@@ -1927,14 +1927,16 @@ private fun ExoPlayerSurface(
             alwaysFrameRateController?.release()
             alwaysFrameRateController = null
             playerViewRef?.keepScreenOn = false
-            playerViewRef?.player = null
+            playerViewRef?.let { view ->
+                if (view.player === exoPlayer) view.player = null
+            }
             subtitleSelectionJob?.cancel()
             errorDisplayMessageJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
         }
     }
 
-    LaunchedEffect(exoPlayer, videoStartupWatchdog) {
+    LaunchedEffect(exoPlayer, videoStartupWatchdog, videoFrameOutputGapWatchdog) {
         while (isActive) {
             val attempt = playbackDiagnostics.attempt
             val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
