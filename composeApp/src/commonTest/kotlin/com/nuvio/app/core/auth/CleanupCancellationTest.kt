@@ -1,6 +1,8 @@
 package com.nuvio.app.core.auth
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertSame
@@ -12,11 +14,15 @@ class CleanupCancellationTest {
         val first = IllegalStateException("First cleanup failed")
         val second = IllegalStateException("Second cleanup failed")
         var thrown: CancellationException? = null
+        val callerJob = Job()
 
         try {
-            ensureCleanupCallerActive(
-                listOf(Result.failure<Unit>(first), Result.failure<Unit>(second)),
-            )
+            withContext(callerJob) {
+                callerJob.cancel()
+                ensureCleanupCallerActive(
+                    listOf(Result.failure<Unit>(first), Result.failure<Unit>(second)),
+                )
+            }
         } catch (error: CancellationException) {
             thrown = error
         }
@@ -35,9 +41,13 @@ class CleanupCancellationTest {
     fun doesNotSuppressTheCancellationExceptionOntoItself() = runTest {
         val cancellation = CancellationException("Cleanup cancelled")
         var thrown: CancellationException? = null
+        val callerJob = Job()
 
         try {
-            ensureCleanupCallerActive(listOf(Result.failure<Unit>(cancellation)))
+            withContext(callerJob) {
+                callerJob.cancel(cancellation)
+                ensureCleanupCallerActive(listOf(Result.failure<Unit>(cancellation)))
+            }
         } catch (error: CancellationException) {
             thrown = error
         }
