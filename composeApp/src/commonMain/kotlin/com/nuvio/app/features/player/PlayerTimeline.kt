@@ -147,14 +147,14 @@ internal fun interpolatePlaybackPositionMs(
     val basePositionMs = positionMs.coerceAtLeast(0L)
     val boundedDurationMs = durationMs.takeIf { it > 0L }
     if (elapsedNanos <= 0L || !playbackSpeed.isFinite() || playbackSpeed <= 0f) {
-        return boundedDurationMs?.let(basePositionMs::coerceAtMost) ?: basePositionMs
+        return if (boundedDurationMs != null) basePositionMs.coerceAtMost(boundedDurationMs) else basePositionMs
     }
 
     val elapsedMs = elapsedNanos.toDouble() / 1_000_000.0 * playbackSpeed.toDouble()
     val candidatePositionMs = (basePositionMs.toDouble() + elapsedMs)
         .coerceAtMost(Long.MAX_VALUE.toDouble())
         .toLong()
-    return boundedDurationMs?.let(candidatePositionMs::coerceAtMost) ?: candidatePositionMs
+    return if (boundedDurationMs != null) candidatePositionMs.coerceAtMost(boundedDurationMs) else candidatePositionMs
 }
 
 @Composable
@@ -254,7 +254,7 @@ internal fun PlayerTimeline(
         trackWidthPx,
         LocalDensity.current.density,
     )
-    val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged || scrubPosition != null)
+    val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged)
     ReportTimelineTouch(isInteracting, onTouchChange)
     ReportTimelineScrubbing(
         scrubbing = shouldEnablePlayerScrubbing(isDragged, enabled, durationMs),
