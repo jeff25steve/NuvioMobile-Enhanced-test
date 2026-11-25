@@ -2858,6 +2858,10 @@ private fun LibmpvPlayerSurface(
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
                     liveStream = liveStream,
+                    onSurfaceError = { error ->
+                        val message = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+                        latestOnError.value(message.takeUnless { it == "none" } ?: "libmpv unavailable")
+                    },
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
                         context = viewContext,
                         upscaleEnabled = animeUpscaleEnabled,
@@ -2928,7 +2932,11 @@ private class NuvioLibmpvView(
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,
     private val liveStream: Boolean,
+    private val onSurfaceError: (Throwable) -> Unit,
 ) : MpvSurfaceView(context, videoOutput.mpvValue) {
+    override fun onSurfaceFailure(error: Throwable) {
+        onSurfaceError(error)
+    }
     @Volatile
     private var activeAnimeShaderPaths = animeShaderPaths
     @Volatile
