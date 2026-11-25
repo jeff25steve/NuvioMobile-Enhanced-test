@@ -49,7 +49,9 @@ Important compatibility boundary:
 - Media3 1.11.1 is a stable upgrade candidate, but Eclipsa/HAGC handling must not be claimed on the current 1.8.0 dependency based only on Android 17's platform support.
 - Do not bump the version catalog alone. First rebuild/verify every custom Media3 AAR and extension renderer against one exact stable Media3 version, then test MP4 and Matroska HAGC metadata on API 37+ compliant HDR hardware.
 - The Android platform guide says ordinary ExoPlayer playback requires no custom tone-mapping implementation. Do not add a second app-level tone mapper that could conflict with platform HDR composition.
-- HLS behavior is not established by the progressive-container release-note entry; verify the exact container/manifest path before claiming HAGC support for HLS/DASH.
+- The upstream Media3 HLS parser fix for `VIDEO-RANGE=PQ/HLG` was merged as [androidx/media PR #3446](https://github.com/androidx/media/pull/3446) on 2026-10-14 and first appears in the 1.12.0-alpha01 line. The current 1.8.0 parser drops this metadata, which is why the host HDR parser tests fail for HLS PQ/HLG variants.
+- [PR #3461](https://github.com/androidx/media/pull/3461) separately discusses display-aware HLS variant filtering. Nuvio's custom selector should not be expected to filter HLS variants by HDR capability until the playlist parser supplies reliable `Format.colorInfo`.
+- The upstream HLS `VIDEO-RANGE` metadata fix is separate from HAGC timed-metadata playback. Do not conflate HLS PQ/HLG classification with Eclipsa's SMPTE ST 2094-50 dynamic metadata support.
 
 The project already compiles against API 37, but compileSdk alone does not enable Eclipsa playback while the Media3 extractor/player dependency remains at 1.8.0.
 
