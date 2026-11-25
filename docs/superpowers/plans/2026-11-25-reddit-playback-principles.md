@@ -38,7 +38,7 @@
 - Create: `composeApp/src/commonTest/kotlin/com/nuvio/app/features/player/PlayerTimelineInterpolationTest.kt`
 
 **Interface:**
-- Produces: `interpolatePlaybackPositionMs(positionMs: Long, elapsedNanos: Long, playbackSpeed: Float, durationMs: Long): Long`
+- Produces: `shouldAnimatePlaybackTimeline(isPlaying: Boolean, isInteracting: Boolean, durationMs: Long, playbackSpeed: Float): Boolean` and `interpolatePlaybackPositionMs(positionMs: Long, elapsedNanos: Long, playbackSpeed: Float, durationMs: Long): Long`
 
 - [x] Add common tests for 1x/fractional speed, paused/interacting/invalid eligibility, negative elapsed time, known/unknown duration, negative position and Long overflow. Tests are authored but unexecuted.
 - [x] Implement saturating interpolation using elapsed nanoseconds and positive finite playback speed.
@@ -52,6 +52,7 @@
 
 **Interface:**
 - Produces: `rememberFrameSynchronizedPositionMs(positionMs, durationMs, isPlaying, playbackSpeed, isInteracting): Long`
+- Consumes: the pure `shouldAnimatePlaybackTimeline(...)` and `interpolatePlaybackPositionMs(...)` policy functions.
 
 - [x] Use `produceState` and `withFrameNanos` to interpolate only while playing, with known duration and a finite positive speed.
 - [x] Suspend frame updates while the user is pressing/dragging the timeline; use the current displayed scrub position without interpolation.
