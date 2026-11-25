@@ -48,6 +48,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private val ownedSurfaceTextures = Collections.synchronizedSet(
         Collections.newSetFromMap(IdentityHashMap<SurfaceTexture, Boolean>()),
     )
+    private val surfaceTextureGenerations = Collections.synchronizedMap(
+        IdentityHashMap<SurfaceTexture, Long>(),
+    )
     @Volatile
     private var surfaceAttached = false
     private var attachedSurfaceGeneration: Long? = null
@@ -422,33 +425,33 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     private fun createTextureView() = TextureView(context).apply {
         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            private var generation: Long? = null
-
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 val currentGeneration = surfaceGeneration.begin() ?: return
-                generation = currentGeneration
+                surfaceTextureGenerations[texture] = currentGeneration
                 val createdOutput = Surface(texture)
                 ownedSurfaceTextures.add(texture)
                 trackSurfaceRelease(currentGeneration) {
                     createdOutput.release()
-                    if (ownedSurfaceTextures.remove(texture)) texture.release()
+                    if (ownedSurfaceTextures.remove(texture)) {
+                        surfaceTextureGenerations.remove(texture)
+                        texture.release()
+                    }
                 }
                 attach(createdOutput, currentGeneration)
                 resize(width, height, currentGeneration)
             }
 
             override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
-                generation?.let { resize(width, height, it) }
+                surfaceTextureGenerations[texture]?.let { resize(width, height, it) }
             }
 
             override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                val destroyedGeneration = generation
+                val destroyedGeneration = surfaceTextureGenerations.remove(texture)
                 if (destroyedGeneration == null) {
                     // A duplicate callback must not transfer a still-retained texture
                     // back to the framework before native VO teardown has completed.
                     return !ownedSurfaceTextures.contains(texture)
                 }
-                generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
                 // false transfers texture release to us; detach() releases it only after
                 // the same native VO completion barrier used by SurfaceView.
