@@ -83,7 +83,7 @@ internal inline fun <T> decodeSeekPreviewThumbnailWhileOpen(
     return if (isClosed()) null else decoded
 }
 
-private fun cancelPendingSeekPreviewFrame(pending: AtomicReference<CompletableFuture<Bitmap>?>) {
+internal fun cancelPendingSeekPreviewFrame(pending: AtomicReference<CompletableFuture<Bitmap>?>) {
     pending.getAndSet(null)?.cancel(true)
 }
 
