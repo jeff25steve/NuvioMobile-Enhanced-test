@@ -27,6 +27,9 @@ import androidx.media3.extractor.text.SubtitleParser
 internal fun hasSelectedAudioTrack(sampleMimeTypes: Iterable<String?>): Boolean =
     sampleMimeTypes.any { it?.let(MimeTypes::getTrackType) == C.TRACK_TYPE_AUDIO }
 
+internal fun effectiveAudioDelayUs(hasSelectedAudioTrack: Boolean, configuredDelayUs: Long): Long =
+    if (hasSelectedAudioTrack) configuredDelayUs else 0L
+
 internal fun shiftVideoTimestampForAudioDelay(buffer: DecoderInputBuffer, audioDelayUs: Long) {
     // Media3 requires every attribute of an EOS buffer to be ignored. In particular, do not
     // subtract from an unset/sentinel timestamp, which can overflow for large offsets.
