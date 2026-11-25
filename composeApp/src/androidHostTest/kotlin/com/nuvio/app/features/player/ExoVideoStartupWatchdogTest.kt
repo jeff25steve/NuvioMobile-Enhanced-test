@@ -110,6 +110,17 @@ class ExoVideoStartupWatchdogTest {
     }
 
     @Test
+    fun backwardSeekRestartsTheFrameGapWindow() {
+        val watchdog = VideoFrameOutputGapWatchdog()
+        watchdog.beginAttempt(17)
+        watchdog.recordFrame(17, 1_000L, 30_000L, 30_000_000L, 24f)
+
+        assertFalse(watchdog.shouldReportGap(17, 7_000L, 1_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertFalse(watchdog.shouldReportGap(17, 11_000L, 2_500L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(17, 12_000L, 3_100L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+    }
+
+    @Test
     fun staleFrameCallbacksCannotUpdateANewerAttempt() {
         val watchdog = VideoFrameOutputGapWatchdog()
         watchdog.beginAttempt(15)
