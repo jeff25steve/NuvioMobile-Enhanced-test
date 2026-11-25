@@ -198,7 +198,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 releaseSurface(previousGeneration)
             }
 
-            if (!surfaceGeneration.isCurrent(generation)) return@withLock
+            if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
             mpv.attachSurface(surface)
             surfaceAttached = true
             attachedSurfaceGeneration = generation
@@ -213,7 +213,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     ) {
         withSurfaceLifecycleLock {
             if (!surfaceGeneration.isCurrent(generation) || attachedSurfaceGeneration != generation) {
-                return@withLock
+                return@withSurfaceLifecycleLock
             }
             checkMpvResult(
                 "set property android-surface-size",
@@ -237,7 +237,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     private fun detach(generation: Long) {
         val job = destroyJob ?: mpvScope.launch {
-            surfaceLifecycleMutex.withLock {
+            withSurfaceLifecycleLock {
                 detachSurface(generation)
                 releaseSurface(generation)
             }
@@ -327,7 +327,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceReady.cancel()
         destroyJob = mpvScope.launch {
             try {
-                surfaceLifecycleMutex.withLock {
+                withSurfaceLifecycleLock {
                     runCatching { detachSurface() }.onFailure(::logFailure)
                     if (mpvInstance.isInitialized()) mpv.close()
                     releaseAllSurfaceResources()
