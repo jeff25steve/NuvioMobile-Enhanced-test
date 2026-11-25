@@ -65,7 +65,7 @@ class AndroidDownloadTransferTest {
             val directory = temporary.newFolder()
             val partial = File(directory, "video.mkv.part").apply { writeText("old prefix") }
             transferAndroidDownload(downloadItem(server.url("/video").toString()), FileDownloadSink(partial),
-                null, onHeaders = { _, _ -> }, onProgress = { _, _ -> })
+                "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> })
             assertEquals("replacement", partial.readText())
             assertEquals("bytes=10-", server.takeRequest().getHeader("Range"))
             assertNull(server.takeRequest().getHeader("Range"))
@@ -80,7 +80,7 @@ class AndroidDownloadTransferTest {
             val partial = File(directory, "video.mkv.part").apply { writeText("hello") }
             assertFailsWith<IOException> {
                 transferAndroidDownload(downloadItem(server.url("/video").toString()), FileDownloadSink(partial),
-                    null, onHeaders = { _, _ -> }, onProgress = { _, _ -> })
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> })
             }
             assertEquals("hello", partial.readText())
         }
@@ -102,7 +102,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    null,
+                    "\"version-1\"",
                     onHeaders = { _, _ -> },
                     onProgress = { _, _ -> },
                 )
