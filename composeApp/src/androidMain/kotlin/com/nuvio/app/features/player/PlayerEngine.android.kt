@@ -765,6 +765,7 @@ private fun ExoPlayerSurface(
             audioDelayUsProvider = audioDelayUs::get,
             audioAmplificationDbProvider = audioAmplificationDb::get,
             audioDownmix = audioDownmix,
+            forceSoftwareVideoDecoding = decoderPriorityOverride == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
             preferAppAudioDecoder = bluetoothOutput,
             centerMixLevelDbProvider = centerMixLevelDb::get,
             onFfmpegAudioRenderer = ffmpegAudioRenderer::set,
@@ -5490,6 +5491,7 @@ private class SubtitleOffsetRenderersFactory(
     private val audioDelayUsProvider: () -> Long,
     private val audioAmplificationDbProvider: () -> Int,
     private val audioDownmix: FfmpegAudioDownmix?,
+    private val forceSoftwareVideoDecoding: Boolean,
     private val preferAppAudioDecoder: Boolean,
     private val centerMixLevelDbProvider: () -> Int,
     private val onFfmpegAudioRenderer: (FfmpegAudioRenderer?) -> Unit,
@@ -5564,6 +5566,7 @@ private class SubtitleOffsetRenderersFactory(
                 eventHandler,
                 eventListener,
                 MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                forceSoftwareVideoDecoding,
             ),
         )
     }
