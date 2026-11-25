@@ -65,6 +65,10 @@ Implementation note (25 November): MpvSurfaceView.initialize now performs asset 
 - Introduce a small internal lifecycle coordinator/state machine with injectable operation hooks so tests can control queued attach/detach/close completion without loading native mpv.
 - Required operations: surface-created/attach, surface-changed/resize, surface-destroyed/detach, final-release.
 
+- [x] Add deterministic readiness-gate coverage for successful attach, failed attach propagation, and release cancellation. Tests are in MpvSurfaceReadinessTest.kt; they have been authored but deliberately not executed because build/test execution is not authorized.
+
+Implementation note (25 November): MPV surface attachment now reports thrown native/JNI failures through the shared readiness signal. The playback coroutine no longer silently swallows a failed readiness await; it propagates non-cancellation failures to the existing player error callback and diagnostic log. Cancellation is still rethrown. This prevents a failed attach from leaving playback stuck indefinitely without surfacing an error. This does not establish native surface-detach completion or solve generation races.
+
 - [ ] Write failing tests for attach queued then destroyed; old generation must never attach after invalidation.
 - [ ] Write failing tests for resize queued then destroyed; stale resize must be ignored.
 - [ ] Write failing tests for repeated destroy and repeated release; native release actions occur at most once.
