@@ -61,7 +61,7 @@ internal class BackdropFocusProfile(val columns: FloatArray) {
         if (bestSum <= centerSum * CenterPreferenceRatio) return 0f
 
         // Use the best window as is; damping pulls crops back over subjects near the image edge.
-        val bias = 2f * bestStart / maxStart
+        val bias = 2f * bestStart / maxStart - 1f
         return if (abs(bias) < BiasDeadZone) 0f else bias.coerceIn(-1f, 1f)
     }
 

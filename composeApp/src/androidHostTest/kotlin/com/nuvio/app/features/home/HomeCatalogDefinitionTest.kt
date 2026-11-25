@@ -1,5 +1,9 @@
 package com.nuvio.app.features.home
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
 import com.nuvio.app.features.addons.AddonCatalog
 import com.nuvio.app.features.addons.AddonExtraProperty
 import com.nuvio.app.features.addons.AddonManifest
@@ -16,6 +20,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class HomeCatalogDefinitionTest {
     private val definition = HomeCatalogDefinition(
         key = "addon:movie:popular",

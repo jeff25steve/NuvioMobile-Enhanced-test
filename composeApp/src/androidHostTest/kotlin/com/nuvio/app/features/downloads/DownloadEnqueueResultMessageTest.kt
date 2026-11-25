@@ -1,5 +1,9 @@
 package com.nuvio.app.features.downloads
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
 import kotlinx.coroutines.test.runTest
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.downloads_enqueue_missing_url
@@ -11,6 +15,8 @@ import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class DownloadEnqueueResultMessageTest {
     @Test
     fun `formats each enqueue result with its localized message`() = runTest {

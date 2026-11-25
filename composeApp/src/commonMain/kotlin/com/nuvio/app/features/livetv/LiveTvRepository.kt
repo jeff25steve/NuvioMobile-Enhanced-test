@@ -5,6 +5,10 @@ import com.nuvio.app.core.auth.AuthRepository
 import com.nuvio.app.core.auth.AuthState
 import com.nuvio.app.features.profiles.ProfileRepository
 import com.nuvio.app.features.addons.httpGetText
+import io.ktor.http.decodeURLQueryComponent
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -796,6 +800,7 @@ internal fun parseM3uPlaylist(
 ): List<LiveTvChannel> {
     val channels = mutableListOf<LiveTvChannel>()
     var pendingInfo: M3uInfo? = null
+    val pendingHeaders = linkedMapOf<String, String>()
 
     payload.lineSequence()
         .map(String::trim)
@@ -804,29 +809,119 @@ internal fun parseM3uPlaylist(
             when {
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
                     pendingInfo = parseExtInf(line)
+                    pendingHeaders.clear()
+                }
+                line.startsWith("#EXTVLCOPT:", ignoreCase = true) -> {
+                    parseVlcHeaderOption(line)?.let { (name, value) -> pendingHeaders[name] = value }
+                }
+                line.startsWith("#EXTHTTP:", ignoreCase = true) -> {
+                    pendingHeaders.putAll(parseExtHttpHeaders(line))
                 }
                 line.startsWith("#") -> Unit
                 else -> {
-                    val streamUrl = line
-                    val info = pendingInfo
-                    val name = info?.name?.takeIf(String::isNotBlank)
-                        ?: streamUrl.substringAfterLast('/').substringBefore('?').ifBlank { "Channel" }
-                    channels += LiveTvChannel(
-                        id = stableChannelId(streamUrl, channels.size),
-                        name = name,
-                        streamUrl = streamUrl,
-                        logoUrl = info?.logoUrl?.takeIf(String::isNotBlank),
-                        group = info?.group?.takeIf(String::isNotBlank),
-                        playlistId = playlist?.id,
-                        playlistName = playlist?.name,
-                        epgId = info?.epgId?.takeIf(String::isNotBlank),
-                    )
+                    val (streamUrl, urlHeaders) = parseM3uUrl(line)
+                    if (streamUrl.isNotBlank()) {
+                        val info = pendingInfo
+                        val name = info?.name?.takeIf(String::isNotBlank)
+                            ?: streamUrl.substringAfterLast('/').substringBefore('?').ifBlank { "Channel" }
+                        val headers = buildMap {
+                            putAll(defaultLiveTvStreamHeaders(streamUrl))
+                            putAll(pendingHeaders)
+                            putAll(urlHeaders)
+                        }
+                        channels += LiveTvChannel(
+                            id = stableChannelId(streamUrl, channels.size),
+                            name = name,
+                            streamUrl = streamUrl,
+                            logoUrl = info?.logoUrl?.takeIf(String::isNotBlank),
+                            group = info?.group?.takeIf(String::isNotBlank),
+                            playlistId = playlist?.id,
+                            playlistName = playlist?.name,
+                            headers = headers,
+                            epgId = info?.epgId?.takeIf(String::isNotBlank),
+                        )
+                    }
                     pendingInfo = null
+                    pendingHeaders.clear()
                 }
             }
         }
 
-    return channels.distinctBy { it.streamUrl }
+    return channels.distinctBy { it.streamUrl to it.headers }
+}
+
+private fun parseVlcHeaderOption(line: String): Pair<String, String>? {
+    val option = line.substringAfter(':', missingDelimiterValue = "").trim()
+    val separator = option.indexOf('=')
+    if (separator <= 0) return null
+
+    val optionName = option.substring(0, separator).trim().lowercase()
+    val optionValue = option.substring(separator + 1).trim()
+    if (optionValue.isEmpty()) return null
+
+    val headerName = when (optionName) {
+        "http-user-agent" -> "User-Agent"
+        "http-referrer", "http-referer" -> "Referer"
+        "http-cookie" -> "Cookie"
+        "http-header" -> {
+            val headerSeparator = optionValue.indexOf(':')
+            if (headerSeparator <= 0) return null
+            return optionValue.substring(0, headerSeparator).trim()
+                .takeIf(String::isNotBlank)
+                ?.let { it to optionValue.substring(headerSeparator + 1).trim() }
+        }
+        else -> return null
+    }
+    return headerName to optionValue
+}
+
+private fun parseExtHttpHeaders(line: String): Map<String, String> {
+    val rawJson = line.substringAfter(':', missingDelimiterValue = "").trim()
+    val headers = runCatching { Json.parseToJsonElement(rawJson) as? JsonObject }.getOrNull()
+        ?: return emptyMap()
+    return buildMap {
+        for ((name, element) in headers) {
+            val value = (element as? JsonPrimitive)
+                ?.takeIf { it.isString }
+                ?.content
+                ?.takeIf(String::isNotBlank)
+                ?: continue
+            val headerName = canonicalM3uHeaderName(name)
+            if (headerName.isNotBlank()) put(headerName, value)
+        }
+    }
+}
+
+private fun parseM3uUrl(line: String): Pair<String, Map<String, String>> {
+    val separator = line.indexOf('|')
+    if (separator < 0) return line.trim() to emptyMap()
+
+    val streamUrl = line.substring(0, separator).trim()
+    val options = line.substring(separator + 1)
+    val headers = linkedMapOf<String, String>()
+    for (option in options.split('&')) {
+        val equals = option.indexOf('=')
+        if (equals <= 0) continue
+        val rawName = option.substring(0, equals)
+        val rawValue = option.substring(equals + 1)
+        val name = runCatching { rawName.decodeURLQueryComponent(plusIsSpace = true) }.getOrNull()
+            ?.let(::canonicalM3uHeaderName)
+            ?.takeIf(String::isNotBlank)
+            ?: continue
+        val value = runCatching { rawValue.decodeURLQueryComponent(plusIsSpace = true) }.getOrNull()
+            ?.takeIf(String::isNotBlank)
+            ?: continue
+        headers[name] = value
+    }
+    return streamUrl to headers
+}
+
+private fun canonicalM3uHeaderName(name: String): String = when (name.trim().lowercase()) {
+    "user-agent" -> "User-Agent"
+    "referer", "referrer" -> "Referer"
+    "origin" -> "Origin"
+    "cookie" -> "Cookie"
+    else -> name.trim()
 }
 
 private data class M3uInfo(
