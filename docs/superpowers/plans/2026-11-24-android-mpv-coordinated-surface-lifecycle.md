@@ -132,9 +132,9 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - Update: `docs/engineering/codebase-improvement-notes.md`
 - Update: this design and plan with final decisions and evidence.
 
-- [x] Complete source-level review for lock suspension, event-observer lifetime, stale generations, callback ownership, exact resource capture and close/release order. Compile/runtime review remains outstanding.
+- [x] Complete source-level review for lock suspension, event-observer lifetime, stale generations, callback ownership, exact resource capture, callback exception paths and close/release order. Static source checks passed; compile/runtime review remains outstanding.
 - [x] Confirm no dependency was added; the only helper visibility addition is protected within the internal Android player view.
-- [x] Compare `main-build-testing` with `ci/main-build-testing-20261124`; they are diverged (66 ahead, 1 behind), so no merge/integration was attempted.
+- [x] Compare `main-build-testing` with `ci/main-build-testing-20261124`; they are diverged (84 ahead, 1 behind at final review), so no merge/integration was attempted.
 - [x] Do not start builds, tests or CI without separate explicit authorization.
 - [ ] Commits were created incrementally through GitHub file updates during implementation; final source-level review followed. This did not strictly follow commit-after-review sequencing.
 - [x] Report runtime validation outstanding; host tests remain authored but unexecuted.
