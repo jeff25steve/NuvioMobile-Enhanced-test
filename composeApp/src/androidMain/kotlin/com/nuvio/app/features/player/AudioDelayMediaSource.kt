@@ -24,6 +24,9 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.extractor.text.SubtitleParser
 
+internal fun hasSelectedAudioTrack(sampleMimeTypes: Iterable<String?>): Boolean =
+    sampleMimeTypes.any { it?.let(MimeTypes::getTrackType) == C.TRACK_TYPE_AUDIO }
+
 internal fun shiftVideoTimestampForAudioDelay(buffer: DecoderInputBuffer, audioDelayUs: Long) {
     // Media3 requires every attribute of an EOS buffer to be ignored. In particular, do not
     // subtract from an unset/sentinel timestamp, which can overflow for large offsets.
@@ -115,6 +118,7 @@ private class AudioDelayMediaPeriod(
         streamResetFlags: BooleanArray,
         positionUs: Long,
     ): Long {
+        val hasAudioTrack = hasSelectedAudioTrack(selections.map { it?.selectedFormat?.sampleMimeType })
         val childStreams = arrayOfNulls<SampleStream>(streams.size)
         for (index in streams.indices) {
             childStreams[index] = (streams[index] as? AudioDelaySampleStream)?.childStream ?: streams[index]
@@ -135,7 +139,7 @@ private class AudioDelayMediaPeriod(
                 // Audio is the master clock in normal playback, so shifting audio timestamps
                 // tends to pull video along with it. Shift video timestamps in the opposite
                 // direction to create a real perceived audio delay.
-                selections[index]
+                hasAudioTrack && selections[index]
                     ?.selectedFormat
                     ?.sampleMimeType
                     ?.let(MimeTypes::getTrackType) == C.TRACK_TYPE_VIDEO -> {
