@@ -218,3 +218,16 @@ Nuvio's arbitrary addon/debrid sources do not expose this common Jellyfin `Playb
 | MPV/Media3 dependency versions | Do not transplant | Different AAR/native graph and GPL-2.0-only source baseline; Nuvio remains on its own compatibility baseline |
 
 No source code, dependency, test, build, CI or device run was changed or started while reviewing this project.
+
+### Nuvio MPV progress-stall diagnostic — 25 November 2026
+
+Implemented an independent, Nuvio-native progress watchdog based on the failure mode observed in the Jellyfin MPV fork:
+
+- Added `MpvPlaybackProgressWatchdog` with monotonic sampling, playback-speed-scaled expected progress, five healthy warm-up intervals, and five consecutive under-progress samples before a one-shot report. The policy does not rely on `paused-for-cache`; the caller gates on current playback restart, user pause, seek state and EOF.
+- Integrated a 3-second polling coroutine into the existing `LibmpvPlayerSurface` observer lifecycle. It uses the existing `view.snapshot()` path (therefore the existing MPV dispatcher/property snapshot cache), `SystemClock.elapsedRealtime()`, and the composition-owned coroutine scope. Disposal cancels the poll; START_FILE resets the policy; PLAYBACK_RESTART re-baselines it after load/seek.
+- Reports are diagnostic-only. No automatic engine switch, MPV stop, timeout injection or source retry is performed. This avoids promoting a heuristic into a destructive recovery action before Nuvio has device/HLS measurements.
+- Added host tests for warm-up gating, one-shot reporting, speed scaling, ineligible-period re-baselining and stale-attempt rejection.
+
+The initial 15% expected-progress threshold and sample cadence are a conservative diagnostic starting point informed by the external project's documented failure mode, not a Nuvio-measured production threshold. The policy must be tuned only from captured playback traces. The external GPL-2.0-only source was not copied.
+
+**Verification boundary:** source and test files were committed to `main-build-testing`; tests were authored but not executed. No build, CI or device run was started. Context7's exact 1.10.2 coroutine docs were unavailable; the closest indexed coroutine documentation confirms structured cancellation for child jobs and suspending `delay`, while Nuvio already uses these APIs and has the dependency pinned at 1.10.2. No dependency change was required.
