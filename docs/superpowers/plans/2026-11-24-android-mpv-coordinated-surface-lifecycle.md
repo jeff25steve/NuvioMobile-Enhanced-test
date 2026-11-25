@@ -58,7 +58,7 @@ Implementation note (25 November): MpvSurfaceView.initialize now performs asset 
 ### Task 2: Add deterministic lifecycle state-machine tests
 
 **Files:**
-- Create or extend: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/MpvSurfaceLifecycleTest.kt`
+- Extend: `composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/MpvSurfaceReadinessTest.kt`
 - Modify: `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/MpvSurfaceView.android.kt` only after tests define the state contract.
 
 **Interfaces:**
@@ -67,7 +67,7 @@ Implementation note (25 November): MpvSurfaceView.initialize now performs asset 
 
 - [x] Add deterministic readiness-gate coverage for successful attach, failed attach propagation, and release cancellation. Tests are in MpvSurfaceReadinessTest.kt; they have been authored but deliberately not executed because build/test execution is not authorized.
 
-Implementation note (25 November): MPV surface attachment now reports thrown native/JNI failures through the shared readiness signal. The playback coroutine no longer silently swallows a failed readiness await; it propagates non-cancellation failures to the existing player error callback and diagnostic log. Cancellation is still rethrown. This prevents a failed attach from leaving playback stuck indefinitely without surfacing an error. This does not establish native surface-detach completion or solve generation races.
+Implementation note (25 November): MPV surface attachment now reports thrown native/JNI failures through the shared readiness signal. The playback coroutine no longer silently swallows a failed readiness await; it propagates non-cancellation failures to the existing player error callback and diagnostic log. Cancellation is still rethrown. This prevents a failed attach from leaving playback stuck indefinitely without surfacing an error. At this checkpoint, detach completion and generation races remained open; the subsequent implementation note below supersedes that status.
 
 - [ ] Write failing tests for attach queued then destroyed; old generation must never attach after invalidation.
 - [ ] Write failing tests for resize queued then destroyed; stale resize must be ignored.
@@ -148,7 +148,7 @@ Implementation note (25 November, continued): SurfaceView and TextureView callba
 
 Surface operation handling was hardened at the same boundary: negative return codes from the runtime surface property/option setters now become failures; detach attempts the native detachSurface() even if a preceding property update fails, but preserves the failure so the owning cleanup job does not release Java Surface/SurfaceControl resources on a failed detach request. Failed resource releases are retained until final native close succeeds. This is a conservative lifetime fallback, not a native detach acknowledgement.
 
-The pinned JNI implementation remains the hard gate: detachSurface() is void, sets wid=0, and deletes the JNI global reference without waiting for VO teardown. Android's SurfaceHolder contract requires rendering to stop before surfaceDestroyed returns; the current asynchronous callback path still cannot prove that condition. No claim of complete teardown safety is made. The native completion/child-layer ownership design must be resolved before marking Tasks 1, 3 or 4 complete.
+This checkpoint's unresolved native detach limitation was superseded by the event-based VO teardown barrier and child-surface ownership protocol recorded below.
 
 
-Implementation note (25 November, final slice): A failure during a later surface reattachment is forwarded through the existing player error callback; the initial attach failure still propagates through the readiness deferred to the source-load error path. TextureView now returns framework ownership when no application-owned texture generation was created, while retained textures continue to return false for deferred app release. This does not close the native detach-completion blocker.
+Implementation note (25 November, final slice): A failure during a later surface reattachment is forwarded through the existing player error callback; the initial attach failure still propagates through the readiness deferred to the source-load error path. TextureView now returns framework ownership when no application-owned texture generation was created, while retained textures continue to return false for deferred app release. This initial callback correction was followed by the event-based native teardown barrier recorded in the completed source-level lifecycle slice below.
