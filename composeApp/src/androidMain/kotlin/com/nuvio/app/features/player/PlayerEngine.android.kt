@@ -2483,6 +2483,9 @@ private fun ExoPlayerSurface(
     }
 
     val onVideoFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit = { framePlayer, presentationTimeUs, elapsedRealtimeMs, positionMs, frameRate ->
+        // VideoFrameMetadataListener has no AnalyticsListener.EventTime, so this current-item
+        // identity check is best-effort for queued frames crossing a seamless item transition.
+        // It is diagnostic-only; first-frame gating uses the stronger event-time identity check.
         val frameMediaIdentity = playbackDiagnosticMediaIdentity(framePlayer.currentMediaItem)
         if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
             videoFrameOutputGapWatchdog.recordFrame(
