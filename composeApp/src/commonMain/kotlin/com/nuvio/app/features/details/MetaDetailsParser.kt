@@ -70,7 +70,7 @@ internal object MetaDetailsParser {
         string(name) ?: error("Missing required field '$name'")
 
     private fun JsonObject.string(name: String): String? =
-        (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+        (this[name] as? JsonPrimitive)?.contentOrNull
 
     private fun JsonObject.artworkUrl(name: String): String? =
         string(name)?.trim()?.takeIf(String::isNotBlank)
@@ -79,13 +79,13 @@ internal object MetaDetailsParser {
         this[name] as? JsonArray ?: JsonArray(emptyList())
 
     private fun JsonObject.stringList(name: String): List<String> =
-        array(name).mapNotNull { (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.contentOrNull?.takeIf(String::isNotBlank) }
+        array(name).mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
 
     private fun JsonObject.stringListOrCsv(name: String): List<String> {
         val value = this[name] ?: return emptyList()
         return when (value) {
-            is JsonArray -> value.mapNotNull { (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.contentOrNull?.takeIf(String::isNotBlank) }
-            is JsonPrimitive -> value.takeIf { it.isString }?.contentOrNull?.let { csv ->
+            is JsonArray -> value.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
+            is JsonPrimitive -> value.contentOrNull?.let { csv ->
                 buildList {
                     for (entry in csv.split(',')) {
                         val normalized = entry.trim()
@@ -197,9 +197,9 @@ internal object MetaDetailsParser {
     private fun JsonObject.cast(linkedCast: List<MetaPerson>): List<MetaPerson> {
         val appExtras = this["app_extras"] as? JsonObject
         val appExtraCast = appExtras.people("cast")
-        val topLevelCast = people("cast")
+        val topLevelCastNames = stringListOrCsv("cast")
 
-        return mergePeople(appExtraCast, topLevelCast, linkedCast)
+        return mergePeople(appExtraCast, topLevelCastNames, linkedCast)
     }
 
     private fun JsonObject.writers(linkWriters: List<String>): List<String> {
@@ -228,16 +228,14 @@ internal object MetaDetailsParser {
                             photo = element.string("photo")?.trim()?.takeIf(String::isNotBlank),
                         )
                     }
-                    is JsonPrimitive -> element
-                        .takeIf(JsonPrimitive::isString)
-                        ?.contentOrNull
+                    is JsonPrimitive -> element.contentOrNull
                         ?.trim()
                         ?.takeIf(String::isNotBlank)
                         ?.let(::MetaPerson)
                     else -> null
                 }
             }
-            is JsonPrimitive -> value.takeIf(JsonPrimitive::isString)?.contentOrNull?.let { csv ->
+            is JsonPrimitive -> value.contentOrNull?.let { csv ->
                 buildList {
                     for (entry in csv.split(',')) {
                         val normalized = entry.trim()
@@ -251,7 +249,7 @@ internal object MetaDetailsParser {
 
     private fun mergePeople(
         appExtraCast: List<MetaPerson>,
-        topLevelCast: List<MetaPerson>,
+        topLevelCastNames: List<String>,
         linkedCast: List<MetaPerson>,
     ): List<MetaPerson> {
         val merged = linkedMapOf<String, MetaPerson>()
@@ -272,7 +270,7 @@ internal object MetaDetailsParser {
         }
 
         appExtraCast.forEach(::append)
-        topLevelCast.forEach(::append)
+        topLevelCastNames.forEach { name -> append(MetaPerson(name = name)) }
         linkedCast.forEach(::append)
 
         return merged.values.toList()
@@ -423,9 +421,9 @@ internal object MetaDetailsParser {
 
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
         for ((key, value) in entries) {
-            val primitive = value as? JsonPrimitive ?: continue
-            if (!primitive.isString) continue
-            val content = primitive.content.takeIf { it.isNotBlank() } ?: continue
+            val content = (value as? JsonPrimitive)?.contentOrNull
+                ?.takeIf { it.isNotBlank() }
+                ?: continue
             put(key, content)
         }
     }
