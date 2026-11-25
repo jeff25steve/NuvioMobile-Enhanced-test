@@ -37,7 +37,8 @@ class ExoSeekStallWatchdogTest {
         assertNull(watchdog.poll(2, 20_000L, Player.STATE_BUFFERING, false, false, 30_000L, timeoutMs))
         assertNull(watchdog.poll(2, 40_000L, Player.STATE_BUFFERING, true, true, 30_000L, timeoutMs))
         assertNull(watchdog.poll(2, 84_997L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs))
-        assertTrue(watchdog.poll(2, 84_998L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs) != null)
+        assertNull(watchdog.poll(2, 99_996L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs))
+        assertTrue(watchdog.poll(2, 99_997L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs) != null)
     }
 
     @Test
