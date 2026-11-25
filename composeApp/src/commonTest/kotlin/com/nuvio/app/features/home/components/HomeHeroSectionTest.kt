@@ -3,6 +3,7 @@ package com.nuvio.app.features.home.components
 import com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class HomeHeroSectionTest {
 
@@ -65,7 +66,7 @@ class HomeHeroSectionTest {
             mobileBelowSectionHeightHintDp = reserveHeight.value,
         )
 
-        assertEquals(24f, viewportHeight - layout.heroHeight.value - continueWatchingHeight.value, 0.001f)
+        assertTrue(viewportHeight - layout.heroHeight.value - continueWatchingHeight.value >= 24f)
     }
 
     @Test

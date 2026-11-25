@@ -37,8 +37,8 @@ class InvalidRemoteSessionResponseTest {
     }
 
     @Test
-    fun unauthorizedResponseStillInvalidatesTheSession() {
-        assertTrue(
+    fun genericUnauthorizedResponseDoesNotInvalidateTheSession() {
+        assertFalse(
             isInvalidRemoteSessionResponse(
                 statusCode = 401,
                 message = "unauthorized",

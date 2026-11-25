@@ -1,6 +1,7 @@
 package com.nuvio.app.core.storage
 
 import android.content.Context
+import com.nuvio.app.features.player.PlayerSettingsStorage
 
 internal actual object PlatformLocalAccountDataCleaner {
     private val preferenceNames = listOf(
@@ -68,6 +69,10 @@ internal actual object PlatformLocalAccountDataCleaner {
 
     actual fun wipe() {
         val context = appContext ?: return
+        // Preserve profile-local subtitle appearance before the shared legacy player
+        // settings file is wiped. This migration must cover inactive profiles too.
+        PlayerSettingsStorage.initialize(context)
+        PlayerSettingsStorage.migrateLegacySubtitlePreferencesToDeviceStore()
         preferenceNames.forEach { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE)
                 .edit()

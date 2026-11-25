@@ -42,7 +42,8 @@ internal fun mpvPlaybackHdrFormat(
         .any { value ->
             val normalized = value.lowercase()
             normalized.contains("dovi") ||
-                listOf("dvhe", "dvh1", "dvav", "dva1", "dav1").any { prefix -> normalized.contains(prefix) }
+                listOf("dvhe", "dvh1", "dvav", "dva1", "dav1").any { prefix -> normalized.contains(prefix) } ||
+                DOLBY_VISION_CODEC_PROFILE.matches(normalized)
         }
     if (hasDolbyVisionProfile || hasDolbyVisionCodec || colorMatrix.equals("dolbyvision", ignoreCase = true)) {
         return "dolby_vision"
@@ -55,6 +56,8 @@ internal fun mpvPlaybackHdrFormat(
         else -> ""
     }
 }
+
+private val DOLBY_VISION_CODEC_PROFILE = Regex("""\bprofile\s*8\.1\b""", RegexOption.IGNORE_CASE)
 
 internal fun mpvPlaybackColorRange(colorLevels: String?): String? = when (colorLevels?.trim()?.lowercase()) {
     "full" -> "Full"

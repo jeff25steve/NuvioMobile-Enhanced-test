@@ -203,5 +203,6 @@ class NextEpisodeCardTest {
                 }
             }
         }
+        compose.waitForIdle()
     }
 }

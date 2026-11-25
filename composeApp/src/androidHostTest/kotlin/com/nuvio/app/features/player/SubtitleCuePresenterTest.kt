@@ -139,7 +139,9 @@ class SubtitleCuePresenterTest {
         assertFalse(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_PGS))
         assertFalse(supportsLetterboxTextSubtitleMimeType(androidx.media3.common.MimeTypes.APPLICATION_TTML))
 
-        val presenter = SubtitleCuePresenter { SubtitleStyleState.DEFAULT }
+        val presenter = SubtitleCuePresenter {
+            SubtitleStyleState(appearance = SubtitleAppearance(shadowEnabled = true))
+        }
         val cue = Cue.Builder().setText("Plain SRT").build()
         presenter.present(listOf(cue), allowLetterboxPlacement = true)
         assertFalse(presenter.cues.blocks.single().placeInLetterbox)
@@ -162,7 +164,9 @@ class SubtitleCuePresenterTest {
 
     @Test
     fun letterboxPlacementPreferenceIsReevaluatedWhenStyleChanges() {
-        var style = SubtitleStyleState.DEFAULT
+        var style = SubtitleStyleState(
+            appearance = SubtitleAppearance(shadowEnabled = true),
+        )
         val presenter = SubtitleCuePresenter { style }
         val cue = Cue.Builder().setText("Plain VTT").build()
 

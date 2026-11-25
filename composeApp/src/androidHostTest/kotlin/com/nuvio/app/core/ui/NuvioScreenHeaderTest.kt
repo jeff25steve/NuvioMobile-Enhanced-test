@@ -73,8 +73,8 @@ class NuvioScreenHeaderTest {
                     Box(
                         Modifier
                             .size(320.dp, 100.dp)
-                            .background(Color.DarkGray)
-                            .testTag("settingsRoot"),
+                            .testTag("settingsRoot")
+                            .background(Color.DarkGray),
                     ) {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                             NuvioScreenHeader(

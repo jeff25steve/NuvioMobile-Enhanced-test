@@ -67,6 +67,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -522,6 +523,7 @@ internal fun HomeHeroSection(
                                     contentDescription = item.name,
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .then(if (isCurrentLayer) Modifier else Modifier.clearAndSetSemantics {})
                                         .graphicsLayer {
                                             val offset = heroPageOffset(pagerState, layer.page)
                                             val visibility = (1f - abs(offset)).coerceIn(0f, 1f)
@@ -667,7 +669,9 @@ internal fun HomeHeroSection(
                                     val layerItem = items[layer.itemIndex]
                                     key(layerItem.stableKey()) {
                                     Box(
-                                        modifier = Modifier.graphicsLayer {
+                                        modifier = Modifier
+                                            .then(if (layer.page == currentPage) Modifier else Modifier.clearAndSetSemantics {})
+                                            .graphicsLayer {
                                             val offset = heroPageOffset(pagerState, layer.page)
                                             val visibility = (1f - abs(offset)).coerceIn(0f, 1f)
                                             alpha = ((visibility - 0.5f) * 2f).coerceIn(0f, 1f)

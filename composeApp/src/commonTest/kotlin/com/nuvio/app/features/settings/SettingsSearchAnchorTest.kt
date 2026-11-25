@@ -370,7 +370,7 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.MetaScreen, "meta-episode-cards", 0),
             Triple(SettingsPage.MetaScreen, "meta-shuffle", 0),
             Triple(SettingsPage.MetaScreen, "meta-blur-episodes", 0),
-            Triple(SettingsPage.Notifications, "notification-unknown", 1),
+            Triple(SettingsPage.Notifications, "notification-test", 1),
             Triple(SettingsPage.TmdbEnrichment, "tmdb-enable", 0),
             Triple(SettingsPage.TmdbEnrichment, "tmdb-api-key", 0),
             Triple(SettingsPage.TmdbEnrichment, "tmdb-language", 1),

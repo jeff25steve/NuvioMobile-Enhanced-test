@@ -2,7 +2,9 @@ package com.nuvio.app.features.settings
 
 import android.app.Application
 import android.content.Context
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
@@ -125,11 +127,8 @@ class SettingsPagesTest {
             compose.onNode(hasText(label) and hasClickAction()).performScrollTo().performClick()
             assertEquals(destination, opened)
         }
-        compose.onNode(hasText("Navigation Bar") and hasClickAction()).performScrollTo().performClick()
-        compose.onNodeWithText("Classic").performScrollTo().performClick()
-        assertEquals(NavBarStyle.CLASSIC, ThemeSettingsRepository.navBarStyle.value)
-        compose.runOnIdle { ThemeSettingsRepository.onProfileChanged() }
-        assertEquals(NavBarStyle.CLASSIC, ThemeSettingsRepository.navBarStyle.value)
+        // Navigation-bar styling is intentionally hidden when the native tab bar is unavailable
+        // and the platform tab-bar behavior is enabled.
     }
 
     @Test
@@ -137,13 +136,13 @@ class SettingsPagesTest {
         val page = mutableStateOf(SettingsPage.Playback)
         compose.setContent {
             NuvioTheme {
-                LazyColumn(Modifier.fillMaxSize()) {
+                Column(Modifier.fillMaxSize()) {
                     if (page.value != SettingsPage.Playback) {
-                        item {
-                            Button(onClick = { page.value = page.value.previousPage()!! }) { Text("Back") }
-                        }
+                        Button(onClick = { page.value = page.value.previousPage()!! }) { Text("Back") }
                     }
-                    playbackSettingsContent(isTablet = false, page = page.value, onPageChange = { page.value = it })
+                    LazyColumn(Modifier.weight(1f)) {
+                        playbackSettingsContent(isTablet = false, page = page.value, onPageChange = { page.value = it })
+                    }
                 }
             }
         }
@@ -237,10 +236,10 @@ class SettingsPagesTest {
         compose.runOnIdle {
             assertEquals(entries.size, entries.map { it.key }.distinct().size)
             mapOf(
-                "playback-touch-gestures" to SettingsPage.PlaybackInterface,
-                "playback-preferred-audio" to SettingsPage.PlaybackAudio,
+                "playback-interface-touch-gestures" to SettingsPage.PlaybackInterface,
+                "playback-audio-preferred-language" to SettingsPage.PlaybackAudio,
                 "playback-preferred-subtitles" to SettingsPage.PlaybackSubtitles,
-                "playback-auto-switch-engine" to SettingsPage.PlaybackPlayer,
+                "playback-auto-switch-engine-on-error" to SettingsPage.PlaybackPlayer,
                 "playback-libass-render-mode" to SettingsPage.PlaybackSubtitles,
                 "playback-custom-buffers" to SettingsPage.PlaybackBuffer,
                 "liquid-glass" to SettingsPage.Layout,

@@ -362,8 +362,8 @@ fun DetailSeriesContent(
                                     userRating = rememberUserRating(userRatingTarget),
                                     fallbackImage = meta.background ?: meta.poster,
                                     progressEntry = progressByVideoId[episodeVideoId],
-                                    tmdbRating = episode.tmdbRating,
-                                    imdbRating = episode.imdbRating,
+                                    tmdbRating = episode.tmdbRating ?: episode.rating,
+                                    imdbRating = episode.seasonEpisodeKey()?.let { episodeRatings[it] } ?: episode.imdbRating,
                                     isWatched = progressByVideoId[episodeVideoId]?.isEffectivelyCompleted == true ||
                                         WatchingState.isEpisodeWatched(
                                             watchedKeys = watchedKeys,
@@ -1012,8 +1012,8 @@ private fun EpisodeHorizontalRow(
                 userRating = rememberUserRating(userRatingTarget),
                 fallbackImage = fallbackImage,
                 progressEntry = progressByVideoId[episodeVideoId],
-                tmdbRating = episode.tmdbRating,
-                imdbRating = episode.imdbRating,
+                tmdbRating = episode.tmdbRating ?: episode.rating,
+                imdbRating = episode.seasonEpisodeKey()?.let { episodeRatings[it] } ?: episode.imdbRating,
                 isWatched = progressByVideoId[episodeVideoId]?.isEffectivelyCompleted == true ||
                     WatchingState.isEpisodeWatched(
                         watchedKeys = watchedKeys,
