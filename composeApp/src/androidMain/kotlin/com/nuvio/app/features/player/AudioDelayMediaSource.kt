@@ -24,6 +24,14 @@ import androidx.media3.exoplayer.upstream.CmcdConfiguration
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.extractor.text.SubtitleParser
 
+internal fun shiftVideoTimestampForAudioDelay(buffer: DecoderInputBuffer, audioDelayUs: Long) {
+    // Media3 requires every attribute of an EOS buffer to be ignored. In particular, do not
+    // subtract from an unset/sentinel timestamp, which can overflow for large offsets.
+    if (!buffer.isEndOfStream && buffer.timeUs != C.TIME_UNSET) {
+        buffer.timeUs -= audioDelayUs
+    }
+}
+
 /** Wraps every source [delegate] creates in an [AudioDelayMediaSource]. */
 internal class AudioDelayMediaSourceFactory(
     private val delegate: MediaSource.Factory,
@@ -199,7 +207,7 @@ private class AudioDelaySampleStream(
     ): Int {
         val result = childStream.readData(formatHolder, buffer, readFlags)
         if (result == C.RESULT_BUFFER_READ) {
-            buffer.timeUs -= audioDelayUsProvider()
+            shiftVideoTimestampForAudioDelay(buffer, audioDelayUsProvider())
         }
         return result
     }
