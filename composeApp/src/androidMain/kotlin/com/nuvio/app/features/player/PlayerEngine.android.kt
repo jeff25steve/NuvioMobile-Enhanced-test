@@ -3199,7 +3199,8 @@ private class NuvioLibmpvView(
     ) {
         surfaceReady.await()
         withContext(mpvDispatcher) {
-            if (!released.get()) {
+            withSurfaceLifecycleLock {
+                if (!released.get()) {
                 val sameSource =
                     currentSourceUrl == sourceUrl &&
                         currentSourceAudioUrl == sourceAudioUrl &&
@@ -3218,6 +3219,7 @@ private class NuvioLibmpvView(
                 } else {
                     applyRequestHeadersNow(requestHeaders)
                     setPausedNow(!playWhenReady)
+                }
                 }
             }
         }
