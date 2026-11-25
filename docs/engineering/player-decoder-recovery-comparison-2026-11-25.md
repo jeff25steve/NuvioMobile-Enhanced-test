@@ -237,3 +237,48 @@ The initial 15% expected-progress threshold and sample cadence are a conservativ
 A source review found the initial polling loop still requested a native-backed MPV snapshot every three seconds while the player was paused or idle, even though the watchdog could not report in those states. The loop now re-baselines and skips the snapshot call until a playback-restart boundary is active and the player is neither user-paused nor seeking. END_FILE clears the active playback gate, preventing post-EOF polling. Buffer-cache stalls remain observable because `paused-for-cache` is deliberately not used as an exclusion. The playback-speed regression test now asserts the five-sample threshold at 2x speed.
 
 This is a real efficiency improvement: it removes unnecessary MPV dispatcher/property reads during idle, pause, seek and after END_FILE without changing playback behavior. The source/test changes remain unexecuted due to the no-build/no-test restriction.
+
+
+## Source-correctness audit from the six-item review — 25 November 2026
+
+The six proposed items were checked against the current Nuvio player source, Media3 1.8.0 APIs, and the cited upstream issue/PR records. Only the format-boundary diagnostic was a code change in this pass.
+
+### 1. Dolby Vision under-report — device validation remains required
+
+The code already has Dolby Vision-aware format selection and renderer handling. The reported remaining uncertainty is whether a device/stream that under-reports Dolby Vision capability still outputs Dolby Vision rather than HDR10. This cannot be proven by another source-level heuristic. Validate on an actual DV-capable display with a known Profile 8 PQ sample, compare the device/display OSD against the source metadata, and capture the selected decoder. Do not claim DV output correctness from MIME/codec selection alone.
+
+### 2. HDR/DV input format diagnostics — implemented
+
+AnalyticsListener.onVideoInputFormatChanged(EventTime, Format, DecoderReuseEvaluation?) now emits one concise videoFormatHdr record per HDR or Dolby Vision format transition. It records attempt, MIME type, codec string, dimensions, frame rate, color space, range, transfer function (PQ/HLG/SDR/unknown), luma/chroma bit depth, presence of static HDR metadata, and the currently known decoder name. It does not log per frame and adds no dependency.
+
+Interpretation boundary: this records the input format signalled to Media3. It does not prove that the display negotiated HDR, that Dolby Vision metadata survived the full pipeline, or that the panel rendered DV rather than an HDR10 fallback. The decoder-initialized event is separately logged by the existing listener; it may occur after the format-change log, so decoder=not_initialized is a valid ordering outcome rather than evidence of missing decoder selection.
+
+### 3. Mid-stream decoder recovery — deliberately deferred
+
+The cited AndroidX Media PR #3422 remains an upstream proposal, not an API available to the pinned Media3 1.8.0 integration. Its related issue #3421 describes the exact gap: setEnableDecoderFallback covers decoder initialization failures, not a decoder that fails after successful initialization. Nuvio already enables initialization-time fallback. Do not add an application-level mid-stream decoder rebuild until the upstream API lands or a reproducible Nuvio-specific failure demonstrates a safe bounded workaround. A local retry can change decoder selection and source position, but also risks repeated failures, duplicate source work and lifecycle races.
+
+### 4. Player release and secure-codec ownership — audit, no teardown change
+
+AndroidX Media issue #3379 documents an Amlogic secure decoder initialization failure with NO_MEMORY; the maintainer attributes it to device/secure-memory limits, concurrent secure decoders, unreleased prior sessions or memory pressure, and recommends correct player.release() when playback finishes or the app goes into the background. Nuvio's current ExoPlayer disposal path already removes listeners, detaches the exact PlayerView-owned player, cancels player-scoped work and calls release(). Engine replacement and leaving the player route dispose the player-owning composition. The Activity stop path pauses outside PiP; it does not unconditionally release while the playback route remains alive. No unconditional background release was added because that would change resume/PiP behavior without evidence that Nuvio retains a completed session or leaks a codec. Device validation should capture release on route exit, engine switch, PiP end and Activity finish, while separately checking intentional background/PiP continuity.
+
+### 5. Long background pause and decoder error 4003 — no generic retry
+
+AndroidX Media issue #3148 is open and its maintainer discussion is more specific than the initial summary: stopping a foreground media service signals that resources may be reclaimed; Media3's recommended paused-audio behavior is to keep the foreground service active for a further ten minutes (or until a permanent playback-ending signal), and Media3 session handling implements that policy. The maintainer also notes that the reported non-recoverable codec error does not currently cause ExoPlayer to retry automatically, with the codec-framework investigation still unresolved in the latest issue discussion reviewed. Nuvio's current player is Activity/composition-owned and does not implement the same persistent background audio service contract. Therefore do not add a broad prepare() retry for every 4003/decoder error or claim this issue proves a Nuvio defect. First capture a Nuvio-specific error with lifecycle state, error cause, codec name and player ownership; only then consider a single generation-fenced retry for the precise reproduced case. Media3 documents prepare() as a retry path for failed/stopped playback, but that alone does not prove every codec-reclamation failure will recover.
+
+### 6. Custom Media3 AAR upgrade — keep pinned
+
+Nuvio's custom renderer/extractor AARs and Media3 API usage form one compatibility unit. No isolated Maven alias bump was made. Upgrade only as a coordinated, provenance-checked rebuild of all custom binaries and matching exclusions, followed by the authorized compatibility/build matrix.
+
+### 7. Frame-rate policy — no change
+
+The current long-content/live-stream preference gate matches the Android guidance already documented in the existing notes. No defect or regression evidence was found.
+
+### Explicitly rejected as unsupported changes
+
+- No profile-5 GPU tone-map addition.
+- No broad player architecture rewrite for size alone.
+- No restoration of Media3 1.12 beta flags.
+- No automatic recovery from every watchdog or codec error.
+- No mid-stream decoder recovery before the upstream API or a reproducible Nuvio-specific failure.
+
+**Verification boundary:** the HDR/DV callback uses already-imported Media3 1.8.0 types/constants and adds no dependency. Remote source and imports were re-fetched after the change. No build, compiler, unit test, CI or device validation was run, so compilation and real DV output remain unverified.
