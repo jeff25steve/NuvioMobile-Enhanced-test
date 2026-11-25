@@ -70,6 +70,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -518,7 +519,10 @@ fun NuvioInputField(
                 style = MaterialTheme.typography.bodyLarge,
             )
         },
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = tokens.colors.textPrimary),
+        textStyle = MaterialTheme.typography.bodyLarge.copy(
+            color = tokens.colors.textPrimary,
+            textDirection = TextDirection.Content,
+        ),
         leadingIcon = leadingContent,
         trailingIcon = trailingContent,
         colors = OutlinedTextFieldDefaults.colors(
