@@ -4,6 +4,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -20,7 +21,7 @@ class MpvSurfaceReadinessTest {
     }
 
     @Test
-    fun failedSurfaceAttachmentFailsWaitingPlaybackWithOriginalCause() = runTest {
+    fun failedSurfaceAttachmentPropagatesFailureMessage() = runTest {
         val readiness = MpvSurfaceReadiness()
         val waitingPlayback = async { readiness.await() }
         runCurrent()
@@ -31,7 +32,7 @@ class MpvSurfaceReadinessTest {
         val observed = assertFailsWith<IllegalStateException> {
             waitingPlayback.await()
         }
-        assertTrue(observed.message == failure.message)
+        assertEquals(failure.message, observed.message)
     }
 
     @Test
