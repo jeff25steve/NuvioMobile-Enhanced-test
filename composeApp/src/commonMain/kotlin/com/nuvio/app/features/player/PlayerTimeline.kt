@@ -24,8 +24,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -136,6 +138,75 @@ internal fun fractionalSeekToleranceForTrack(widthPx: Int, density: Float): Doub
     return (2f * density / widthPx).coerceIn(0f, 1f).toDouble()
 }
 
+internal fun interpolatePlaybackPositionMs(
+    positionMs: Long,
+    elapsedNanos: Long,
+    playbackSpeed: Float,
+    durationMs: Long,
+): Long {
+    val basePositionMs = positionMs.coerceAtLeast(0L)
+    val boundedDurationMs = durationMs.takeIf { it > 0L }
+    if (elapsedNanos <= 0L || !playbackSpeed.isFinite() || playbackSpeed <= 0f) {
+        return boundedDurationMs?.let(basePositionMs::coerceAtMost) ?: basePositionMs
+    }
+
+    val elapsedMs = elapsedNanos.toDouble() / 1_000_000.0 * playbackSpeed.toDouble()
+    val candidatePositionMs = (basePositionMs.toDouble() + elapsedMs)
+        .coerceAtMost(Long.MAX_VALUE.toDouble())
+        .toLong()
+    return boundedDurationMs?.let(candidatePositionMs::coerceAtMost) ?: candidatePositionMs
+}
+
+@Composable
+internal fun rememberFrameSynchronizedPositionMs(
+    positionMs: Long,
+    durationMs: Long,
+    isPlaying: Boolean,
+    playbackSpeed: Float,
+    isInteracting: Boolean,
+): Long {
+    val shouldAnimate = isPlaying &&
+        !isInteracting &&
+        durationMs > 0L &&
+        playbackSpeed.isFinite() &&
+        playbackSpeed > 0f
+
+    val framePositionMs by produceState(
+        initialValue = timelinePositionInBounds(positionMs, durationMs),
+        positionMs,
+        durationMs,
+        isPlaying,
+        playbackSpeed,
+        isInteracting,
+    ) {
+        value = timelinePositionInBounds(positionMs, durationMs)
+        if (!shouldAnimate) return@produceState
+
+        var frameAnchorNanos: Long? = null
+        while (true) {
+            withFrameNanos { frameTimeNanos ->
+                val anchorNanos = frameAnchorNanos
+                    ?: frameTimeNanos.also { frameAnchorNanos = it }
+                value = interpolatePlaybackPositionMs(
+                    positionMs = positionMs,
+                    elapsedNanos = (frameTimeNanos - anchorNanos).coerceAtLeast(0L),
+                    playbackSpeed = playbackSpeed,
+                    durationMs = durationMs,
+                )
+            }
+        }
+    }
+    return if (isInteracting) {
+        timelinePositionInBounds(positionMs, durationMs)
+    } else {
+        framePositionMs
+    }
+}
+
+private fun timelinePositionInBounds(positionMs: Long, durationMs: Long): Long =
+    if (durationMs > 0L) positionMs.coerceIn(0L, durationMs) else positionMs.coerceAtLeast(0L)
+
+
 @Composable
 internal fun ReportTimelineScrubbing(
     scrubbing: Boolean,
@@ -183,7 +254,7 @@ internal fun PlayerTimeline(
         trackWidthPx,
         LocalDensity.current.density,
     )
-    val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged)
+    val isInteracting = enabled && durationMs > 0L && (isPressed || isDragged || scrubPosition != null)
     ReportTimelineTouch(isInteracting, onTouchChange)
     ReportTimelineScrubbing(
         scrubbing = shouldEnablePlayerScrubbing(isDragged, enabled, durationMs),
@@ -196,8 +267,15 @@ internal fun PlayerTimeline(
         label = "playerTimelineThickness",
     )
 
+    val framePositionMs = rememberFrameSynchronizedPositionMs(
+        positionMs = displayedPositionMs,
+        durationMs = durationMs,
+        isPlaying = snapshot.isPlaying,
+        playbackSpeed = snapshot.playbackSpeed,
+        isInteracting = isInteracting,
+    )
     val sliderState = remember(rangeEnd) { SliderState(trackRange = 0f..rangeEnd) }
-    sliderState.value = displayedPositionMs.coerceIn(0L, durationMs).toFloat()
+    sliderState.value = framePositionMs.coerceIn(0L, durationMs).toFloat()
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box {
@@ -209,7 +287,7 @@ internal fun PlayerTimeline(
                     onScrubChange(position)
                 },
                 onValueChangeFinished = {
-                    onScrubFinished((scrubPosition ?: displayedPositionMs).coerceIn(0L, durationMs))
+                    onScrubFinished((scrubPosition ?: framePositionMs).coerceIn(0L, durationMs))
                     scrubPosition = null
                 },
                 enabled = enabled && durationMs > 0L,
@@ -264,7 +342,7 @@ internal fun PlayerTimeline(
             SeekPreviewOverlay(
                 controller = seekPreview,
                 active = isInteracting,
-                positionMs = displayedPositionMs.coerceIn(0L, durationMs),
+                positionMs = framePositionMs.coerceIn(0L, durationMs),
                 durationMs = durationMs,
                 modifier = Modifier.matchParentSize(),
             )
