@@ -190,7 +190,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         },
     ) {
         withSurfaceLifecycleLock {
-            if (!surfaceGeneration.isCurrent(generation)) return@withLock
+            if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
 
             val previousGeneration = attachedSurfaceGeneration
             if (surfaceAttached && previousGeneration != null && previousGeneration != generation) {
@@ -211,7 +211,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private fun resize(width: Int, height: Int, generation: Long) = executeMpv(
         onFailure = onSurfaceFailure,
     ) {
-        surfaceLifecycleMutex.withLock {
+        withSurfaceLifecycleLock {
             if (!surfaceGeneration.isCurrent(generation) || attachedSurfaceGeneration != generation) {
                 return@withLock
             }
