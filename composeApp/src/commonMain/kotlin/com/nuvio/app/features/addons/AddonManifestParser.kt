@@ -46,11 +46,13 @@ internal object AddonManifestParser {
     ): List<AddonResource> = buildList {
         for (resource in array("resources")) {
             when (resource) {
-                is JsonPrimitive -> resource.contentOrNull
-                    ?.takeIf(String::isNotBlank)
-                    ?.let { name ->
-                        add(AddonResource(name = name, types = defaultTypes, idPrefixes = defaultPrefixes))
-                    }
+                is JsonPrimitive -> if (resource.isString) {
+                    resource.content
+                        .takeIf(String::isNotBlank)
+                        ?.let { name ->
+                            add(AddonResource(name = name, types = defaultTypes, idPrefixes = defaultPrefixes))
+                        }
+                }
 
                 is JsonObject -> {
                     val name = resource.optionalString("name")?.takeIf(String::isNotBlank) ?: continue
