@@ -73,7 +73,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - [ ] Write failing tests for resize queued then destroyed; stale resize must be ignored.
 - [ ] Write failing tests for repeated destroy and repeated release; native release actions occur at most once.
 - [ ] Write failing tests for release requested during detach; close occurs only after detach completion.
-- [x] Author host coverage for invalidated generation rejection, stale-destroy isolation, terminal release, VO release-gate success states and observer-query failure. Tests are committed but remain unexecuted; they do not exercise the full native dispatcher/Mutex coordinator.
+- [x] Author host coverage for invalidated generation rejection, stale-destroy isolation, terminal release, VO release-gate success states and observer-query failure. Extend `MpvSurfaceTest` to repeat Activity stop/start surface recreation twice in addition to seek and view removal/recreation. These tests are committed but remain unexecuted; they do not exercise the full native dispatcher/Mutex coordinator.
 - [ ] Run only the targeted host-test task if separately authorized; otherwise leave tests unexecuted and report that boundary.
 
 ### Task 3: Implement serialized surface lifecycle ownership
@@ -124,7 +124,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - [x] Trace source replacement, Compose disposal, Activity stop/start, PiP and background paths. `loadSource()` reuses the same player; ON_STOP pauses outside PiP (or while finishing), ON_START restores play intent, and `AndroidView.onRelease` is terminal.
 - [x] Route terminal release through the same lifecycle Mutex and native detach barrier; source replacement also uses the Mutex.
 - [x] Preserve existing controller, observer, subtitle, now-playing and audio-focus cleanup ownership in their existing DisposableEffects.
-- [ ] Add regression coverage for PiP/background pause-resume and view recreation where practical.
+- [ ] Add regression coverage for PiP/background pause-resume. View recreation coverage now includes repeated Activity stop/start cycles and view removal/recreation in `MpvSurfaceTest`, but remains unexecuted.
 
 ### Task 6: Review, documentation and integration readiness
 
