@@ -138,6 +138,17 @@ internal fun fractionalSeekToleranceForTrack(widthPx: Int, density: Float): Doub
     return (2f * density / widthPx).coerceIn(0f, 1f).toDouble()
 }
 
+internal fun shouldAnimatePlaybackTimeline(
+    isPlaying: Boolean,
+    isInteracting: Boolean,
+    durationMs: Long,
+    playbackSpeed: Float,
+): Boolean = isPlaying &&
+    !isInteracting &&
+    durationMs > 0L &&
+    playbackSpeed.isFinite() &&
+    playbackSpeed > 0f
+
 internal fun interpolatePlaybackPositionMs(
     positionMs: Long,
     elapsedNanos: Long,
@@ -165,11 +176,12 @@ internal fun rememberFrameSynchronizedPositionMs(
     playbackSpeed: Float,
     isInteracting: Boolean,
 ): Long {
-    val shouldAnimate = isPlaying &&
-        !isInteracting &&
-        durationMs > 0L &&
-        playbackSpeed.isFinite() &&
-        playbackSpeed > 0f
+    val shouldAnimate = shouldAnimatePlaybackTimeline(
+        isPlaying = isPlaying,
+        isInteracting = isInteracting,
+        durationMs = durationMs,
+        playbackSpeed = playbackSpeed,
+    )
 
     val framePositionMs by produceState(
         initialValue = timelinePositionInBounds(positionMs, durationMs),
