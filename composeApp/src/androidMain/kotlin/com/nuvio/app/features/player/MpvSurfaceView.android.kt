@@ -51,6 +51,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     protected abstract fun initOptions()
     protected abstract fun observeProperties()
+    protected open fun onSurfaceFailure(error: Throwable) = Unit
 
     suspend fun initialize(
         configDir: String,
@@ -172,7 +173,11 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun attach(surface: Surface, generation: Long) = executeMpv(
-        onFailure = surfaceReady::fail,
+        onFailure = { error ->
+            val wasReady = surfaceReady.isCompleted()
+            surfaceReady.fail(error)
+            if (wasReady) onSurfaceFailure(error)
+        },
     ) {
         if (!surfaceGeneration.isCurrent(generation)) return@executeMpv
         mpv.attachSurface(surface)
@@ -345,7 +350,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             }
 
             override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                val destroyedGeneration = generation ?: return false
+                val destroyedGeneration = generation ?: return true
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
                 val oldOutput = output
@@ -410,6 +415,8 @@ internal class MpvSurfaceReadiness {
     fun cancel() {
         ready.cancel()
     }
+
+    fun isCompleted(): Boolean = ready.isCompleted
 
     suspend fun await() {
         ready.await()
