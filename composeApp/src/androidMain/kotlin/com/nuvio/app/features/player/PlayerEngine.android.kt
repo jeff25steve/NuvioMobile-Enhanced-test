@@ -521,6 +521,10 @@ private fun ExoPlayerSurface(
     val latestSubtitleDelayMs = rememberUpdatedState(subtitleDelayMs)
     // Read by the loading and playback threads; outlives player rebuilds of the same surface.
     val audioDelayUs = remember { AtomicLong(0L) }
+    val selectedAudioTrack = remember(playerSourceKey) { AtomicBoolean(false) }
+    val effectiveAudioDelayUsProvider = remember(playerSourceKey) {
+        { effectiveAudioDelayUs(selectedAudioTrack.get(), audioDelayUs.get()) }
+    }
     // Read by the playback thread's audio sink; every rebuilt player picks up the current gain.
     val audioAmplificationDb = remember { AtomicInteger(AUDIO_AMPLIFICATION_MIN_DB) }
     val centerMixLevelDb = remember { AtomicInteger(0) }
@@ -763,7 +767,7 @@ private fun ExoPlayerSurface(
         val renderersFactory = SubtitleOffsetRenderersFactory(
             context = context,
             subtitleDelayUsProvider = { latestSubtitleDelayMs.value.toLong() * 1_000L },
-            audioDelayUsProvider = audioDelayUs::get,
+            audioDelayUsProvider = effectiveAudioDelayUsProvider,
             audioAmplificationDbProvider = audioAmplificationDb::get,
             audioDownmix = audioDownmix,
             forceSoftwareVideoDecoding = forceSoftwareVideoFallback,
@@ -1112,7 +1116,7 @@ private fun ExoPlayerSurface(
             scope = coroutineScope,
             getPlayer = { exoPlayer },
             getSubtitleDelayMs = { latestSubtitleDelayMs.value },
-            getAudioDelayUs = audioDelayUs::get,
+            getAudioDelayUs = effectiveAudioDelayUsProvider,
             presentCues = { cues ->
                 val mimeType = sidecarControllerRef?.subtitleMimeType
                 subtitlePresenter.present(
@@ -1589,6 +1593,9 @@ private fun ExoPlayerSurface(
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 Log.d(TAG, "onTracksChanged: ${tracks.groups.size} groups total")
                 InAppLogger.info("ExoPlayer/Android", "tracksChanged groups=${tracks.groups.size}")
+                selectedAudioTrack.set(
+                    tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO && it.isSelected },
+                )
                 exoPlayer.logCurrentTracks("onTracksChanged")
                 exoPlayer.logSelectedPlaybackDetails("onTracksChanged")
                 pendingAudioTrackSelection.firstOrNull()?.let { selection ->
