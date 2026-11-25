@@ -445,13 +445,13 @@ internal fun parseSidecarTimedCuesLenient(rawText: String, sourceUrl: String): L
     return out
 }
 
-private fun legacyActiveSidecarEntries(
+internal fun legacyActiveSidecarEntries(
     cues: List<CuesWithTiming>,
     positionUs: Long
 ): List<CuesWithTiming> {
     val active = ArrayList<CuesWithTiming>(4)
     for (entry in cues) {
-        if (entry.startTimeUs > positionUs) break
+        if (entry.startTimeUs > positionUs) continue
         if (positionUs < sidecarEntryEndUs(entry)) {
             active.add(entry)
         }
