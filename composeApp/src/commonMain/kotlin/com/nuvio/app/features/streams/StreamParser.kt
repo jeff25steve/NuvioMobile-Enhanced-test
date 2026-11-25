@@ -96,9 +96,10 @@ object StreamParser {
 
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
         for ((key, value) in entries) {
-            val content = (value as? JsonPrimitive)?.contentOrNull
-                ?.takeIf { it.isNotBlank() }
-                ?: continue
+            val primitive = value as? JsonPrimitive ?: continue
+            val serialized = primitive.toString()
+            if (serialized.length < 2 || serialized.first() != '"' || serialized.last() != '"') continue
+            val content = primitive.content.takeIf { it.isNotBlank() } ?: continue
             put(key, content)
         }
     }
