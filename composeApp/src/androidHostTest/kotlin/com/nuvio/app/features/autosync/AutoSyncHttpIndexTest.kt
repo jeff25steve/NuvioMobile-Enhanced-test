@@ -1,6 +1,7 @@
 package com.nuvio.app.features.autosync
 
 import android.app.Application
+import com.nuvio.app.features.addons.AddonHttpClientProvider
 import java.nio.charset.Charset
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.Dispatcher
@@ -29,6 +30,7 @@ class AutoSyncHttpIndexTest {
 
     @Before
     fun setUp() {
+        AddonHttpClientProvider.initialize(org.robolectric.RuntimeEnvironment.getApplication())
         server.dispatcher = object : Dispatcher() {
             override fun dispatch(request: RecordedRequest): MockResponse {
                 val body = files[request.path?.substringBefore('?')] ?: return MockResponse().setResponseCode(404)

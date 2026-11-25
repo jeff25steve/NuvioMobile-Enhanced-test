@@ -1,5 +1,9 @@
 package com.nuvio.app.features.details
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamProxyHeaders
 
@@ -19,6 +23,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class MetaDetailsParserTest {
 
     @Test
@@ -615,7 +621,6 @@ class MetaDetailsParserTest {
                   "title": "Episode",
                   "streams": [{
                     "url": "https://example.test/video.m3u8",
-                    "name": "Embedded source",
                     "behaviorHints": {
                       "proxyHeaders": {
                         "request": {
@@ -672,7 +677,7 @@ class MetaDetailsParserTest {
                     "streams": [false, {"url": "https://example.test/video.m3u8", "fileIdx": []}]
                   }
                 ],
-                "trailers": [null, {"key": "trailer-1", "name": "Trailer", "type": "Trailer", "size": {}, "official": []}],
+                "trailers": [null, {"key": "trailer-1", "size": {}, "official": []}],
                 "behaviorHints": ["wrong-shape"],
                 "app_extras": {"seasonPosters": ["https://example.test/season.jpg", {"bad": true}]}
               }

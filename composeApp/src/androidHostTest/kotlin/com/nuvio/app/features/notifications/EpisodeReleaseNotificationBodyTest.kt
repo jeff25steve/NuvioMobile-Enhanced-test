@@ -1,5 +1,9 @@
 package com.nuvio.app.features.notifications
 
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
 import kotlinx.coroutines.test.runTest
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.compose_player_episode_code_episode_only
@@ -12,6 +16,8 @@ import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class EpisodeReleaseNotificationBodyTest {
     @Test
     fun `formats code and title with localized resources`() = runTest {
