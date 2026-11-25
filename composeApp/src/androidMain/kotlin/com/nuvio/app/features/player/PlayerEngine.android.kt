@@ -5626,17 +5626,7 @@ private class FrameMonitoringPlayerView(
     private var frameMetadataCallback = onFrameMetadata
 
     private var monitoredPlayer: ExoPlayer? = null
-
-    private val frameMetadataListener = VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
-        val player = monitoredPlayer ?: return@VideoFrameMetadataListener
-        frameMetadataCallback(
-            player,
-            presentationTimeUs,
-            SystemClock.elapsedRealtime(),
-            player.currentPosition.coerceAtLeast(0L),
-            format.frameRate,
-        )
-    }
+    private var attachedFrameMetadataListener: VideoFrameMetadataListener? = null
 
     fun updateFrameMetadataCallback(callback: (ExoPlayer, Long, Long, Long, Float) -> Unit) {
         frameMetadataCallback = callback
@@ -5646,13 +5636,28 @@ private class FrameMonitoringPlayerView(
         val nextPlayer = player as? ExoPlayer
         val previousPlayer = monitoredPlayer
         if (previousPlayer !== nextPlayer) {
-            previousPlayer?.clearVideoFrameMetadataListener(frameMetadataListener)
+            attachedFrameMetadataListener?.let(previousPlayer::clearVideoFrameMetadataListener)
+            attachedFrameMetadataListener = null
             super.setPlayer(player)
             monitoredPlayer = nextPlayer
-            // PlayerView owns the output surface, so it is also the correct owner for this
-            // Media3 frame-metadata listener. This covers both MediaCodecVideoRenderer and
-            // DecoderVideoRenderer (Nuvio's FFmpeg software renderer).
-            nextPlayer?.setVideoFrameMetadataListener(frameMetadataListener)
+            if (nextPlayer != null) {
+                // Capture the player in this listener instance. A delayed callback from a detached
+                // player must never be attributed to the replacement player.
+                val listener = VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
+                    frameMetadataCallback(
+                        nextPlayer,
+                        presentationTimeUs,
+                        SystemClock.elapsedRealtime(),
+                        nextPlayer.currentPosition.coerceAtLeast(0L),
+                        format.frameRate,
+                    )
+                }
+                attachedFrameMetadataListener = listener
+                // PlayerView owns the output surface, so it is also the correct owner for this
+                // Media3 listener. Both MediaCodecVideoRenderer and DecoderVideoRenderer (Nuvio's
+                // FFmpeg software renderer) handle the metadata-listener renderer message.
+                nextPlayer.setVideoFrameMetadataListener(listener)
+            }
         } else {
             super.setPlayer(player)
         }
