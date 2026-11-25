@@ -46,7 +46,7 @@ internal object AddonManifestParser {
     ): List<AddonResource> = buildList {
         for (resource in array("resources")) {
             when (resource) {
-                is JsonPrimitive -> resource.contentOrNull
+                is JsonPrimitive -> resource.takeIf { it.isString }?.contentOrNull
                     ?.takeIf(String::isNotBlank)
                     ?.let { name ->
                         add(AddonResource(name = name, types = defaultTypes, idPrefixes = defaultPrefixes))
@@ -111,11 +111,11 @@ internal object AddonManifestParser {
             )
 
     private fun JsonObject.optionalString(name: String): String? =
-        (this[name] as? JsonPrimitive)?.contentOrNull
+        (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
     private fun JsonObject.stringList(name: String): List<String> =
         array(name).mapNotNull { element ->
-            (element as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+            (element as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotBlank() }
         }
 
     private fun JsonObject.array(name: String): JsonArray =
