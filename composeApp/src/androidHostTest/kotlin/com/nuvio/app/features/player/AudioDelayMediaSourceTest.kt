@@ -17,6 +17,12 @@ class AudioDelayMediaSourceTest {
     }
 
     @Test
+    fun audioDelayIsDisabledWhenNoAudioTrackIsSelected() {
+        assertEquals(125_000L, effectiveAudioDelayUs(hasSelectedAudioTrack = true, configuredDelayUs = 125_000L))
+        assertEquals(0L, effectiveAudioDelayUs(hasSelectedAudioTrack = false, configuredDelayUs = 125_000L))
+    }
+
+    @Test
     fun shiftsOrdinaryVideoSampleTimestampByConfiguredAudioDelay() {
         val buffer = DecoderInputBuffer(DecoderInputBuffer.BUFFER_REPLACEMENT_MODE_NORMAL).apply {
             timeUs = 1_000_000L
