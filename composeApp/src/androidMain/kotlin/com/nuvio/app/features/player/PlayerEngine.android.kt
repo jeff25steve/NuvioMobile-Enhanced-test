@@ -554,6 +554,7 @@ private fun ExoPlayerSurface(
     var sidecarControllerRef by remember { mutableStateOf<SidecarSubtitleController?>(null) }
     val subtitleStyleGuard = remember { SubtitleStyleGuard() }
     var decoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
+    var audioDecoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
     var forceSoftwareVideoFallback by remember(playerSourceKey) { mutableStateOf(false) }
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
     var pendingPlaybackSpeed by remember(playerSourceKey) { mutableStateOf<Float?>(null) }
@@ -753,6 +754,7 @@ private fun ExoPlayerSurface(
         normalizedStreamType,
         useYoutubeChunkedPlayback,
         effectiveDecoderPriority,
+        audioDecoderPriorityOverride,
         initialPositionRequestKey,
         videoEffectsNeeded,
         animeRebuildGeneration,
@@ -770,6 +772,12 @@ private fun ExoPlayerSurface(
         // Bluetooth headphones and speakers are stereo: decode audio with FFmpeg and mix surround
         // down to a clean 2.0, so dialogue keeps its level against music and effects.
         val bluetoothOutput = context.isMediaOutputBluetooth()
+        val configuredAudioRendererPriority = if (bluetoothOutput) {
+            DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+        } else {
+            playerSettings.decoderPriority
+        }
+        val effectiveAudioRendererPriority = audioDecoderPriorityOverride ?: configuredAudioRendererPriority
         val audioDownmix = when {
             bluetoothOutput -> FfmpegAudioDownmix(
                 channels = AudioOutputChannels.CHANNELS_2_0,
@@ -789,7 +797,7 @@ private fun ExoPlayerSurface(
             audioAmplificationDbProvider = audioAmplificationDb::get,
             audioDownmix = audioDownmix,
             forceSoftwareVideoDecoding = forceSoftwareVideoFallback,
-            preferAppAudioDecoder = bluetoothOutput,
+            audioExtensionRendererMode = effectiveAudioRendererPriority,
             centerMixLevelDbProvider = centerMixLevelDb::get,
             onFfmpegAudioRenderer = ffmpegAudioRenderer::set,
             shouldNormalizeCuePositionProvider = {
@@ -1296,22 +1304,38 @@ private fun ExoPlayerSurface(
                 }
                 ?.let { exoPlayer.getRendererType(it.rendererIndex) }
                 ?: C.TRACK_TYPE_UNKNOWN
-            val videoRendererFailure = isVideoRendererPlaybackFailure(error, failedRendererType)
-            val fallbackDecoderPriority = decoderPriorityFallbackAfterFailure(
-                configuredPriority = playerSettings.decoderPriority,
-                activePriority = effectiveDecoderPriority,
+            val failedRendererTrackType = when {
+                isVideoRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_VIDEO
+                isAudioRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_AUDIO
+                else -> C.TRACK_TYPE_UNKNOWN
+            }
+            val configuredAudioPriority = if (context.isMediaOutputBluetooth()) {
+                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            } else {
+                playerSettings.decoderPriority
+            }
+            val activeAudioPriority = audioDecoderPriorityOverride ?: configuredAudioPriority
+            val fallback = decoderPriorityFallbackForRendererFailure(
+                failedRendererType = failedRendererTrackType,
+                configuredVideoPriority = playerSettings.decoderPriority,
+                activeVideoPriority = effectiveDecoderPriority,
+                configuredAudioPriority = configuredAudioPriority,
+                activeAudioPriority = activeAudioPriority,
                 isDecoderFailure = error.isDecoderFailure(),
             )
-            if (fallbackDecoderPriority != null) {
+            if (fallback != null) {
+                val fallbackDecoderPriority = fallback.priority
                 val fallbackPriorityName = fallbackDecoderPriority.decoderPriorityName()
                 Log.w(
                     TAG,
-                    "Decoder failure (${error.errorCodeName}); rebuilding with renderer priority=$fallbackPriorityName. " +
+                    "${if (fallback.trackType == C.TRACK_TYPE_VIDEO) "Video" else "Audio"} decoder failure " +
+                        "(${error.errorCodeName}); rebuilding that renderer at priority=$fallbackPriorityName. " +
                         "cause=${diagnosticThrowableChain(error)}",
                 )
                 InAppLogger.warn(
                     "ExoPlayer/Android",
-                    "Decoder failure ${error.errorCodeName}; retrying with renderer priority=$fallbackPriorityName. " +
+                    "${if (fallback.trackType == C.TRACK_TYPE_VIDEO) "Video" else "Audio"} decoder failure " +
+                        "${error.errorCodeName}; retrying that renderer at priority=$fallbackPriorityName. " +
                         "cause=${error.cause?.let(::diagnosticThrowableChain) ?: diagnosticThrowableChain(error)}",
                 )
                 // A renderer-priority rebuild creates a fresh track selector. Preserve user choices
@@ -1328,13 +1352,14 @@ private fun ExoPlayerSurface(
                     pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
                 }
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-                if (
-                    fallbackDecoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER &&
-                    videoRendererFailure
-                ) {
-                    forceSoftwareVideoFallback = true
+                if (fallback.trackType == C.TRACK_TYPE_VIDEO) {
+                    if (fallbackDecoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER) {
+                        forceSoftwareVideoFallback = true
+                    }
+                    decoderPriorityOverride = fallbackDecoderPriority
+                } else {
+                    audioDecoderPriorityOverride = fallbackDecoderPriority
                 }
-                decoderPriorityOverride = fallbackDecoderPriority
                 latestOnError.value(null)
                 return
             }
@@ -5620,6 +5645,40 @@ private data class FfmpegAudioDownmix(
     val normalize: Boolean,
 )
 
+internal data class RendererDecoderPriorityFallback(
+    val trackType: Int,
+    val priority: Int,
+)
+
+internal fun decoderPriorityFallbackForRendererFailure(
+    failedRendererType: Int,
+    configuredVideoPriority: Int,
+    activeVideoPriority: Int,
+    configuredAudioPriority: Int,
+    activeAudioPriority: Int,
+    isDecoderFailure: Boolean,
+): RendererDecoderPriorityFallback? {
+    val configuredPriority: Int
+    val activePriority: Int
+    when (failedRendererType) {
+        C.TRACK_TYPE_VIDEO -> {
+            configuredPriority = configuredVideoPriority
+            activePriority = activeVideoPriority
+        }
+        C.TRACK_TYPE_AUDIO -> {
+            configuredPriority = configuredAudioPriority
+            activePriority = activeAudioPriority
+        }
+        else -> return null
+    }
+    val fallbackPriority = decoderPriorityFallbackAfterFailure(
+        configuredPriority = configuredPriority,
+        activePriority = activePriority,
+        isDecoderFailure = isDecoderFailure,
+    ) ?: return null
+    return RendererDecoderPriorityFallback(failedRendererType, fallbackPriority)
+}
+
 internal fun decoderPriorityFallbackAfterFailure(
     configuredPriority: Int,
     activePriority: Int,
@@ -5722,7 +5781,7 @@ private class SubtitleOffsetRenderersFactory(
     private val audioAmplificationDbProvider: () -> Int,
     private val audioDownmix: FfmpegAudioDownmix?,
     private val forceSoftwareVideoDecoding: Boolean,
-    private val preferAppAudioDecoder: Boolean,
+    private val audioExtensionRendererMode: Int,
     private val centerMixLevelDbProvider: () -> Int,
     private val onFfmpegAudioRenderer: (FfmpegAudioRenderer?) -> Unit,
     private val shouldNormalizeCuePositionProvider: () -> Boolean,
@@ -5814,7 +5873,7 @@ private class SubtitleOffsetRenderersFactory(
         val startIndex = out.size
         super.buildAudioRenderers(
             context,
-            if (preferAppAudioDecoder) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER else extensionRendererMode,
+            audioExtensionRendererMode,
             DolbyFreeMediaCodecSelector(mediaCodecSelector),
             enableDecoderFallback,
             audioSink,

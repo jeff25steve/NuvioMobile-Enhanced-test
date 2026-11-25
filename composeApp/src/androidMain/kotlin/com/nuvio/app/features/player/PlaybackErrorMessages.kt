@@ -64,6 +64,14 @@ internal fun isVideoRendererPlaybackFailure(error: PlaybackException, rendererTy
         error.rendererIndex >= 0 &&
         rendererType == C.TRACK_TYPE_VIDEO
 
+/** Only renderer failures from the audio renderer should change audio decoder priority. */
+@OptIn(UnstableApi::class)
+internal fun isAudioRendererPlaybackFailure(error: PlaybackException, rendererType: Int): Boolean =
+    error is ExoPlaybackException &&
+        error.type == ExoPlaybackException.TYPE_RENDERER &&
+        error.rendererIndex >= 0 &&
+        rendererType == C.TRACK_TYPE_AUDIO
+
 /** The error screen text for an ExoPlayer failure. */
 @OptIn(UnstableApi::class)
 internal suspend fun PlaybackException.toDisplayMessage(): String {
