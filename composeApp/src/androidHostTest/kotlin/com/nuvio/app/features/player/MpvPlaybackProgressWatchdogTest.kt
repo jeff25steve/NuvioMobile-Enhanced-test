@@ -55,11 +55,12 @@ class MpvPlaybackProgressWatchdogTest {
         healthyWarmup(watchdog)
         var now = 18_000L
         var position = 18_000L
-        // At 2x speed, 300 ms of movement per 3-second interval is below
-        // the 15% threshold (900 ms), even though it would pass at 1x.
+        // Establish a new baseline at 2x before measuring equal 3-second intervals.
+        // 600 ms clears the 1x threshold (450 ms) but not the 2x threshold (900 ms).
+        assertNull(watchdog.sample(1, now, position, 2f, true))
         repeat(5) {
             now += 3_000L
-            position += 300L
+            position += 600L
             val report = watchdog.sample(1, now, position, 2f, true)
             if (it < 4) assertNull(report) else assertEquals(5, report?.consecutiveSlowSamples)
         }
