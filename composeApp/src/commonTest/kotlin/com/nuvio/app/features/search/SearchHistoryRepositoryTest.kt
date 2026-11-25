@@ -69,7 +69,7 @@ class SearchHistoryRepositoryTest {
             limit = 3,
         )
 
-        assertEquals(listOf("d", "a", "b"), updated)
+        assertEquals(listOf("dd", "aa", "bb"), updated)
     }
     @Test
     fun `normalizeSearchHistoryEntries stops reading after reaching the limit`() {
