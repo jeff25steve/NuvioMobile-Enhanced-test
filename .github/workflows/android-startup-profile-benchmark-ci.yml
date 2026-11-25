@@ -288,7 +288,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p benchmark-diagnostics/r8 benchmark-diagnostics/gradle-profiles
+          mkdir -p benchmark-diagnostics/r8 benchmark-diagnostics/gradle-profiles benchmark-diagnostics/host-tests
+
+          # Preserve JUnit XML and the rendered Gradle test report when host tests fail.
+          # The Gradle log lists failing test names but omits assertion expected/actual
+          # values and nested exception causes needed for deterministic diagnosis.
+          if [[ -d composeApp/build/test-results ]]; then
+            cp -R composeApp/build/test-results benchmark-diagnostics/host-tests/
+          else
+            printf 'Not generated: composeApp/build/test-results\\n' >> benchmark-diagnostics/report-status.txt
+          fi
+          if [[ -d composeApp/build/reports/tests ]]; then
+            cp -R composeApp/build/reports/tests benchmark-diagnostics/host-tests/
+          else
+            printf 'Not generated: composeApp/build/reports/tests\\n' >> benchmark-diagnostics/report-status.txt
+          fi
+
           for flavor in full playstore; do
             report="androidApp/build/outputs/mapping/${flavor}BenchmarkRelease/configanalyzer.html"
             if [[ -s "$report" ]]; then
