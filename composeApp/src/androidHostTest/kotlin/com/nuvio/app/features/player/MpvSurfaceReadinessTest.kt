@@ -98,16 +98,14 @@ class MpvSurfaceReadinessTest {
     @Test
     fun failedSurfaceAttachmentPropagatesFailureMessage() = runTest {
         val readiness = MpvSurfaceReadiness()
-        val waitingPlayback = async { readiness.await() }
+        val waitingPlayback = async { runCatching { readiness.await() } }
         runCurrent()
         val failure = IllegalStateException("surface attachment failed")
 
         readiness.fail(failure)
 
-        val observed = assertFailsWith<IllegalStateException> {
-            waitingPlayback.await()
-        }
-        assertEquals(failure.message, observed.message)
+        val observed = waitingPlayback.await().exceptionOrNull()
+        assertEquals(failure.message, observed?.message)
     }
 
     @Test
