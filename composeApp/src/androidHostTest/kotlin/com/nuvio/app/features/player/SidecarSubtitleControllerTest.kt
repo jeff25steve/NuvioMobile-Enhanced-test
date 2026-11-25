@@ -4,7 +4,12 @@ import androidx.media3.common.text.Cue
 import androidx.media3.extractor.text.CuesWithTiming
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class SidecarSubtitleControllerTest {
     @Test
     fun unsortedCueListDoesNotStopAtFirstFutureCue() {
