@@ -470,7 +470,7 @@ internal fun DetailSeriesListEpisode(
             userRating = rememberUserRating(userRatingTarget),
             fallbackImage = meta.background ?: meta.poster,
             progressEntry = progressByVideoId[episodeVideoId],
-            tmdbRating = episode.tmdbRating ?: episode.rating,
+            tmdbRating = episode.tmdbRating,
             imdbRating = episode.seasonEpisodeKey()?.let { episodeRatings[it] } ?: episode.imdbRating,
             isWatched = progressByVideoId[episodeVideoId]?.isEffectivelyCompleted == true ||
                 WatchingState.isEpisodeWatched(
