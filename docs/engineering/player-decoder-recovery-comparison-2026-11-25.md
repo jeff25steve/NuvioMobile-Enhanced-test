@@ -74,3 +74,43 @@ A host regression test was added before the implementation commit to specify aud
 - Do not add a seek-specific reanchor/reopen path until Nuvio records explicit seek intent, distinguishes the seek-generated error from later failures, and proves the same source/attempt still owns recovery.
 - Keep the Media3 1.8.0/custom-AAR compatibility baseline. New project use of 1.11.x/1.12 beta does not remove Nuvio's custom AAR rebuild and compatibility gate.
 - No external code was copied in this sweep. No dependency, playback source, tests, builds, CI or device runs were changed or started.
+
+
+## ExoPlayer Compose view and Activity lifecycle audit — 25 November 2026
+
+### Nuvio source inspected
+
+The live `main-build-testing` branch was identical to baseline `0eb5e6d30ebf95d78d78e0e3fa3f531f4bf50f5a` before this audit. The inspected implementation is `composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/PlayerEngine.android.kt` (6,314 lines), with the MPV surface owner in `MpvSurfaceView.android.kt` (580 lines). The app is pinned to Media3 1.8.0 and Compose Multiplatform 1.13.0-beta01.
+
+The ExoPlayer surface is a `FrameMonitoringPlayerView` hosted by Compose `AndroidView`:
+
+- `factory` creates the view, attaches the current ExoPlayer, configures the API-34 SurfaceSyncGroup workaround, subtitle overlay and frame-rate controller, and stores the view reference.
+- `update` refreshes the frame metadata callback, reattaches the current player, updates controller/resize settings, binds subtitle rendering and synchronizes keep-screen-on state.
+- `AndroidView` does not provide `onReset` or `onRelease`. With `onReset = null`, Compose does not opt this AndroidView into view reuse. This is not itself a leak or proof of a surface-lifecycle bug.
+- A separate `DisposableEffect(exoPlayer)` removes Player/Analytics listeners, clears `PlayerView.player` only if the view still owns that exact player, cancels subtitle/error jobs and stops sidecar subtitles.
+- `FrameMonitoringPlayerView.setPlayer` removes its previous player's `VideoFrameMetadataListener` before installing a new listener that captures the new player instance. That protects frame diagnostics against callbacks attributed to a replacement player.
+- `DisposableEffect(exoPlayer, lifecycleOwner)` registers the Activity lifecycle observer and releases the ExoPlayer on composition disposal, after releasing the libass overlay and disabling scrubbing mode.
+- `ON_START` restores the latest requested `playWhenReady`. `ON_STOP` pauses playback unless the Activity is in PiP; if the Activity is finishing, playback is paused even if PiP state is reported.
+
+The existing code therefore already has explicit player detachment, listener ownership, PiP-aware pause policy and terminal player release. The missing AndroidView `onRelease` callback is not enough evidence to justify another detach path: the current `DisposableEffect` already detaches the view, and ExoPlayer/PlayerView own the attached surface lifecycle.
+
+### Authoritative Media3 / Compose findings
+
+- Android's [Media3 surface guidance](https://developer.android.com/media/media3/ui/surface) prefers `SurfaceView` for ordinary video where possible (power, frame timing, HDR and secure-output advantages), while noting the known Compose interop caveats for `PlayerView` inside `AndroidView`. Nuvio already opts into Media3's API-34 Compose surface-sync workaround where required.
+- The official [Media3 Compose UI guide](https://developer.android.com/media/media3/ui/compose) recommends `media3-ui-compose` for Compose-first UI and exposes `PlayerSurface` as a lower-level surface primitive. It does not replace Nuvio's full `PlayerView` responsibilities (custom subtitle surfaces, libass/AIOStreams integration, frame metadata listener, native controls and frame-rate controller) without a larger renderer/UI integration.
+- Context7's current AndroidX Compose reference confirms `AndroidView.onRelease` is called on the UI thread when a View is permanently removed and is intended to free resources owned by that View. `onReset` opts the view into possible reuse; leaving it null disables that reuse path. Neither callback should be added decoratively: any new cleanup must have a resource that is not already released by the existing player/view ownership path.
+- AndroidX Media3 issue [#3011](https://github.com/androidx/media/issues/3011) reported a TextureView output-surface exception on older hardware/API 28 using Media3 1.9.0. The issue was closed by the stale bot for lack of reproduction information. The Media3 maintainer explicitly clarified that ExoPlayer owns the surface after `setVideoSurface` and listens for TextureView lifecycle events to disconnect it. The issue author's proposed synchronous-clear requirement is therefore not an established Media3 defect or a reason to add an unverified workaround to Nuvio.
+
+### External app comparison and decision
+
+The new mobile-focused [NekoVideo](https://github.com/FellipitoPV/NekoVideo) project advertises Media3/Compose, PiP and a `MediaSessionService` for background playback. Its README is useful as a feature/architecture lead, but this pass did not verify its actual player source or lifecycle implementation; it is not treated as implementation evidence. The previously inspected Silo and Jellyfin clients provide more detailed source-level examples, but their selected-track preflight and server-negotiated source paths do not reveal a missing surface detach invariant in Nuvio.
+
+### Remaining measurable question — non-PiP background resource retention
+
+Nuvio pauses the Activity-owned ExoPlayer on `ON_STOP` when not in PiP, but it does not release the player in that lifecycle callback; release occurs when the owning Compose effect is disposed. This may retain decoder/player resources while the Activity is stopped if the player composition remains alive. It may also be intentional to preserve the active session for a quick return. The source alone cannot establish how long the composition remains retained across the app's real navigation/task transitions, nor whether the retained player materially harms memory/decoder availability or return-to-playback latency.
+
+Do not move release to `ON_STOP` or recreate the player on `ON_START` without measuring the current product lifecycle. The next valid check is an authorized device trace across Home/app-switch, PiP entry/exit, player-route navigation and Activity finish, recording composition disposal, player release, codec allocation and resume latency. Keep PiP as a distinct case. No automatic background service or audio-background behavior should be inferred from this Activity-owned player path.
+
+### Outcome
+
+No confirmed surface ownership defect was found, so no speculative `onRelease`, surface-clear, engine-switch or lifecycle rewrite was applied. The open item is now narrowed from a general surface-lifecycle audit to a measurable non-PiP background resource-retention question. No source code, dependencies, tests, builds, CI or device playback were changed or started.
