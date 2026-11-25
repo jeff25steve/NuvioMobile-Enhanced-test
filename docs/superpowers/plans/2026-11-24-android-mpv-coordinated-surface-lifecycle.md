@@ -141,10 +141,10 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 
 ## Execution notes
 
-Task 1 begins with the confirmed UI-thread initialization defect and deterministic startup/lifecycle tests. The native detach completion and child SurfaceControl ownership question remains a hard gate for teardown changes. Tasks 2–5 may then be implemented in small test-first increments. The existing Android integration test exercises seek, activity recreation and view removal/recreation, but it does not prove native detach completion or race safety; host tests must cover ordering deterministically.
+Historical execution note: the first checkpoint correctly treated native detach completion and child SurfaceControl ownership as blockers. The subsequent event-based VO barrier and child-layer handoff recorded below supersede that checkpoint. The existing Android integration test still does not prove the new native event barrier; host tests are authored but runtime validation remains outstanding.
 
 
-Implementation note (25 November, continued): SurfaceView and TextureView callbacks now allocate a monotonically increasing surface generation. Destruction invalidates that exact generation synchronously before queuing detach; queued attach and resize work checks the generation on the existing MPV dispatcher, and a late invalidation during attach triggers an immediate detach request before later generations can attach. Final release invalidates all generations. This prevents stale queued work from attaching or resizing a destroyed surface, but it does not prove native VO teardown completion.
+Intermediate checkpoint (25 November): SurfaceView and TextureView callbacks gained surface generations and stale attach/resize rejection. At that stage native VO teardown completion was still unproven; this was superseded by the event-based barrier and child-surface ownership protocol below.
 
 Surface operation handling was hardened at the same boundary: negative return codes from the runtime surface property/option setters now become failures; detach attempts the native detachSurface() even if a preceding property update fails, but preserves the failure so the owning cleanup job does not release Java Surface/SurfaceControl resources on a failed detach request. Failed resource releases are retained until final native close succeeds. This is a conservative lifetime fallback, not a native detach acknowledgement.
 
