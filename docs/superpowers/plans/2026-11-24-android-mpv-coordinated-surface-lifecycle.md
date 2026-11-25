@@ -106,7 +106,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - Each adapter must retain and release only the surface resources it owns.
 
 - [x] SurfaceView callback invalidates the exact generation and hides/reparents the app-owned child SurfaceControl away from the holder's parent before callback return; the child producer remains retained until VO teardown. mpv never receives `holder.surface` directly.
-- [x] TextureView callback returns false for an owned generation and releases its retained SurfaceTexture only after the native detach barrier; duplicate callbacks do not transfer a still-owned texture back to the framework.
+- [x] TextureView callback maps each SurfaceTexture to its exact generation, returns false for an owned texture and releases it only after the native detach barrier; duplicate/stale callbacks do not transfer a still-owned texture back to the framework. Surface creation/resize/reparent exceptions are routed to the existing player error callback.
 - [x] Reject stale attach/resize generations and defer old-generation cleanup until native detach is confirmed or final native close completes.
 - [x] Verify SurfaceControl reparent/visibility/frame-rate operations are generation-scoped and old cleanup cannot clear a newer layer.
 
