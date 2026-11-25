@@ -2944,3 +2944,11 @@ New host-test source files: `AudioDelayMediaSourceTest.kt` and `SidecarSubtitleC
 
 The current remote branch head at the time of this addendum is `b4c4c2e6d39466bcd5f3f6b072602d1370e57831`. All source changes remain limited to ExoPlayer playback/recovery, software video renderer capability, audio/video timing, and sidecar subtitle handling. No build, test, CI or device run was started.
 
+### Audio-output and subtitle follow-up — 25 November 2026
+
+7. **Audio-delay behavior is now consistent across video and subtitle paths.** The delay media period checks selected audio tracks before shifting video timestamps. A source-key-scoped atomic selected-audio flag is updated from `Player.Listener.onTracksChanged`; the same effective-delay provider is now used by `SubtitleOffsetRenderersFactory`, the ASS-compatible player builder, and `SidecarSubtitleController`. With no selected audio track, video and subtitle clocks both use zero audio delay. The media-source wrapper still uses its own track-selection check, including the separate-audio merged-source case.
+8. **Configured multichannel FFmpeg output is no longer immediately collapsed to stereo.** The PCM processor previously enabled its stereo downmix whenever passthrough was off, even when the app FFmpeg downmix was explicitly configured for 5.1 or 7.1. The new `shouldStereoDownmixPcm()` policy preserves explicit non-stereo output layouts while retaining the default stereo behavior when app downmix is disabled and bypassing PCM downmix for passthrough.
+9. **New regression coverage** now includes audio-delay activation with/without a selected audio track, EOS and unset timestamp preservation, and preservation of 5.1/7.1 FFmpeg output. `PlayerOutputAudioProcessorTest.kt` is added alongside the existing audio-delay tests.
+
+The latest source-only commit before this note update is `a016709076c96f68a8a21f0d322603cc1430cf3e`. Tests remain authored but unexecuted. This is still not a verified build or runtime result.
+
