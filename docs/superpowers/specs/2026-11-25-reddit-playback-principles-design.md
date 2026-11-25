@@ -57,3 +57,14 @@ Adapt the most useful engineering principles from Reddit's Android video-player 
 - Add common regression tests for speed scaling, fractional speed, invalid speed, negative elapsed time, duration clamping, unknown duration and overflow.
 - Re-fetch and statically inspect all changed call sites, signatures, imports, tests and dependency declarations.
 - Do not run Gradle, tests, compilation, builds, CI, benchmarks, APK/AAB generation or device playback. These remain outstanding until separately authorized.
+
+
+## Implementation record — 25 November 2026
+
+- Implemented the pure interpolation function and animation-eligibility policy in PlayerTimeline.kt.
+- Implemented a frame-clock state producer with Compose produceState/withFrameNanos. It is used in the main PlayerTimeline and legacy PlayerSeekBar.
+- Passed playback state and speed from ProgressControls into the legacy path. The player snapshot polling contract remains unchanged at 250 ms.
+- Added common tests for normal/fractional speeds, paused and interacting gates, unknown and known duration, invalid speed/elapsed time, negative position and overflow saturation.
+- Re-fetched the modified sources, test, dependency catalog and custom-AAR compatibility guard from the remote branch. Static inspection caught and corrected a local declaration-order issue in the legacy seekbar before completion.
+- The new common tests have not been run and no compile result is claimed. No Gradle, build, CI, benchmark or device run was performed.
+- No Media3 dependency or AAR was changed. The custom 1.8.0 AAR source/patch provenance remains unverified; Media3 modernization and Android 17 Eclipsa playback remain a separate, source-backed AAR rebuild and validation project.
