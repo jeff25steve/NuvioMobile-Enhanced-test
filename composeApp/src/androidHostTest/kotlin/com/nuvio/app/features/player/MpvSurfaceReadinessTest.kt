@@ -74,6 +74,17 @@ class MpvSurfaceReadinessTest {
     }
 
     @Test
+    fun videoOutputReleaseGatePropagatesObserverReadFailure() = runTest {
+        val gate = MpvVideoOutputReleaseGate()
+
+        gate.fail(IllegalStateException("current-vo query failed"))
+
+        assertFailsWith<IllegalStateException> {
+            gate.await()
+        }
+    }
+
+    @Test
     fun successfulSurfaceAttachmentReleasesWaitingPlayback() = runTest {
         val readiness = MpvSurfaceReadiness()
         val waitingPlayback = async { readiness.await() }
