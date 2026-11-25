@@ -3,7 +3,7 @@
 **Date:** 2026-11-24  
 **Repository:** `jeff25steve/NuvioMobile-Enhanced-test`  
 **Target branch:** `main-build-testing`  
-**Status:** Approved design; implementation not yet started
+**Status:** Approved design; first startup-threading slice implemented; surface teardown remains unresolved
 
 ## Intent
 
