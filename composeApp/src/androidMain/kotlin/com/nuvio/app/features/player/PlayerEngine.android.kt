@@ -83,6 +83,7 @@ import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -141,6 +142,8 @@ private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 // Diagnostic-only grace period; do not trigger decoder/engine recovery from this heuristic.
 private const val NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS = 20_000L
+private const val VIDEO_FRAME_OUTPUT_GAP_DIAGNOSTIC_TIMEOUT_MS = 5_000L
+private const val VIDEO_FRAME_OUTPUT_GAP_MIN_POSITION_PROGRESS_MS = 2_000L
 
 internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
     if (mediaItem == null) return null
@@ -517,6 +520,7 @@ private fun ExoPlayerSurface(
     val exoVideoEffects = remember(playerSourceKey) { ExoVideoEffectsHolder() }
     val playbackDiagnostics = remember(playerSourceKey) { PlaybackDiagnostics() }
     val videoStartupWatchdog = remember(playerSourceKey) { ExoVideoStartupWatchdog() }
+    val videoFrameOutputGapWatchdog = remember(playerSourceKey) { VideoFrameOutputGapWatchdog() }
     var subtitleDelayMs by remember(playerSourceKey) { mutableStateOf(0) }
     var selectedExternalSubtitleMimeType by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     // Addon subtitle attached by media reload. A player rebuild (libass VIDEO_EFFECT) prepares
@@ -1068,6 +1072,7 @@ private fun ExoPlayerSurface(
             expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem),
         )
         videoStartupWatchdog.beginAttempt(playbackDiagnostics.attempt)
+        videoFrameOutputGapWatchdog.beginAttempt(playbackDiagnostics.attempt)
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
@@ -1922,6 +1927,7 @@ private fun ExoPlayerSurface(
             alwaysFrameRateController?.release()
             alwaysFrameRateController = null
             playerViewRef?.keepScreenOn = false
+            playerViewRef?.player = null
             subtitleSelectionJob?.cancel()
             errorDisplayMessageJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
@@ -1931,6 +1937,7 @@ private fun ExoPlayerSurface(
     LaunchedEffect(exoPlayer, videoStartupWatchdog) {
         while (isActive) {
             val attempt = playbackDiagnostics.attempt
+            val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
             val tracks = exoPlayer.currentTracks
             val hasSelectedVideoTrack = tracks.groups.any { group ->
                 group.type == C.TRACK_TYPE_VIDEO && group.isSelected &&
@@ -1945,7 +1952,6 @@ private fun ExoPlayerSurface(
                     timeoutMs = NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS,
                 )
             ) {
-                val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
                 val bufferedAheadMs = bufferedAheadDurationMs(positionMs, exoPlayer.bufferedPosition)
                 Log.w(
                     PLAYER_DIAGNOSTIC_TAG,
@@ -1958,6 +1964,23 @@ private fun ExoPlayerSurface(
                     "Selected video track is playing but no first frame has rendered; " +
                         "positionMs=$positionMs bufferedAheadMs=$bufferedAheadMs",
                 )
+            }
+            if (videoFrameOutputGapWatchdog.shouldReportGap(
+                    attempt = attempt,
+                    nowMs = SystemClock.elapsedRealtime(),
+                    playbackPositionMs = positionMs,
+                    isPlaying = exoPlayer.isPlaying,
+                    playbackState = exoPlayer.playbackState,
+                    hasSelectedVideoTrack = hasSelectedVideoTrack,
+                    timeoutMs = VIDEO_FRAME_OUTPUT_GAP_DIAGNOSTIC_TIMEOUT_MS,
+                    minimumPositionProgressMs = VIDEO_FRAME_OUTPUT_GAP_MIN_POSITION_PROGRESS_MS,
+                )
+            ) {
+                val lastFramePtsUs = videoFrameOutputGapWatchdog.lastFramePresentationTimeUs(attempt)
+                val message = "Video frame output stopped while playback position advanced; " +
+                    "positionMs=$positionMs lastFramePtsUs=${lastFramePtsUs ?: "unknown"}"
+                Log.w(PLAYER_DIAGNOSTIC_TAG, "video_frame_output_gap attempt=$attempt $message")
+                InAppLogger.warn("ExoPlayer/Android", message)
             }
             delay(1_000L)
         }
@@ -2457,11 +2480,24 @@ private fun ExoPlayerSurface(
         updateAlwaysFrameRateState()
     }
 
+    val onVideoFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit = { framePlayer, presentationTimeUs, elapsedRealtimeMs, positionMs, frameRate ->
+        val frameMediaIdentity = playbackDiagnosticMediaIdentity(framePlayer.currentMediaItem)
+        if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
+            videoFrameOutputGapWatchdog.recordFrame(
+                attempt = playbackDiagnostics.attempt,
+                elapsedRealtimeMs = elapsedRealtimeMs,
+                playbackPositionMs = positionMs,
+                presentationTimeUs = presentationTimeUs,
+                frameRate = frameRate,
+            )
+        }
+    }
+
     Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
-                PlayerView(viewContext).apply {
+                FrameMonitoringPlayerView(viewContext, onVideoFrameMetadata).apply {
                     // Media3's opt-in SurfaceSyncGroup workaround fixes SurfaceView
                     // resizing/clipping when PlayerView is hosted in Compose AndroidView on API 34.
                     if (shouldEnableComposeSurfaceSyncWorkaround(Build.VERSION.SDK_INT)) {
@@ -2501,6 +2537,7 @@ private fun ExoPlayerSurface(
                 }
             },
             update = { playerView ->
+                playerView.updateFrameMetadataCallback(onVideoFrameMetadata)
                 playerView.player = exoPlayer
                 playerView.useController = useNativeController
                 playerView.resizeMode = resizeMode.toExoResizeMode()
@@ -5573,6 +5610,48 @@ internal fun softwareVideoRendererInsertionIndex(
     DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON -> rendererCount
     DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER -> 0
     else -> null
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
+private class FrameMonitoringPlayerView(
+    context: Context,
+    onFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit,
+) : PlayerView(context) {
+    @Volatile
+    private var frameMetadataCallback = onFrameMetadata
+
+    private var monitoredPlayer: ExoPlayer? = null
+
+    private val frameMetadataListener = VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
+        val player = monitoredPlayer ?: return@VideoFrameMetadataListener
+        frameMetadataCallback(
+            player,
+            presentationTimeUs,
+            SystemClock.elapsedRealtime(),
+            player.currentPosition.coerceAtLeast(0L),
+            format.frameRate,
+        )
+    }
+
+    fun updateFrameMetadataCallback(callback: (ExoPlayer, Long, Long, Long, Float) -> Unit) {
+        frameMetadataCallback = callback
+    }
+
+    override fun setPlayer(player: Player?) {
+        val nextPlayer = player as? ExoPlayer
+        val previousPlayer = monitoredPlayer
+        if (previousPlayer !== nextPlayer) {
+            previousPlayer?.clearVideoFrameMetadataListener(frameMetadataListener)
+            super.setPlayer(player)
+            monitoredPlayer = nextPlayer
+            // PlayerView owns the output surface, so it is also the correct owner for this
+            // Media3 frame-metadata listener. This covers both MediaCodecVideoRenderer and
+            // DecoderVideoRenderer (Nuvio's FFmpeg software renderer).
+            nextPlayer?.setVideoFrameMetadataListener(frameMetadataListener)
+        } else {
+            super.setPlayer(player)
+        }
+    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
