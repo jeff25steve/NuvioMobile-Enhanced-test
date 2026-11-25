@@ -2952,3 +2952,84 @@ The current remote branch head at the time of this addendum is `b4c4c2e6d39466bc
 
 The latest source-only commit before this note update is `a016709076c96f68a8a21f0d322603cc1430cf3e`. Tests remain authored but unexecuted. This is still not a verified build or runtime result.
 
+## Expanded current-project comparison — 25 November 2026
+
+**Research base:** live `main-build-testing` at `d73ae10cd239bf2e5f088c7e929d34b328dc1d52`. This section extends the existing ExoPlayer review; it is not a second implementation plan. Repository activity dates below are from GitHub repository metadata and commit history observed during this review.
+
+### Newly identified high-value projects
+
+#### 1. Mpv∞ — `ZHINFINITY/Mpv-infinity`
+
+- Repository: https://github.com/ZHINFINITY/Mpv-infinity
+- Latest observed push: 24 November 2026. Latest commit inspected: `1075b4ee6c77c9e74da50ae7b82cd09f9ace66a1` (24 November), titled “Server-switch race, background restore, USB/thumbnail speed, buffering, music format fixes”.
+- Relevant implementation: `NativeMedia3Engine.kt`, `Media3FlowRenderersFactory.java`, `NativePlaybackRecoveryPolicy.kt`, `PlaybackEngineHandoffPolicy.kt`, `PlayerLifecyclePolicy.kt`, `MPVView.kt`, `MpvNativeWork.kt`, `NativeCallbackGate.kt`.
+- Why it matters: a current dual-engine Android implementation (libmpv + Media3) with HDR/Dolby Vision, ASS/libass, custom video-sink/interpolation work and extensive lifecycle/concurrency policy.
+- Specific transferable *design* observations:
+  - Its engine handoff is fenced by generation, media identifier, playable URI, queue stable ID and original URI. This is a useful stale-callback defence to compare against Nuvio's source-key-scoped player state and existing diagnostic media-identity checks.
+  - Native callback admission is closed and drained before core retirement; native work is serialized. This is useful prior art for lifecycle races, although Nuvio's 24 November MPV surface-lifecycle spec already selects a coordinated dispatcher/Mutex/generation/native-VO barrier approach.
+  - The 24 November change uses persistent HTTP connections, deeper mpv readahead, a larger mpv demuxer budget, longer Media3 online buffer durations and a five-minute background renderer-rebuild threshold. These are *reported project-specific settings*, not generally superior defaults. Larger buffers can increase memory and initial buffering; the five-minute surface threshold is tied to that project's OEM reports. Do not copy values without Nuvio-specific measurement.
+  - Its `Media3FlowRenderersFactory` injects a custom GPU video sink and SDR transfer handling for interpolation. This is a specialised path, not a drop-in replacement for Nuvio's Dolby Vision renderer, FFmpeg renderer and software decoder.
+- **Licensing gate:** the repository's current LICENSE is custom permission-only terms, not an OSI-approved open-source licence. Treat it as a behavioural/architectural reference only; do not copy its source into Nuvio without separate express permission and rights review.
+
+#### 2. OwnTV Core + OwnTV Mobile — `ahXN00/OwnTV_Core`, `ahXN00/OwnTV_Mobile`
+
+- Repositories: https://github.com/ahXN00/OwnTV_Core and https://github.com/ahXN00/OwnTV_Mobile
+- Core latest observed push: 24 November 2026; Mobile latest observed commit: 22 November 2026, pinning Core 1.0.72. Core README identifies Media3 1.11.1 and a shared libmpv + ExoPlayer engine.
+- Relevant implementation: `LivePreviewEngine.kt`, `LiveExoWatchdog.kt`, `NoFrameWatchdog.kt`, `FirstFrameGate.kt`, `LiveLadder.kt`, `ExoAudioGate.kt`, `AudioOutputPolicy.kt`, `OwnTVRenderersFactory`.
+- Most important finding: OwnTV has a real rendered-frame/progress watchdog, not just an error listener. Its live engine counts frames from a `VideoFrameMetadataListener`, tracks selected video presence and playback-position progress, detects a video track that never renders while the clock/audio progresses, distinguishes audio-only media, and separately detects a picture that freezes after frames have begun. A one-shot `noVideoDetected` signal hands the still-current tune to a bounded cross-engine ladder.
+- Its watchdog also handles provider-refused HLS segments and an open that never reaches PLAYING or ERROR. Every handoff is gated by a `stillOurs` ownership check so an old watchdog cannot stop a newer tune.
+- The `FirstFrameGate` deliberately opens on the playback thread after the new source command has been applied; this avoids counting frames from the previous item on a reused player as the new item's first frame.
+- `AudioOutputPolicy` has a session-scoped stereo safety latch for confirmed silent/dead output, based on audio progress and underrun evidence. This is worth comparing with Nuvio's FFmpeg/Media3 output path, but must not be introduced without a reliable signal that distinguishes a broken sink from a silent source.
+- `OwnTVRenderersFactory` disables MediaCodec asynchronous queueing for specific known problematic Realtek/Amlogic/Fire TV decoder paths. This is explicitly a device-workaround, not a recommendation to disable asynchronous queueing globally.
+- **Nuvio gap confirmed by source inspection:** Nuvio's `Player.Listener.onRenderedFirstFrame()` currently records diagnostics, while `PlaybackStallResume` is driven by terminal `PlaybackException` cases. The inspected ExoPlayer path does not yet have an equivalent selected-video/no-first-frame and rendered-frame-freeze watchdog. This is the strongest new reliability target from the expanded research. A Nuvio implementation must gate on a selected video track, avoid audio-only and intentional Audio Mode, require genuine playback progress, be one-shot per source generation, and cancel on first frame, item replacement, pause/stop and player disposal. Do not copy OwnTV's timeout constants without validating Nuvio's startup/decoder distributions.
+- Core and NextPlayer/NextLib use GPL-3.0; Nuvio is also GPL-3.0. Any source reuse still needs exact file-level provenance, preserved notices and review of embedded third-party portions.
+
+#### 3. NextPlayer + NextLib — `anilbeesetti/nextplayer`, `anilbeesetti/nextlib`
+
+- Repositories: https://github.com/anilbeesetti/nextplayer and https://github.com/anilbeesetti/nextlib
+- NextPlayer latest relevant commit: 20 November 2026, `431d34cd33b122f8b5a6e8f49caa65413bbaf88f`, “Align video decoder fallback with MX Player”. NextLib 0.19.0 was released 18 November; repository latest observed push was 24 November.
+- Relevant implementation: NextPlayer `DecoderRecoveryManager.kt`, `ApiMediaSourceFactory.kt`, `DecoderRecoveryManagerTest.kt`, `CompatibilityServiceTest.kt`; NextLib `NextRenderersFactory`, `DecoderManager`, `DecoderRendererController`, and `DECODER_SWITCHING.md`.
+- The current recovery manager keeps video and audio recovery separate, records failed modes per media item, remembers the last working video mode, rejects duplicate attempts, supports a bounded HW → HW+ → FFmpeg path and clears the relevant state on item changes or explicit user selection.
+- Its parser recovery checks that the parser failure belongs to the primary media URI. A sidecar/external-audio parser failure must not be misclassified as the primary video's extractor failure.
+- Important semantic distinction: NextPlayer's **HW+ is not simply another hardware codec**. It uses NextLib's FFmpeg progressive extractor with hardware decoding. Nuvio's current FFmpeg software video renderer and custom AAR setup are different. Do not add an “HW+” label or copy that ladder unless Nuvio implements and verifies the corresponding reader path.
+- The transferable improvement is the per-item, per-track failed-mode state machine, last-working-mode preference and parser/source identity checks—not the dependency coordinates or the exact mode names.
+
+#### 4. Just Player Pro — `Zain-Imam/just-player-pro`
+
+- Repository: https://github.com/Zain-Imam/just-player-pro
+- Latest observed release/documentation commit: 3 November 2026, version 5.1.0. README identifies Media3 1.10.0 patched AARs and mpv 0.41.0 / FFmpeg n8.1.
+- Relevant implementation: `engine/Media3SeekStall.java`, `engine/PatientLoadControl.java`, `engine/StallPatience.kt`, `engine/RangedDataSource.kt`, `BufferProfile.java`.
+- `Media3SeekStall` distinguishes a seek that is merely slow from one where network bytes keep arriving but the buffered position does not approach the target. It samples periodically, stops when buffering ends or the target has enough data, reports a stall after 15 seconds plus at least 4 MiB of new data, and caps its observation at 120 seconds.
+- Its device/battery/live buffer profiles are useful as a comparison framework, not as constants to transplant. Nuvio already has a custom memory-aware load control, selective VOD cache and native read-ahead; any change must preserve those policies and be justified by measurements.
+- This is a candidate for Nuvio's seek-stall diagnostics, not evidence that current Nuvio seeks are broken.
+
+### Additional projects screened
+
+- **Jellyfin Android TV** — https://github.com/jellyfin/jellyfin-androidtv — actively updated 24 November 2026. Useful for separation of Media3 backend, audio pipeline, decoder support and surface/UI ownership; its default renderer setup is not a replacement for Nuvio's custom decoder stack.
+- **Just Player** — https://github.com/moneytoo/Player — latest observed update 12 November 2026, moving to Media3 1.12.0-beta01. Useful as a current Media3 compatibility signal, but beta adoption is not a reason to move Nuvio's 1.8.0/custom-AAR family.
+- **GSYVideoPlayer** — https://github.com/CarGuo/GSYVideoPlayer — latest observed commits 19–23 November 2026. Recent IJK/AudioTrack fixes include larger AudioTrack buffers on reopen and a SoundTouch PTS-jitter fix across ABIs. Relevant only as a native audio-output edge-case reference; it is not a direct Media3 renderer model.
+- **MediaMP** — https://github.com/open-ani/mediamp — updated 22 November 2026. Its Compose Multiplatform backend abstraction is interesting, but its Android backend is ExoPlayer and MPV is used on desktop JVM targets; it does not provide a superior Android dual-engine implementation.
+- **NeriPlayer** — updated 24 November 2026, but it is primarily a music/audio player; exclude it from video-renderer rankings.
+- **VoidTV** — last relevant source commit observed 30 January 2026; do not use as a current implementation baseline.
+
+### Media3 1.8.0/1.8.1 clarification
+
+- The exact-version Context7 docs available during this review were for 1.8.1; the repository remains pinned to 1.8.0, so compatibility decisions continue to use the tagged 1.8.0 source and the local AAR constraints.
+- The MergingMediaSource memory-leak issue #2338 is not a new 1.8.1 fix: the 1.8.0 release notes already list the fix. Do not use that issue as justification for a dependency bump from the current 1.8.0 baseline.
+- The inspected 1.8.0 → 1.8.1 source compare showed the 1.8.1-specific code change in `GlUtil` that explicitly sets GL draw/read buffer state when restoring a GL 3+ surface after a surfaceless context. This is relevant only if Nuvio exercises that precise GL context transition; it does not justify a broad Media3 migration by itself.
+- Media3 1.11.1/1.12.0-beta improvements remain candidates for a coordinated rebuild only after the seven custom AARs, Maven exclusions and compatibility checks have reproducible source/build provenance.
+
+### Nuvio-specific next actions, ranked by evidence
+
+1. **Implement a no-first-frame/frozen-frame watchdog for ExoPlayer.** This is a confirmed capability gap in the inspected Nuvio ExoPlayer path, not a claim that every stream currently exhibits it. Start with deterministic policy tests; track source generation, selected video track, actual playback progress and rendered-frame count. Do not trigger on audio-only, user Audio Mode, pause, buffering without progress or a stale item. Emit a diagnostic reason first; only hand off to the other engine once the failure is positively classified and the current source identity still matches.
+2. **Replace the single priority toggle with a per-item/per-track recovery state machine.** Preserve Nuvio's current custom renderer/AAR architecture. Track last working decoder, attempted decoder/backend and the format/source identity; keep audio and video recovery independent; cap attempts; clear state on new item or explicit user selection. Do not blacklist a codec globally.
+3. **Add seek-stall observability before changing recovery behavior.** Correlate bytes received, buffered position, seek target, loading state and time spent buffering. Distinguish slow upstream delivery from a seek/read-ahead deadlock. Do not adopt Just Player Pro's 15-second/4-MiB thresholds without Nuvio measurements.
+4. **Complete the ExoPlayer surface/background lifecycle review.** Compare Activity/PiP/background surface loss against the already-landed MPV lifecycle owner. Do not copy Mpv∞'s five-minute rebuild threshold or OwnTV's device-specific codec workarounds without matching Nuvio device evidence.
+5. **Continue the audio-sink health review.** Compare audio progress, underrun rate, passthrough and multichannel capability. A stereo safety latch is only appropriate after proving output failure; it must not hide a genuinely silent source or discard user-selected surround output.
+
+### Reuse and verification boundaries
+
+- Nuvio's root license is GPL-3.0; OwnTV Core, NextPlayer and NextLib report GPL-3.0. This permits considering compatible source reuse, but does not waive file-level attribution, third-party notices or dependency/native-code provenance.
+- Mpv∞ currently uses custom permission-only terms. No Mpv∞ source was copied or proposed for direct reuse in Nuvio.
+- This expanded pass changed documentation only. No playback source, dependency, custom AAR, test source, build, test execution, device run or CI was changed or started.
+
