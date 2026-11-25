@@ -304,6 +304,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
             mpv.addObserver(observer)
             try {
+                // Close the gap between the first current-vo read and observer registration.
                 val stillActiveVideoOutput = mpv.getPropertyString("current-vo")
                 if (!stillActiveVideoOutput.isNullOrBlank() && stillActiveVideoOutput != "null") {
                     checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
@@ -408,6 +409,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                         appliedFrameRateRequest = null
                     }
                 }
+                // mpv targets this child SurfaceControl Surface, not holder.surface.
+                // Hide/reparent it before SurfaceView removes its parent; keep the producer
+                // alive until the native VO completion barrier finishes.
                 SurfaceControl.Transaction().use {
                     it.setVisibility(oldLayer, false).reparent(oldLayer, null).apply()
                 }
@@ -446,6 +450,8 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 }
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
+                // false transfers texture release to us; detach() releases it only after
+                // the same native VO completion barrier used by SurfaceView.
                 detach(destroyedGeneration)
                 return false
             }
