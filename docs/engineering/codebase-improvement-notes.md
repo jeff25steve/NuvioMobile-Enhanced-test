@@ -3033,3 +3033,15 @@ The latest source-only commit before this note update is `a016709076c96f68a8a21f
 - Mpv∞ currently uses custom permission-only terms. No Mpv∞ source was copied or proposed for direct reuse in Nuvio.
 - This expanded pass changed documentation only. No playback source, dependency, custom AAR, test source, build, test execution, device run or CI was changed or started.
 
+### ExoPlayer no-first-frame diagnostics — 25 November 2026
+
+A first reliability slice is now implemented on `main-build-testing`:
+
+- Added `ExoVideoStartupWatchdog`, scoped to the current prepare-attempt generation. It only starts its clock while ExoPlayer is `STATE_READY`, reports `isPlaying=true`, and a video track is selected. Pause, buffering, loss of selected video, invalid monotonic time, a new attempt, or the first rendered frame disarms/resets the active window.
+- Wired the watchdog into the existing `PlayerEngine.android.kt` lifecycle. The polling coroutine is keyed to the current ExoPlayer instance and is cancelled with that player/composition. First-frame callbacks are accepted only when the current media-item identity still matches the prepare diagnostics identity, preventing a stale prior-item callback from disarming a new attempt.
+- The 20-second threshold is deliberately **diagnostic-only** and is measured from uninterrupted active playback, not from the initial network request. It logs the attempt, current position and buffered-ahead duration. It does not switch engines, change decoder priority, or interrupt playback. This threshold is a conservative initial observation window, not a benchmark-derived production recovery threshold.
+- Added five focused host-test cases for selected-video gating, READY/playing gating, one-shot reporting, first-frame disarm, stale-attempt fencing, and pause/buffering/track-loss resets.
+
+Source commits: test `bdb0ed77b393342bb0ba1de366340fd507f560c3`; policy `cbb3a6258dd30495cee3480151a9214849e67876`; player integration `393889a7a30890e4d85e1e8b97ebecc38205bb96`.
+
+**Verification boundary:** source and test files were re-fetched from the live branch and the compare against `e9afc4cf62760177185f0514204ddf972df8d7a9` reports exactly these three intended files. No dependencies or Media3 versions changed. The tests were authored but not executed, and no build, CI or device run was started, per the standing authorization restriction. This slice detects a selected video track that never produces its first frame; it does **not yet** detect a freeze after frames have started. Frozen-frame detection needs a verified per-rendered-frame callback across the active hardware and software renderer paths before it can safely be called complete.
