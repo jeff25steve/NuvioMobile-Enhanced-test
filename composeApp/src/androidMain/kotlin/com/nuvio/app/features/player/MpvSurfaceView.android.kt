@@ -400,7 +400,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                         it.setLayer(layer, 1).setVisibility(layer, true).apply()
                     }
                     attach(output, currentGeneration)
-                } catch (error: Throwable) {
+                } catch (error: Exception) {
                     generation = null
                     surfaceGeneration.invalidate(currentGeneration)
                     logFailure(error)
@@ -423,7 +423,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 try {
                     SurfaceControl.Transaction().use { it.setBufferSize(layer, width, height).apply() }
                     resize(width, height, currentGeneration)
-                } catch (error: Throwable) {
+                } catch (error: Exception) {
                     logFailure(error)
                     onSurfaceFailure(error)
                 }
@@ -443,11 +443,11 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 // mpv targets this child SurfaceControl Surface, not holder.surface.
                 // Hide/reparent it before SurfaceView removes its parent; keep the producer
                 // alive until the native VO completion barrier finishes.
-                runCatching {
+                try {
                     SurfaceControl.Transaction().use {
                         it.setVisibility(oldLayer, false).reparent(oldLayer, null).apply()
                     }
-                }.onFailure { error ->
+                } catch (error: Exception) {
                     logFailure(error)
                     onSurfaceFailure(error)
                 }
@@ -462,7 +462,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 val createdOutput = try {
                     Surface(texture)
-                } catch (error: Throwable) {
+                } catch (error: Exception) {
                     surfaceGeneration.invalidate(currentGeneration)
                     logFailure(error)
                     onSurfaceFailure(error)
