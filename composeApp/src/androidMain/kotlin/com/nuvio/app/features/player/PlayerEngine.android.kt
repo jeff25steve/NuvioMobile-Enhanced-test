@@ -3201,25 +3201,25 @@ private class NuvioLibmpvView(
         withContext(mpvDispatcher) {
             withSurfaceLifecycleLock {
                 if (!released.get()) {
-                val sameSource =
-                    currentSourceUrl == sourceUrl &&
-                        currentSourceAudioUrl == sourceAudioUrl &&
-                        currentRequestHeaders == requestHeaders &&
-                        currentExternalSubtitles == externalSubtitles
-                currentSourceUrl = sourceUrl
-                currentSourceAudioUrl = sourceAudioUrl
-                currentRequestHeaders = requestHeaders
-                currentExternalSubtitles = externalSubtitles
-                if (!sameSource) {
-                    InAppLogger.info(
-                        "MPV/Android",
-                        "loadfile url=${sourceUrl.redactedPlaybackUrlForLogs()} audio=${!sourceAudioUrl.isNullOrBlank()} subtitles=${externalSubtitles.size} playWhenReady=$playWhenReady",
-                    )
-                    loadCurrentSourceNow(playWhenReady = playWhenReady)
-                } else {
-                    applyRequestHeadersNow(requestHeaders)
-                    setPausedNow(!playWhenReady)
-                }
+                    val sameSource =
+                        currentSourceUrl == sourceUrl &&
+                            currentSourceAudioUrl == sourceAudioUrl &&
+                            currentRequestHeaders == requestHeaders &&
+                            currentExternalSubtitles == externalSubtitles
+                    currentSourceUrl = sourceUrl
+                    currentSourceAudioUrl = sourceAudioUrl
+                    currentRequestHeaders = requestHeaders
+                    currentExternalSubtitles = externalSubtitles
+                    if (!sameSource) {
+                        InAppLogger.info(
+                            "MPV/Android",
+                            "loadfile url=${sourceUrl.redactedPlaybackUrlForLogs()} audio=${!sourceAudioUrl.isNullOrBlank()} subtitles=${externalSubtitles.size} playWhenReady=$playWhenReady",
+                        )
+                        loadCurrentSourceNow(playWhenReady = playWhenReady)
+                    } else {
+                        applyRequestHeadersNow(requestHeaders)
+                        setPausedNow(!playWhenReady)
+                    }
                 }
             }
         }
