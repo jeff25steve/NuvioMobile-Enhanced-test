@@ -3098,3 +3098,7 @@ Source review covered `MpvCore`, `MpvPlayer`, `PlaybackStallWatchdog`, its 15-ca
 - **Jellyfin-specific fallback is not portable.** Its direct play → direct stream → transcode retry ladder requires Jellyfin PlaybackInfo and server-side transcode negotiation. Nuvio's arbitrary addon/debrid sources do not share that contract. Only bounded attempts, resume-position preservation, stop-before-retry and source-generation ownership are transferable principles.
 
 The fork pins Media3 1.11.1 and `dev.jdtech.mpv:libmpv:1.1.0` (commented as mpv 0.42.0 + FFmpeg 9.0.2), with AGP 9.4.0/Kotlin 2.4.20. This does not override Nuvio's Media3 1.8.0/custom-AAR compatibility gate. No Nuvio source, dependency, test, build, CI or device playback was changed or started in this review.
+
+### MPV playback-progress stall detection — 25 November 2026
+
+A Nuvio-native, diagnostic-only MPV media-clock watchdog is now integrated. It samples the existing snapshot every three seconds, scales expected progress by playback speed, requires five healthy warm-up samples, and reports once after five consecutive under-progress samples. It is fenced by the current prepare attempt and gated by MPV playback restart, user pause, seek and EOF state. It does not depend on `paused-for-cache`, and it does not stop playback or initiate fallback. The polling job is cancelled with the existing observer effect. Five host regression tests were added but not executed; no build, CI or device run was started. Details and rationale are in `player-decoder-recovery-comparison-2026-11-25.md`.
