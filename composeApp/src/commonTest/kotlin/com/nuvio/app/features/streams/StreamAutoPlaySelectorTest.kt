@@ -137,7 +137,7 @@ class StreamAutoPlaySelectorTest {
         )
 
         assertEquals(
-            listOf("debrid:first", "addon:DirectAddon", "plugin-first", "AddonA", "plugin-second"),
+            listOf("debrid:first", "addon:DirectAddon", "plugin-first", "addon", "plugin-second"),
             ordered.map { it.addonId },
         )
     }
