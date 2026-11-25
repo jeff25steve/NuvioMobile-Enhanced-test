@@ -13,23 +13,27 @@ import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import `is`.xyz.mpv.MPV
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal abstract class MpvSurfaceView(context: Context, private val vo: String) : FrameLayout(context) {
     private val mpvInstance = lazy { MPV(context) }
-    val mpv by mpvInstance
+    protected val mpv by mpvInstance
     protected val mpvDispatcher = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "NuvioLibmpv").apply { isDaemon = true }
     }.asCoroutineDispatcher()
     private val mpvScope = CoroutineScope(SupervisorJob() + mpvDispatcher)
     protected val surfaceReady = CompletableDeferred<Unit>()
     protected val released = AtomicBoolean(false)
+    private val initialized = AtomicBoolean(false)
     private var destroyJob: Job? = null
     private var surfaceAttached = false
     private val frameRateLock = Any()
@@ -43,15 +47,51 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     protected abstract fun initOptions()
     protected abstract fun observeProperties()
 
-    fun initialize(configDir: String, cacheDir: String) {
-        mpv.setConfigDir(configDir)
-        mpv.setCacheDir(cacheDir)
-        mpv.setOptionString("vo", vo)
-        initOptions()
-        mpv.setOptionString("force-window", "no")
-        mpv.setOptionString("idle", "once")
-        observeProperties()
-        addView(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) createSurfaceView() else createTextureView())
+    suspend fun initialize(
+        configDir: String,
+        cacheDir: String,
+        prepareAssets: () -> Unit,
+    ) {
+        try {
+            withContext(mpvDispatcher) {
+                check(!released.get()) { "libmpv view was released before initialization" }
+                prepareAssets()
+                mpv.setConfigDir(configDir)
+                mpv.setCacheDir(cacheDir)
+                mpv.setOptionString("vo", vo)
+                initOptions()
+                mpv.setOptionString("force-window", "no")
+                mpv.setOptionString("idle", "once")
+                observeProperties()
+                initialized.set(true)
+            }
+            withContext(Dispatchers.Main.immediate) {
+                if (!released.get()) {
+                    addView(if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) createSurfaceView() else createTextureView())
+                }
+            }
+        } catch (error: Throwable) {
+            if (error !is CancellationException) {
+                surfaceReady.completeExceptionally(error)
+            }
+            throw error
+        }
+    }
+
+    fun addObserver(observer: MPV.EventObserver) = executeMpv {
+        mpv.addObserver(observer)
+    }
+
+    fun removeObserver(observer: MPV.EventObserver) = executeMpv {
+        mpv.removeObserver(observer)
+    }
+
+    fun addLogObserver(observer: MPV.LogObserver) = executeMpv {
+        mpv.addLogObserver(observer)
+    }
+
+    fun removeLogObserver(observer: MPV.LogObserver) = executeMpv {
+        mpv.removeLogObserver(observer)
     }
 
     protected fun updateMpvSurfaceFrameRateHint(
@@ -109,7 +149,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     protected fun executeMpv(block: () -> Unit) {
         if (released.get()) return
         mpvScope.launch {
-            if (!released.get()) runCatching(block).onFailure(::logFailure)
+            if (!released.get() && initialized.get()) {
+                runCatching(block).onFailure(::logFailure)
+            }
         }
     }
 
@@ -131,7 +173,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun detachSurface() {
-        if (!surfaceAttached) return
+        if (!initialized.get() || !surfaceAttached) return
         surfaceAttached = false
         runCatching {
             try {
