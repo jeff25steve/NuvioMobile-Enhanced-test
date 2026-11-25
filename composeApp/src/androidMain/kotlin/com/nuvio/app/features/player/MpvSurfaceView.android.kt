@@ -192,18 +192,23 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     private fun detachSurface() {
         if (!initialized.get() || !surfaceAttached) return
-        surfaceAttached = false
-        runCatching {
-            try {
-                checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
-                checkMpvResult(
-                    "set option force-window=no",
-                    mpv.setOptionString("force-window", "no"),
-                )
-            } finally {
-                mpv.detachSurface()
-            }
-        }.onFailure(::logFailure)
+        var failure: Throwable? = null
+        try {
+            checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
+            checkMpvResult(
+                "set option force-window=no",
+                mpv.setOptionString("force-window", "no"),
+            )
+        } catch (error: Throwable) {
+            failure = error
+        }
+        try {
+            mpv.detachSurface()
+            if (failure == null) surfaceAttached = false
+        } catch (error: Throwable) {
+            if (failure == null) failure = error else failure.addSuppressed(error)
+        }
+        failure?.let { throw it }
     }
 
     fun releaseMpv() {
@@ -220,8 +225,8 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceReady.cancel()
         destroyJob = mpvScope.launch {
             try {
-                detachSurface()
-                if (mpvInstance.isInitialized()) runCatching { mpv.close() }.onFailure(::logFailure)
+                runCatching { detachSurface() }.onFailure(::logFailure)
+                if (mpvInstance.isInitialized()) mpv.close()
             } finally {
                 mpvDispatcher.close()
             }
