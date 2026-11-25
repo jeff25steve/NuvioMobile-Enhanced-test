@@ -109,9 +109,10 @@ internal fun normalizeSearchHistoryEntries(
     if (limit <= 0) return emptyList()
 
     return buildList {
-        for (entry in entries) {
-            if (size >= limit) break
-            appendSearchHistoryEntry(this, entry, limit)
+        var index = 0
+        while (index < entries.size && size < limit) {
+            appendSearchHistoryEntry(this, entries[index], limit)
+            index += 1
         }
     }
 }
@@ -125,9 +126,10 @@ internal fun applySearchHistoryEntry(
 
     return buildList {
         appendSearchHistoryEntry(this, query, limit)
-        for (entry in current) {
-            if (size >= limit) break
-            appendSearchHistoryEntry(this, entry, limit)
+        var index = 0
+        while (index < current.size && size < limit) {
+            appendSearchHistoryEntry(this, current[index], limit)
+            index += 1
         }
     }
 }
