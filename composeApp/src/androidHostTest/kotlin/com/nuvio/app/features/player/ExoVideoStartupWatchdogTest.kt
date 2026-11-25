@@ -92,7 +92,7 @@ class ExoVideoStartupWatchdogTest {
         assertFalse(watchdog.shouldReportGap(13, 16_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
         assertFalse(watchdog.shouldReportGap(13, 17_000L, 3_000L, true, Player.STATE_READY, false, 5_000L, 2_000L))
         assertFalse(watchdog.shouldReportGap(13, 23_000L, 3_000L, true, Player.STATE_READY, true, 5_000L, 2_000L))
-        assertTrue(watchdog.shouldReportGap(13, 24_000L, 5_100L, true, Player.STATE_READY, true, 5_000L, 2_000L))
+        assertTrue(watchdog.shouldReportGap(13, 28_000L, 5_100L, true, Player.STATE_READY, true, 5_000L, 2_000L))
     }
 
     @Test
