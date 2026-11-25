@@ -553,7 +553,13 @@ private fun ExoPlayerSurface(
     val stallSession = remember(playerSourceKey) { PlaybackReopenSession(initialPositionMs) }
     val effectiveDecoderPriority = decoderPriorityOverride ?: playerSettings.decoderPriority
     val volumeBoostAudioProcessor = remember(playerSourceKey) {
-        PlayerOutputAudioProcessor(stereoDownmixEnabled = !playerSettings.androidAudioPassthroughEnabled).apply {
+        PlayerOutputAudioProcessor(
+            stereoDownmixEnabled = shouldStereoDownmixPcm(
+                audioPassthroughEnabled = playerSettings.androidAudioPassthroughEnabled,
+                appDownmixEnabled = playerSettings.effectiveDownmixEnabled,
+                outputChannels = playerSettings.audioOutputChannels,
+            ),
+        ).apply {
             nightModeEnabled = playerSettings.nightModeButtonEnabled && playerSettings.nightModeEnabled
         }
     }
@@ -5251,6 +5257,13 @@ private fun ExoPlayer.logCurrentTracks(context: String) {
         }
     }
 }
+
+internal fun shouldStereoDownmixPcm(
+    audioPassthroughEnabled: Boolean,
+    appDownmixEnabled: Boolean,
+    outputChannels: AudioOutputChannels,
+): Boolean = !audioPassthroughEnabled &&
+    (!appDownmixEnabled || outputChannels == AudioOutputChannels.CHANNELS_2_0)
 
 @androidx.annotation.OptIn(UnstableApi::class)
 internal fun playerBoostLinearGain(level: Float): Float {
