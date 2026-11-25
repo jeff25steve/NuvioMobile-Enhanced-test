@@ -31,7 +31,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         Thread(runnable, "NuvioLibmpv").apply { isDaemon = true }
     }.asCoroutineDispatcher()
     private val mpvScope = CoroutineScope(SupervisorJob() + mpvDispatcher)
-    protected val surfaceReady = CompletableDeferred<Unit>()
+    protected val surfaceReady = MpvSurfaceReadiness()
     protected val released = AtomicBoolean(false)
     private val initialized = AtomicBoolean(false)
     private var destroyJob: Job? = null
@@ -73,7 +73,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         } catch (error: Throwable) {
             initialized.set(false)
             if (error !is CancellationException) {
-                surfaceReady.completeExceptionally(error)
+                surfaceReady.fail(error)
             }
             throw error
         }
@@ -147,21 +147,33 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         }.onFailure(::logFailure)
     }
 
-    protected fun executeMpv(block: () -> Unit) {
+    protected fun executeMpv(
+        onFailure: ((Throwable) -> Unit)? = null,
+        block: () -> Unit,
+    ) {
         if (released.get()) return
         mpvScope.launch {
             if (!released.get() && initialized.get()) {
-                runCatching(block).onFailure(::logFailure)
+                try {
+                    block()
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Throwable) {
+                    logFailure(error)
+                    onFailure?.invoke(error)
+                }
             }
         }
     }
 
-    private fun attach(surface: Surface) = executeMpv {
+    private fun attach(surface: Surface) = executeMpv(
+        onFailure = surfaceReady::fail,
+    ) {
         mpv.attachSurface(surface)
         surfaceAttached = true
         mpv.setOptionString("force-window", "yes")
         mpv.setPropertyString("vo", vo)
-        surfaceReady.complete(Unit)
+        surfaceReady.complete()
     }
 
     private fun resize(width: Int, height: Int) = executeMpv {
@@ -290,5 +302,26 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             "MpvSurfaceView",
             "libmpv operation failed: ${sanitizeMpvErrorText(error.message) ?: error::class.simpleName.orEmpty()}",
         )
+    }
+}
+
+
+internal class MpvSurfaceReadiness {
+    private val ready = CompletableDeferred<Unit>()
+
+    fun complete() {
+        ready.complete(Unit)
+    }
+
+    fun fail(error: Throwable) {
+        ready.completeExceptionally(error)
+    }
+
+    fun cancel() {
+        ready.cancel()
+    }
+
+    suspend fun await() {
+        ready.await()
     }
 }
