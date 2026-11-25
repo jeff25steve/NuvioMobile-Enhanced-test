@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player.swdecoder
 
+import androidx.media3.decoder.DecoderOutputBuffer
 import androidx.media3.decoder.VideoDecoderOutputBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,7 +38,7 @@ class SoftwareVideoFrameTimestampTest {
 
     @Test
     fun nativePrivateFrameOwnershipCanOnlyBeTransferredOnce() {
-        val output = VideoDecoderOutputBuffer(object : VideoDecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
+        val output = VideoDecoderOutputBuffer(object : DecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
             override fun releaseOutputBuffer(buffer: VideoDecoderOutputBuffer) = Unit
         })
         output.decoderPrivate = 0x1234L
@@ -48,7 +49,7 @@ class SoftwareVideoFrameTimestampTest {
 
     @Test
     fun switchingToPrivateSurfaceFramesReleasesPreviousYuvStorage() {
-        val output = VideoDecoderOutputBuffer(object : VideoDecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
+        val output = VideoDecoderOutputBuffer(object : DecoderOutputBuffer.Owner<VideoDecoderOutputBuffer> {
             override fun releaseOutputBuffer(buffer: VideoDecoderOutputBuffer) = Unit
         })
         output.data = java.nio.ByteBuffer.allocateDirect(128)
