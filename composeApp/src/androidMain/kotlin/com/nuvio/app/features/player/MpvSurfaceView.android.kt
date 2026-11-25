@@ -369,36 +369,56 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             override fun surfaceCreated(holder: SurfaceHolder) {
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
-                val frame = holder.surfaceFrame
-                val createdLayer = SurfaceControl.Builder()
-                    .setName("MPV video")
-                    .setParent(surfaceControl)
-                    .setBufferSize(frame.width(), frame.height())
-                    .build()
-                val createdOutput = Surface(createdLayer)
-                layer = createdLayer
-                trackSurfaceRelease(currentGeneration) {
-                    createdOutput.release()
-                    createdLayer.release()
-                }
-                synchronized(frameRateLock) {
-                    activeVideoLayer = layer
-                    appliedFrameRateRequest = null
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                        applyMpvSurfaceFrameRateLocked()
+                var createdOutput: Surface? = null
+                try {
+                    val frame = holder.surfaceFrame
+                    val createdLayer = SurfaceControl.Builder()
+                        .setName("MPV video")
+                        .setParent(surfaceControl)
+                        .setBufferSize(frame.width(), frame.height())
+                        .build()
+                    val output = try {
+                        Surface(createdLayer)
+                    } catch (error: Throwable) {
+                        createdLayer.release()
+                        throw error
                     }
+                    createdOutput = output
+                    layer = createdLayer
+                    trackSurfaceRelease(currentGeneration) {
+                        output.release()
+                        createdLayer.release()
+                    }
+                    synchronized(frameRateLock) {
+                        activeVideoLayer = layer
+                        appliedFrameRateRequest = null
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            applyMpvSurfaceFrameRateLocked()
+                        }
+                    }
+                    SurfaceControl.Transaction().use {
+                        it.setLayer(layer, 1).setVisibility(layer, true).apply()
+                    }
+                    attach(output, currentGeneration)
+                } catch (error: Throwable) {
+                    generation = null
+                    surfaceGeneration.invalidate(currentGeneration)
+                    logFailure(error)
+                    onSurfaceFailure(error)
+                    if (createdOutput != null) detach(currentGeneration)
                 }
-                SurfaceControl.Transaction().use {
-                    it.setLayer(layer, 1).setVisibility(layer, true).apply()
-                }
-                attach(createdOutput, currentGeneration)
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
                 val currentGeneration = generation ?: return
                 if (!surfaceGeneration.isCurrent(currentGeneration)) return
-                SurfaceControl.Transaction().use { it.setBufferSize(layer, width, height).apply() }
-                resize(width, height, currentGeneration)
+                try {
+                    SurfaceControl.Transaction().use { it.setBufferSize(layer, width, height).apply() }
+                    resize(width, height, currentGeneration)
+                } catch (error: Throwable) {
+                    logFailure(error)
+                    onSurfaceFailure(error)
+                }
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -415,8 +435,13 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 // mpv targets this child SurfaceControl Surface, not holder.surface.
                 // Hide/reparent it before SurfaceView removes its parent; keep the producer
                 // alive until the native VO completion barrier finishes.
-                SurfaceControl.Transaction().use {
-                    it.setVisibility(oldLayer, false).reparent(oldLayer, null).apply()
+                runCatching {
+                    SurfaceControl.Transaction().use {
+                        it.setVisibility(oldLayer, false).reparent(oldLayer, null).apply()
+                    }
+                }.onFailure { error ->
+                    logFailure(error)
+                    onSurfaceFailure(error)
                 }
                 detach(destroyedGeneration)
             }
@@ -427,8 +452,15 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 val currentGeneration = surfaceGeneration.begin() ?: return
+                val createdOutput = try {
+                    Surface(texture)
+                } catch (error: Throwable) {
+                    surfaceGeneration.invalidate(currentGeneration)
+                    logFailure(error)
+                    onSurfaceFailure(error)
+                    return
+                }
                 surfaceTextureGenerations[texture] = currentGeneration
-                val createdOutput = Surface(texture)
                 ownedSurfaceTextures.add(texture)
                 trackSurfaceRelease(currentGeneration) {
                     createdOutput.release()
