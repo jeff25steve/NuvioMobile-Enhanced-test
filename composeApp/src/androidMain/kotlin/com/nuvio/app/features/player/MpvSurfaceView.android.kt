@@ -369,7 +369,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
                 val oldLayer = layer
-                val oldOutput = output
                 synchronized(frameRateLock) {
                     if (activeVideoLayer == oldLayer) {
                         activeVideoLayer = null
@@ -408,7 +407,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 val destroyedGeneration = generation ?: return true
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
-                val oldOutput = output
                 detach(destroyedGeneration)
                 return false
             }
