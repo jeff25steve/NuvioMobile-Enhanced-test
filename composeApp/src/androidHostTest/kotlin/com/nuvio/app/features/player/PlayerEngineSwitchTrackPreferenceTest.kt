@@ -29,6 +29,8 @@ import kotlin.test.assertTrue
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
 class PlayerEngineSwitchTrackPreferenceTest {
+    private val decoderFailureMessage = "Decoder initialization failed [ERROR_CODE_DECODER_INIT_FAILED]"
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
     @Before
@@ -309,7 +311,7 @@ class PlayerEngineSwitchTrackPreferenceTest {
             autoSwitchPlaybackEngineOnError = true,
         )
 
-        val failedOver = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer)
+        val failedOver = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer, message = decoderFailureMessage)
 
         assertTrue(failedOver)
         assertEquals(AndroidPlaybackEngine.Libmpv, runtime.playbackEngineOverride)
@@ -323,8 +325,8 @@ class PlayerEngineSwitchTrackPreferenceTest {
         val runtime = failoverRuntime()
         runtime.resetIdentityStateIfNeeded()
 
-        val first = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer)
-        val second = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.Libmpv)
+        val first = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer, message = decoderFailureMessage)
+        val second = runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.Libmpv, message = decoderFailureMessage)
 
         assertTrue(first)
         assertFalse(second)
@@ -337,26 +339,26 @@ class PlayerEngineSwitchTrackPreferenceTest {
         val runtime = failoverRuntime()
         runtime.resetIdentityStateIfNeeded()
 
-        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer))
+        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer, message = decoderFailureMessage))
         runtime.resetIdentityStateIfNeeded()
 
         assertEquals(AndroidPlaybackEngine.Libmpv, runtime.playbackEngineOverride)
         assertTrue(runtime.engineFailoverTriggered)
-        assertFalse(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.Libmpv))
+        assertFalse(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.Libmpv, message = decoderFailureMessage))
     }
 
     @Test
     fun sourceChangeClearsFailoverLock() {
         val runtime = failoverRuntime()
         runtime.resetIdentityStateIfNeeded()
-        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer))
+        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer, message = decoderFailureMessage))
 
         runtime.activeSourceUrl = "https://example.com/other.mp4"
         runtime.resetIdentityStateIfNeeded()
 
         assertNull(runtime.playbackEngineOverride)
         assertFalse(runtime.engineFailoverTriggered)
-        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer))
+        assertTrue(runtime.maybeFailoverPlaybackEngine(resolvedAutoEngine = AndroidPlaybackEngine.ExoPlayer, message = decoderFailureMessage))
         assertEquals(AndroidPlaybackEngine.Libmpv, runtime.playbackEngineOverride)
     }
 
