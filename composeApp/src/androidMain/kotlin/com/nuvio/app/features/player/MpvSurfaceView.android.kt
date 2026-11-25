@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -172,6 +173,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             if (!released.get() && initialized.get()) {
                 try {
                     block()
+                } catch (error: TimeoutCancellationException) {
+                    logFailure(error)
+                    onFailure?.invoke(error)
+                    throw error
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
