@@ -281,10 +281,12 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 override fun event(eventId: Int, data: MPVNode) {
                     if (eventId == MPV.mpvEvent.MPV_EVENT_VIDEO_RECONFIG) {
                         mpvScope.launch {
-                            val activeVideoOutput = runCatching {
-                                mpv.getPropertyString("current-vo")
-                            }.getOrNull()
-                            releaseGate.onVideoReconfigured(activeVideoOutput)
+                            try {
+                                val activeVideoOutput = mpv.getPropertyString("current-vo")
+                                releaseGate.onVideoReconfigured(activeVideoOutput)
+                            } catch (error: Throwable) {
+                                releaseGate.fail(error)
+                            }
                         }
                     }
                 }
@@ -292,9 +294,14 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
             mpv.addObserver(observer)
             try {
-                checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
-                withTimeout(5_000) {
-                    releaseGate.await()
+                val stillActiveVideoOutput = mpv.getPropertyString("current-vo")
+                if (!stillActiveVideoOutput.isNullOrBlank() && stillActiveVideoOutput != "null") {
+                    checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
+                    withTimeout(5_000) {
+                        releaseGate.await()
+                    }
+                } else {
+                    checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
                 }
             } finally {
                 mpv.removeObserver(observer)
@@ -479,6 +486,10 @@ internal class MpvVideoOutputReleaseGate {
         if (currentVideoOutput == null || currentVideoOutput == "null") {
             detached.complete(Unit)
         }
+    }
+
+    fun fail(error: Throwable) {
+        detached.completeExceptionally(error)
     }
 
     fun isComplete(): Boolean = detached.isCompleted
