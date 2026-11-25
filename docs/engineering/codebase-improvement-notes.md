@@ -3114,3 +3114,42 @@ Follow-up audit: MPV progress monitoring now avoids native snapshot reads while 
 - AndroidX Media PR #3422 / issue #3421 remains the upstream mid-stream decoder-recovery proposal. Nuvio keeps its existing initialization-time decoder fallback and defers app-level mid-stream decoder rebuilds until upstream support lands or a reproducible Nuvio-specific failure validates a safe workaround.
 - Media3 remains pinned to 1.8.0 with the custom AAR set; no alias-only version bump. Dolby Vision under-report remains a device-validation task, and the existing frame-rate policy needs no code change.
 - Detailed source evidence and interpretation boundaries are in player-decoder-recovery-comparison-2026-11-25.md. No build, compiler, tests, CI or device validation was run.
+
+
+### Reddit-inspired playback timeline improvement — 25 November 2026
+
+Reviewed Reddit's Android video-player rewrite and follow-up engineering material against Nuvio's main-build-testing implementation, current Media3 guidance, and the existing cache/decoder/lifecycle engineering records.
+
+**Adopted**
+- Frame-synchronised timeline interpolation in the common Compose player timeline and the legacy seekbar.
+- Interpolation is based on withFrameNanos, the latest 250 ms playback snapshot position, and the current playback speed.
+- Animation is only eligible while playback is active, the duration is known and positive, the timeline is not being interacted with, and playback speed is finite and positive.
+- Known duration is a hard upper bound; unknown duration is not fabricated. Invalid elapsed time/speed does not advance the displayed position; arithmetic saturates safely.
+- Frame-driven state stays inside the timeline components. The existing 250 ms snapshot publication continues to serve diagnostics, buffering, watch-progress and the rest of the player UI.
+- Frame callbacks update presentation state only. They do not invoke player APIs, seek, alter load control, or issue network requests.
+
+**Not adopted / deferred**
+- No Reddit-style multi-player pool or READY-player prewarming. Reddit's feed-first workload keeps several candidate videos ready; Nuvio's normal playback is one active content video, with hardware-decoder limits and custom renderer/audio/subtitle pipelines. A generic pool risks competing for decoder slots.
+- No aggressive or speculative provider prefetch. Reddit's own experiments found parallel HTTP latency costs; Nuvio does not have a stable, source-known next-media item in all provider flows.
+- No DefaultPreloadManager integration yet. It requires shared stateful MediaSource ownership, playback looper, media-source factory, renderers, track selector and load control. Nuvio's custom components need a separate integration design around a concrete next-item use case.
+- No cached MediaSource sharing. Nuvio creates per-prepare Blu-ray/merged sources and does not currently establish Reddit's cross-player source/looper bug.
+- No extra cache initializer or cache prewarm thread. The existing lazy selected-DataSource path defers cache-backed DataSource construction to DataSource.open() on the Media3 Loader worker. Media3 1.8.0 SimpleCache starts its own index/directory initialization thread; the earlier duplicate wrapper was correctly removed.
+- No Media3 version/AAR change. gradle/libs.versions.toml remains at AndroidX Media3 1.8.0; the custom AAR family is fingerprinted by scripts/tests/test-media3-custom-aar-compatibility.sh, with seven required hashes and API constraints. An alias-only upgrade to 1.11.x/1.12.x would not replace the bundled ExoPlayer/common/extractor/UI binaries and could produce a mixed API/runtime graph. A future upgrade requires verified source/patch provenance, rebuilding the complete aligned AAR family, refreshing fingerprints and performing the authorized compatibility/device matrix. This is also why Media3's newer PlayerTransferState API is not used.
+
+**Files changed**
+- composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerTimeline.kt
+  - Added shouldAnimatePlaybackTimeline(...).
+  - Added pure interpolatePlaybackPositionMs(...).
+  - Added rememberFrameSynchronizedPositionMs(...) using produceState + withFrameNanos.
+  - Wired the common timeline slider and seek-preview overlay to the frame-driven position.
+- composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerControls.kt
+  - Passed playback state and speed into the legacy seekbar.
+  - Wired its slider, tap-to-seek current-position reference, preview and optional time row to the frame-driven position.
+- composeApp/src/commonTest/kotlin/com/nuvio/app/features/player/PlayerTimelineInterpolationTest.kt
+  - Added contracts for normal/fractional speed, pause/interacting/unknown-duration/invalid-speed eligibility, negative elapsed time, duration clamping, negative position and overflow saturation.
+- Design and plan: docs/superpowers/specs/2026-11-25-reddit-playback-principles-design.md and docs/superpowers/plans/2026-11-25-reddit-playback-principles.md.
+
+**Verification status**
+- Changed Kotlin files, imports, function signatures, the only legacy seekbar call site, test source, Media3 version alias and the existing custom-AAR compatibility guard were re-fetched from GitHub and statically inspected.
+- The test source was authored before the corresponding interpolation/eligibility implementation, but the focused common test has not been run; a RED result is therefore not claimed.
+- No Gradle task, compilation, test, build, CI, benchmark, APK/AAB or device playback was run. Compilation and runtime behavior remain unverified until separately authorized.
