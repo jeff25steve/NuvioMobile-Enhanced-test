@@ -21,7 +21,12 @@ internal actual object TraktAuthStorage {
     private const val gcmTagBits = 128
 
     private var preferences: SharedPreferences? = null
+    private var testSecretKeyProvider: (() -> SecretKey)? = null
     private val lock = Any()
+
+    internal fun setSecretKeyProviderForTesting(provider: (() -> SecretKey)?) = synchronized(lock) {
+        testSecretKeyProvider = provider
+    }
 
     fun initialize(context: Context) {
         preferences = context.applicationContext.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
@@ -83,6 +88,7 @@ internal actual object TraktAuthStorage {
     }
 
     private fun secretKey(): SecretKey {
+        testSecretKeyProvider?.let { return it() }
         val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (keyStore.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
