@@ -13,7 +13,9 @@ Baseline before this cycle: `7ebbc5f60feb64195205572d6bcc68d240e78639`
 | [moneytoo/Player](https://github.com/moneytoo/Player) | Commit `6df39ae`, 2026-11-12 | Media3/FFmpeg playback; updated to Media3 1.12.0-beta01 | Useful for current upstream adoption, but beta use is not a reason to move Nuvio to a beta |
 | [OwnTV](https://github.com/ahXN00/OwnTV) | Commit `6c2b5ce`, 2026-11-22 | libmpv + Media3 with engine-specific routing and fallback ladder | Architecture reference only; Android TV/D-pad-first, so phone UI assumptions do not transfer |
 | [CineIsle](https://github.com/nu1lkali/CineIsle) | Commit `fdb17ec`, 2026-11-24 | mpv, GSY/IJK/system and Media3 1.11.1 + NextLib for multi-instance playback | Recent hybrid-engine reference; not enough verified evidence to copy its app-level policy |
-| [Mpv-infinity](https://github.com/ZHINFINITY/Mpv-infinity) | Commit `1075b4e`, 2026-11-24 | MPV + Media3 routing and recent buffering/server-switch race fixes | Relevant to hybrid playback lifecycle; changes are app-specific and need source-level review before adoption |
+| [mpv-android](https://github.com/mpv-android/mpv-android) | Commit `c50a988`, 2026-11-24; active, MIT | Upstream libmpv Android surface attach/detach lifecycle and native bridge | High for native surface integration; its `BaseMPVView` explicitly documents a detach race around VO shutdown, which Nuvio's stronger completion barrier already addresses |
+| [VLC Android](https://github.com/videolan/vlc-android) | Commit `8281580`, 2026-11-24; active, GPL-2.0 | Detaches media-player listeners before media replacement/release, releases media separately, detaches video output and bounds debug release waits | Useful lifecycle reference; not a dependency candidate without a deliberate license and architecture review |
+| [Mpv-infinity](https://github.com/ZHINFINITY/Mpv-infinity) | Latest commit `1075b4e`, 2026-11-24; changelog says development is paused after 2.5.0 | MPV + Media3 routing and recent buffering/server-switch race fixes | Useful historical comparison only, not treated as an actively maintained source until its hiatus ends |
 
 ## Findings applied
 
@@ -28,6 +30,12 @@ Bluetooth audio remains an explicit audio-only preference: it establishes the co
 Nuvio remains pinned to Media3 1.8.0. The latest stable release found during this review is 1.11.1 (2026-09-10); 1.12.0-beta01 is also available (2026-11-11). Media3 1.11.1 includes a fix for decoder-error recovery crashes with renderer prewarming (1.10.1), a playback stall fix for prewarmed secondary renderers and an Opus native memory-corruption fix. Media3 1.9.0 added eligible-video seek improvements and better frame dropping; 1.8.0 already includes scrubbing-mode APIs and decode-only seek optimizations.
 
 This is a meaningful upgrade candidate, but it is not included in this change. A separate dependency migration must inspect all Media3 modules, extension renderers, custom subclasses and API removals (including the HAGC ExtractorsFactory migration), then run the authorized build/test matrix before any version bump.
+
+## Native surface lifecycle comparison
+
+The current upstream [mpv-android `BaseMPVView`](https://github.com/mpv-android/mpv-android/blob/master/app/src/main/java/is/xyz/mpv/BaseMPVView.kt) disables VO and calls `detachSurface()` from `surfaceDestroyed`, but its source retains a FIXME that changing `vo` may not wait for VO deinitialization. Nuvio's `MpvSurfaceView.android.kt` already goes further: it observes `MPV_EVENT_VIDEO_RECONFIG`, waits for the old video output to finish uninitializing, then detaches the JNI surface; generation ownership and a lifecycle lock prevent stale surface callbacks from detaching a replacement. Do not replace this with the simpler upstream sample.
+
+VLC Android's `PlayerController` detaches its event listener before replacing/releasing media and detaches video output before releasing the player asynchronously. This is a useful lifecycle invariant to keep checking across Nuvio's MPV/Media3 engine switches, but no additional change was justified in this cycle.
 
 ## Deliberately not adopted
 
