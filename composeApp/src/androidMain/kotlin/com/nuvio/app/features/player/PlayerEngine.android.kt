@@ -37,6 +37,7 @@ import androidx.lifecycle.Lifecycle
 import com.nuvio.app.features.streams.redactedForLogs
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 import androidx.lifecycle.LifecycleEventObserver
@@ -2857,7 +2858,7 @@ private fun LibmpvPlayerSurface(
                     layoutParams = android.view.ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     keepScreenOn = false
                     playerViewRef = this
-                    coroutineScope.launch {
+                    coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
                         try {
                             initialize(
                                 configDir = viewContext.filesDir.path,
