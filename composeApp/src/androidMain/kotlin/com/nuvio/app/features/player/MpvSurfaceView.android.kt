@@ -25,6 +25,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -43,6 +45,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private var destroyJob: Job? = null
     private val surfaceLifecycleMutex = Mutex()
     private val surfaceReleases = CopyOnWriteArrayList<Pair<Long, () -> Unit>>()
+    private val ownedSurfaceTextures = Collections.synchronizedSet(
+        Collections.newSetFromMap(IdentityHashMap<SurfaceTexture, Boolean>()),
+    )
     @Volatile
     private var surfaceAttached = false
     private var attachedSurfaceGeneration: Long? = null
@@ -389,9 +394,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
                 val createdOutput = Surface(texture)
+                ownedSurfaceTextures.add(texture)
                 trackSurfaceRelease(currentGeneration) {
                     createdOutput.release()
-                    texture.release()
+                    if (ownedSurfaceTextures.remove(texture)) texture.release()
                 }
                 attach(createdOutput, currentGeneration)
                 resize(width, height, currentGeneration)
@@ -402,7 +408,12 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             }
 
             override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
-                val destroyedGeneration = generation ?: return true
+                val destroyedGeneration = generation
+                if (destroyedGeneration == null) {
+                    // A duplicate callback must not transfer a still-retained texture
+                    // back to the framework before native VO teardown has completed.
+                    return !ownedSurfaceTextures.contains(texture)
+                }
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
                 detach(destroyedGeneration)
