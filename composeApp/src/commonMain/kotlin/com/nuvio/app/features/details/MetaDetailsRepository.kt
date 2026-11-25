@@ -943,6 +943,8 @@ internal fun findEmbeddedStreamsForMeta(
     meta: MetaDetails,
     videoId: String,
 ): List<com.nuvio.app.features.streams.StreamItem> {
+    if (videoId == meta.id) return meta.videos.flatMap(MetaVideo::streams)
+
     val lastSeparator = videoId.lastIndexOf(':')
     val previousSeparator = if (lastSeparator > 0) videoId.lastIndexOf(':', lastSeparator - 1) else -1
     val season = if (previousSeparator >= 0 && lastSeparator > previousSeparator) {
