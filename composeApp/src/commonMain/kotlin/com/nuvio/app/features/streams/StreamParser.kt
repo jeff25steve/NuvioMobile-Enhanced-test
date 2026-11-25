@@ -96,9 +96,9 @@ object StreamParser {
 
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
         for ((key, value) in entries) {
-            val primitive = value as? JsonPrimitive ?: continue
-            if (!primitive.isString) continue
-            val content = primitive.content.takeIf { it.isNotBlank() } ?: continue
+            val content = (value as? JsonPrimitive)?.contentOrNull
+                ?.takeIf { it.isNotBlank() }
+                ?: continue
             put(key, content)
         }
     }
