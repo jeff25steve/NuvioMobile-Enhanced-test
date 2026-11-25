@@ -373,7 +373,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                         appliedFrameRateRequest = null
                     }
                 }
-                SurfaceControl.Transaction().use { it.reparent(oldLayer, null).apply() }
+                SurfaceControl.Transaction().use {
+                    it.setVisibility(oldLayer, false).reparent(oldLayer, null).apply()
+                }
                 detach(destroyedGeneration)
             }
         })
