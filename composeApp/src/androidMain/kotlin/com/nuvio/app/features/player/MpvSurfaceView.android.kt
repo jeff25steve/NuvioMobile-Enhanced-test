@@ -171,18 +171,23 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     ) {
         mpv.attachSurface(surface)
         surfaceAttached = true
-        mpv.setOptionString("force-window", "yes")
-        mpv.setPropertyString("vo", vo)
+        checkMpvResult("set option force-window", mpv.setOptionString("force-window", "yes"))
+        checkMpvResult("set property vo", mpv.setPropertyString("vo", vo))
         surfaceReady.complete()
     }
 
     private fun resize(width: Int, height: Int) = executeMpv {
-        mpv.setPropertyString("android-surface-size", "${width}x$height")
+        checkMpvResult(
+            "set property android-surface-size",
+            mpv.setPropertyString("android-surface-size", "${width}x$height"),
+        )
     }
 
     private fun detach(releaseSurface: () -> Unit) {
         val job = destroyJob ?: mpvScope.launch { detachSurface() }
-        job.invokeOnCompletion { releaseSurface() }
+        job.invokeOnCompletion { cause ->
+            if (cause == null) releaseSurface() else logFailure(cause)
+        }
     }
 
     private fun detachSurface() {
@@ -190,8 +195,11 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceAttached = false
         runCatching {
             try {
-                mpv.setPropertyString("vo", "null")
-                mpv.setPropertyString("force-window", "no")
+                checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
+                checkMpvResult(
+                    "set option force-window=no",
+                    mpv.setOptionString("force-window", "no"),
+                )
             } finally {
                 mpv.detachSurface()
             }
@@ -294,6 +302,12 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             }
 
             override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
+        }
+    }
+
+    private fun checkMpvResult(operation: String, result: Int) {
+        if (result < 0) {
+            throw IllegalStateException("$operation failed: ${mpv.errorString(result)} ($result)")
         }
     }
 
