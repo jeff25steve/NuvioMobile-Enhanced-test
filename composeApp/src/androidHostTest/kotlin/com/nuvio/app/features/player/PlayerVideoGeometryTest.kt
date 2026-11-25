@@ -2,6 +2,8 @@
 
 package com.nuvio.app.features.player
 
+import android.graphics.Bitmap
+
 import androidx.media3.common.VideoSize
 import androidx.media3.common.text.Cue
 import org.junit.runner.RunWith
@@ -123,6 +125,7 @@ class PlayerVideoGeometryTest {
     fun bitmapCueCoordinatesAreMappedIntoFittedVideoBounds() {
         val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fit))
         val cue = Cue.Builder()
+            .setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
             .setPosition(0.5f)
             .setSize(0.8f)
             .setLine(0.9f, Cue.LINE_TYPE_FRACTION)
@@ -141,6 +144,7 @@ class PlayerVideoGeometryTest {
     fun bitmapCueCoordinatesExtendWithZoomCropBounds() {
         val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Zoom))
         val cue = Cue.Builder()
+            .setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
             .setPosition(0.25f)
             .setSize(0.5f)
             .setLine(0.5f, Cue.LINE_TYPE_FRACTION)
@@ -159,6 +163,7 @@ class PlayerVideoGeometryTest {
     fun fillModeLeavesBitmapCueCoordinatesUnchanged() {
         val bounds = requireNotNull(videoDisplayBoundsFraction(1920f, 1080f, 2.35f, PlayerResizeMode.Fill))
         val cue = Cue.Builder()
+            .setBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
             .setPosition(0.3f)
             .setSize(0.7f)
             .setLine(0.8f, Cue.LINE_TYPE_FRACTION)
