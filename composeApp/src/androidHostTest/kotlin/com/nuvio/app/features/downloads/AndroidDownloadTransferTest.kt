@@ -65,7 +65,7 @@ class AndroidDownloadTransferTest {
             val directory = temporary.newFolder()
             val partial = File(directory, "video.mkv.part").apply { writeText("old prefix") }
             transferAndroidDownload(downloadItem(server.url("/video").toString()), FileDownloadSink(partial),
-                null, onHeaders = { _, _ -> }, onProgress = { _, _ -> })
+                "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> })
             assertEquals("replacement", partial.readText())
             assertEquals("bytes=10-", server.takeRequest().getHeader("Range"))
             assertNull(server.takeRequest().getHeader("Range"))
@@ -75,12 +75,13 @@ class AndroidDownloadTransferTest {
     @Test
     fun mismatchedRangeDoesNotCorruptThePartialFile(): Unit = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 2-4/5").setBody("bad"))
+            server.enqueue(MockResponse().setResponseCode(206).setHeader("ETag", "\"version-1\"")
+                    .setHeader("Content-Range", "bytes 2-4/5").setBody("bad"))
             val directory = temporary.newFolder()
             val partial = File(directory, "video.mkv.part").apply { writeText("hello") }
             assertFailsWith<IOException> {
                 transferAndroidDownload(downloadItem(server.url("/video").toString()), FileDownloadSink(partial),
-                    null, onHeaders = { _, _ -> }, onProgress = { _, _ -> })
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> })
             }
             assertEquals("hello", partial.readText())
         }
@@ -92,6 +93,7 @@ class AndroidDownloadTransferTest {
             server.enqueue(
                 MockResponse()
                     .setResponseCode(206)
+                    .setHeader("ETag", "\"version-1\"")
                     .setHeader("Content-Range", "bytes 5-6/11")
                     .setChunkedBody(" world", 2),
             )
@@ -102,9 +104,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    null,
-                    onHeaders = { _, _ -> },
-                    onProgress = { _, _ -> },
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> },
                 )
             }
 
@@ -118,6 +118,7 @@ class AndroidDownloadTransferTest {
             server.enqueue(
                 MockResponse()
                     .setResponseCode(206)
+                    .setHeader("ETag", "\"version-1\"")
                     .setHeader("Content-Range", "bytes 5-6/11")
                     .setBody(" world"),
             )
@@ -128,9 +129,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    null,
-                    onHeaders = { _, _ -> },
-                    onProgress = { _, _ -> },
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> },
                 )
             }
 
