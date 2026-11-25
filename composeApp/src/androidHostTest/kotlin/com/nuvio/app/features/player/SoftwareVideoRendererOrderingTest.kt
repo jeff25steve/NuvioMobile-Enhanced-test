@@ -1,5 +1,6 @@
 package com.nuvio.app.features.player
 
+import com.nuvio.app.features.player.swdecoder.shouldSoftwareVideoRendererHandleFormat
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import kotlin.test.Test
 import kotlin.test.assertEquals
