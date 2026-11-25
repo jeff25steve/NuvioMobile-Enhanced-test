@@ -1874,6 +1874,34 @@ private fun ExoPlayerSurface(
                 // video's frame-rate request across a stream/format transition.
                 currentVideoFrameRate = normalizedVideoFrameRate(format.frameRate) ?: Float.NaN
                 updateAlwaysFrameRateState()
+
+                // Record signalled HDR/Dolby Vision input metadata at format boundaries only.
+                // This proves what Media3 selected, not what the display ultimately rendered.
+                val colorInfo = format.colorInfo
+                val isDolbyVision = format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
+                val isHdrTransfer = colorInfo?.colorTransfer == C.COLOR_TRANSFER_ST2084 ||
+                    colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG
+                if (isDolbyVision || isHdrTransfer) {
+                    val transfer = when (colorInfo?.colorTransfer) {
+                        C.COLOR_TRANSFER_ST2084 -> "PQ"
+                        C.COLOR_TRANSFER_HLG -> "HLG"
+                        C.COLOR_TRANSFER_SDR -> "SDR"
+                        Format.NO_VALUE, null -> "unknown"
+                        else -> "other"
+                    }
+                    Log.i(
+                        PLAYER_DIAGNOSTIC_TAG,
+                        "videoFormatHdr attempt=${playbackDiagnostics.attempt} " +
+                            "mime=${format.sampleMimeType ?: "unknown"} codecs=${format.codecs ?: "unknown"} " +
+                            "size=${format.width}x${format.height} frameRate=${format.frameRate} " +
+                            "colorSpace=${colorInfo?.colorSpace ?: Format.NO_VALUE} " +
+                            "colorRange=${colorInfo?.colorRange ?: Format.NO_VALUE} " +
+                            "transfer=$transfer lumaBitDepth=${colorInfo?.lumaBitdepth ?: Format.NO_VALUE} " +
+                            "chromaBitDepth=${colorInfo?.chromaBitdepth ?: Format.NO_VALUE} " +
+                            "staticHdrMetadata=${colorInfo?.hdrStaticInfo != null} " +
+                            "decoder=${initializedVideoDecoderName ?: "not_initialized"}",
+                    )
+                }
             }
 
             // Codec-error callbacks are diagnostic only: Media3 may recover internally, so
