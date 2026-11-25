@@ -237,8 +237,8 @@ class SettingsPagesTest {
         compose.runOnIdle {
             assertEquals(entries.size, entries.map { it.key }.distinct().size)
             mapOf(
-                "playback-touch-gestures" to SettingsPage.PlaybackInterface,
-                "playback-preferred-audio" to SettingsPage.PlaybackAudio,
+                "playback-interface-touch-gestures" to SettingsPage.PlaybackInterface,
+                "playback-audio-preferred-language" to SettingsPage.PlaybackAudio,
                 "playback-preferred-subtitles" to SettingsPage.PlaybackSubtitles,
                 "playback-auto-switch-engine" to SettingsPage.PlaybackPlayer,
                 "playback-libass-render-mode" to SettingsPage.PlaybackSubtitles,
