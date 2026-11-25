@@ -405,7 +405,15 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     surfaceGeneration.invalidate(currentGeneration)
                     logFailure(error)
                     onSurfaceFailure(error)
-                    if (createdOutput != null) detach(currentGeneration)
+                    if (createdOutput != null) {
+                        synchronized(frameRateLock) {
+                            if (activeVideoLayer == layer) {
+                                activeVideoLayer = null
+                                appliedFrameRateRequest = null
+                            }
+                        }
+                        detach(currentGeneration)
+                    }
                 }
             }
 
