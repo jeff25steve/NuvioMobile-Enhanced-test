@@ -21,6 +21,7 @@ internal class SoftwareVideoRenderer(
     eventHandler: Handler?,
     eventListener: VideoRendererEventListener?,
     maxDroppedFramesToNotify: Int,
+    private val forceSoftwareDecoding: Boolean,
 ) : DecoderVideoRenderer(allowedJoiningTimeMs, eventHandler, eventListener, maxDroppedFramesToNotify) {
     private var decoder: SoftwareVideoDecoder? = null
 
@@ -48,7 +49,11 @@ internal class SoftwareVideoRenderer(
         if (!SoftwareVideoDecoder.isAvailable) {
             return RendererCapabilities.create(C.FORMAT_UNSUPPORTED_SUBTYPE)
         }
-        val formatSupport = if (SoftwareVideoDecoder.needsSoftwareDecoding(format)) {
+        val formatSupport = if (shouldSoftwareVideoRendererHandleFormat(
+                needsSoftwareDecoding = SoftwareVideoDecoder.needsSoftwareDecoding(format),
+                forceSoftwareDecoding = forceSoftwareDecoding,
+            )
+        ) {
             C.FORMAT_HANDLED
         } else {
             C.FORMAT_EXCEEDS_CAPABILITIES
