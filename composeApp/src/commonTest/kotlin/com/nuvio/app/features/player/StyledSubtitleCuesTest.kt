@@ -122,7 +122,7 @@ class StyledSubtitleCuesTest {
 
     @Test
     fun cueWidthShrinksToFitThePositionedAnchor() {
-        assertEquals(0.2f, subtitleCueWidthFraction(0.2f, 1f, 0.8f), 0.0001f)
+        assertEquals(0.2f, requireNotNull(subtitleCueWidthFraction(0.2f, 1f, 0.8f)), 0.0001f)
         assertEquals(0.4f, requireNotNull(subtitleCueWidthFraction(0.2f, 0.5f, 0.8f)), 0.0001f)
         assertEquals(0.2f, requireNotNull(subtitleCueWidthFraction(0.8f, 0f, 0.8f)), 0.0001f)
         assertEquals(0.5f, subtitleCueWidthFraction(null, 0.5f, 0.5f))
