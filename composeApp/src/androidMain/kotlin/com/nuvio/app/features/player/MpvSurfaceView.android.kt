@@ -222,7 +222,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun detach(generation: Long, releaseSurface: () -> Unit) {
-        trackSurfaceRelease(generation, releaseSurface)
         val job = destroyJob ?: mpvScope.launch {
             surfaceLifecycleMutex.withLock {
                 detachSurface(generation)
