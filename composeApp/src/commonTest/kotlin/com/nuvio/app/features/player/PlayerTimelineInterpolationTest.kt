@@ -2,8 +2,27 @@ package com.nuvio.app.features.player
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class PlayerTimelineInterpolationTest {
+    @Test
+    fun frameInterpolationRequiresActivePlaybackAndUsableTimeline() {
+        assertTrue(
+            shouldAnimatePlaybackTimeline(
+                isPlaying = true,
+                isInteracting = false,
+                durationMs = 60_000L,
+                playbackSpeed = 1f,
+            ),
+        )
+        assertFalse(shouldAnimatePlaybackTimeline(false, false, 60_000L, 1f))
+        assertFalse(shouldAnimatePlaybackTimeline(true, true, 60_000L, 1f))
+        assertFalse(shouldAnimatePlaybackTimeline(true, false, 0L, 1f))
+        assertFalse(shouldAnimatePlaybackTimeline(true, false, 60_000L, 0f))
+        assertFalse(shouldAnimatePlaybackTimeline(true, false, 60_000L, Float.NaN))
+    }
+
     @Test
     fun advancesAtNormalPlaybackSpeed() {
         assertEquals(
