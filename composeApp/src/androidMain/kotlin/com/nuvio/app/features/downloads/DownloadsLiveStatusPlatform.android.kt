@@ -311,6 +311,10 @@ internal actual object DownloadsLiveStatusPlatform {
 
 internal fun activeManagedNotificationIds(transfers: Collection<AndroidDownloadTransfer>): Set<String> =
     transfers.asSequence()
-        .filter { it.item.status != DownloadStatus.Completed }
+        .filter {
+            it.item.status == DownloadStatus.Downloading ||
+                it.item.status == DownloadStatus.Paused ||
+                it.item.status == DownloadStatus.Failed
+        }
         .map { it.item.id }
         .toSet()
