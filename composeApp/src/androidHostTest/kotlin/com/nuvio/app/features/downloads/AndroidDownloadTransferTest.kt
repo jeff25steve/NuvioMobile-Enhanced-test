@@ -75,7 +75,8 @@ class AndroidDownloadTransferTest {
     @Test
     fun mismatchedRangeDoesNotCorruptThePartialFile(): Unit = runBlocking {
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setResponseCode(206).setHeader("Content-Range", "bytes 2-4/5").setBody("bad"))
+            server.enqueue(MockResponse().setResponseCode(206).setHeader("ETag", "\"version-1\"")
+                    .setHeader("Content-Range", "bytes 2-4/5").setBody("bad"))
             val directory = temporary.newFolder()
             val partial = File(directory, "video.mkv.part").apply { writeText("hello") }
             assertFailsWith<IOException> {
@@ -92,6 +93,7 @@ class AndroidDownloadTransferTest {
             server.enqueue(
                 MockResponse()
                     .setResponseCode(206)
+                    .setHeader("ETag", "\"version-1\"")
                     .setHeader("Content-Range", "bytes 5-6/11")
                     .setChunkedBody(" world", 2),
             )
@@ -102,9 +104,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    "\"version-1\"",
-                    onHeaders = { _, _ -> },
-                    onProgress = { _, _ -> },
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> },
                 )
             }
 
@@ -118,6 +118,7 @@ class AndroidDownloadTransferTest {
             server.enqueue(
                 MockResponse()
                     .setResponseCode(206)
+                    .setHeader("ETag", "\"version-1\"")
                     .setHeader("Content-Range", "bytes 5-6/11")
                     .setBody(" world"),
             )
@@ -128,9 +129,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    "\"version-1\"",
-                    onHeaders = { _, _ -> },
-                    onProgress = { _, _ -> },
+                    "\"version-1\"", onHeaders = { _, _ -> }, onProgress = { _, _ -> },
                 )
             }
 
