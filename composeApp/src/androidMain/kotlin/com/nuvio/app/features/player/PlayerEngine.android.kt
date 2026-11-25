@@ -2767,13 +2767,22 @@ private fun LibmpvPlayerSurface(
         val snapshot = PlayerPlaybackSnapshot()
         latestOnSnapshot.value(snapshot)
         nowPlayingController?.syncPlayback(snapshot)
-        view.loadSource(
-            sourceUrl = sourceUrl,
-            sourceAudioUrl = sourceAudioUrl,
-            requestHeaders = sanitizedSourceHeaders,
-            externalSubtitles = externalSubtitles,
-            playWhenReady = latestPlayWhenReady.value,
-        )
+        try {
+            view.loadSource(
+                sourceUrl = sourceUrl,
+                sourceAudioUrl = sourceAudioUrl,
+                requestHeaders = sanitizedSourceHeaders,
+                externalSubtitles = externalSubtitles,
+                playWhenReady = latestPlayWhenReady.value,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            val message = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+            Log.e(TAG, "Failed to prepare libmpv playback: $message")
+            InAppLogger.error("MPV/Android", "Failed to prepare libmpv playback: $message")
+            latestOnError.value(message.takeUnless { it == "none" } ?: "libmpv unavailable")
+        }
     }
 
     val liveAnimeSettings by rememberAnimeToggles()
@@ -3180,13 +3189,7 @@ private class NuvioLibmpvView(
         externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle>,
         playWhenReady: Boolean,
     ) {
-        try {
-            surfaceReady.await()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Throwable) {
-            return
-        }
+        surfaceReady.await()
         withContext(mpvDispatcher) {
             if (!released.get()) {
                 val sameSource =
