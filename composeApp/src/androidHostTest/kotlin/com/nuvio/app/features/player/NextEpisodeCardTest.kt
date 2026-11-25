@@ -78,7 +78,7 @@ class NextEpisodeCardTest {
     fun shortSwipeReturnsToPlaceAndStillAllowsPlayback() {
         showCard()
         val bounds = card().getUnclippedBoundsInRoot()
-        card().performTouchInput { swipe(center, Offset(centerX + width * 0.12f, centerY)) }
+        card().performTouchInput { swipe(center, Offset(centerX + width * 0.05f, centerY)) }
         compose.waitForIdle()
         assertEquals(bounds, card().getUnclippedBoundsInRoot())
         compose.runOnIdle {
