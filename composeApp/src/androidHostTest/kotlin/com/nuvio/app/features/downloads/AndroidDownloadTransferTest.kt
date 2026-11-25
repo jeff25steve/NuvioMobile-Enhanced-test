@@ -128,7 +128,7 @@ class AndroidDownloadTransferTest {
                 transferAndroidDownload(
                     downloadItem(server.url("/video").toString()),
                     FileDownloadSink(partial),
-                    null,
+                    "\"version-1\"",
                     onHeaders = { _, _ -> },
                     onProgress = { _, _ -> },
                 )
