@@ -144,6 +144,7 @@ private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
 private const val NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS = 20_000L
 private const val VIDEO_FRAME_OUTPUT_GAP_DIAGNOSTIC_TIMEOUT_MS = 5_000L
 private const val VIDEO_FRAME_OUTPUT_GAP_MIN_POSITION_PROGRESS_MS = 2_000L
+private const val SEEK_STALL_DIAGNOSTIC_TIMEOUT_MS = 15_000L
 
 internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
     if (mediaItem == null) return null
@@ -521,6 +522,7 @@ private fun ExoPlayerSurface(
     val playbackDiagnostics = remember(playerSourceKey) { PlaybackDiagnostics() }
     val videoStartupWatchdog = remember(playerSourceKey) { ExoVideoStartupWatchdog() }
     val videoFrameOutputGapWatchdog = remember(playerSourceKey) { VideoFrameOutputGapWatchdog() }
+    val seekStallWatchdog = remember(playerSourceKey) { ExoSeekStallWatchdog() }
     var subtitleDelayMs by remember(playerSourceKey) { mutableStateOf(0) }
     var selectedExternalSubtitleMimeType by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     // Addon subtitle attached by media reload. A player rebuild (libass VIDEO_EFFECT) prepares
@@ -1073,6 +1075,7 @@ private fun ExoPlayerSurface(
         )
         videoStartupWatchdog.beginAttempt(playbackDiagnostics.attempt)
         videoFrameOutputGapWatchdog.beginAttempt(playbackDiagnostics.attempt)
+        seekStallWatchdog.beginAttempt(playbackDiagnostics.attempt)
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
@@ -1355,6 +1358,22 @@ private fun ExoPlayerSurface(
                 newPosition: Player.PositionInfo,
                 reason: Int,
             ) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    val recorded = seekStallWatchdog.recordSeek(
+                        attempt = playbackDiagnostics.attempt,
+                        startedAtMs = SystemClock.elapsedRealtime(),
+                        fromPositionMs = oldPosition.positionMs,
+                        targetPositionMs = newPosition.positionMs,
+                    )
+                    if (recorded) {
+                        Log.i(
+                            PLAYER_DIAGNOSTIC_TAG,
+                            "seek begin attempt=${playbackDiagnostics.attempt} " +
+                                "fromMs=${oldPosition.positionMs.coerceAtLeast(0L)} " +
+                                "targetMs=${newPosition.positionMs.coerceAtLeast(0L)}",
+                        )
+                    }
+                }
                 dispatchExoPlayerSnapshot()
             }
 
@@ -1841,6 +1860,7 @@ private fun ExoPlayerSurface(
                 InAppLogger.warn(
                     "ExoPlayer/Android",
                     "videoCodecError decoder=${initializedVideoDecoderName ?: "unknown"} " +
+                        "format=${exoPlayer.videoFormat?.toTrackLogSummary(C.TRACK_TYPE_VIDEO) ?: "unknown"} " +
                         "positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(videoCodecError)}",
                 )
@@ -1853,6 +1873,7 @@ private fun ExoPlayerSurface(
                 InAppLogger.warn(
                     "ExoPlayer/Android",
                     "audioCodecError decoder=${initializedAudioDecoderName ?: "unknown"} " +
+                        "format=${exoPlayer.audioFormat?.toTrackLogSummary(C.TRACK_TYPE_AUDIO) ?: "unknown"} " +
                         "positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(audioCodecError)}",
                 )
@@ -1983,6 +2004,32 @@ private fun ExoPlayerSurface(
                     "positionMs=$positionMs lastFramePtsUs=${lastFramePtsUs ?: "unknown"}"
                 Log.w(PLAYER_DIAGNOSTIC_TAG, "video_frame_output_gap attempt=$attempt $message")
                 InAppLogger.warn("ExoPlayer/Android", message)
+            }
+            val seekStall = seekStallWatchdog.poll(
+                attempt = attempt,
+                nowMs = SystemClock.elapsedRealtime(),
+                playbackState = exoPlayer.playbackState,
+                playWhenReady = exoPlayer.playWhenReady,
+                isPlaybackSuppressed = exoPlayer.playbackSuppressionReason !=
+                    Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+                currentPositionMs = positionMs,
+                timeoutMs = SEEK_STALL_DIAGNOSTIC_TIMEOUT_MS,
+            )
+            if (seekStall != null) {
+                val bufferedAheadMs = bufferedAheadDurationMs(positionMs, exoPlayer.bufferedPosition)
+                Log.w(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "seek_buffering_stall attempt=$attempt fromMs=${seekStall.fromPositionMs} " +
+                        "targetMs=${seekStall.targetPositionMs} positionMs=$positionMs " +
+                        "activeBufferingMs=${seekStall.activeBufferingMs} " +
+                        "bufferedAheadMs=$bufferedAheadMs isLoading=${exoPlayer.isLoading}",
+                )
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "Seek has remained in active buffering for ${seekStall.activeBufferingMs}ms " +
+                        "(target=${seekStall.targetPositionMs}ms, bufferedAhead=${bufferedAheadMs}ms). " +
+                        "Diagnostic only; playback recovery was not triggered.",
+                )
             }
             delay(1_000L)
         }
@@ -6086,9 +6133,20 @@ internal fun PlaybackException.playbackFailureDiagnosticContext(): String {
         else -> "unknown"
     }
     val format = exoError.rendererFormat
-    return "type=$typeName renderer=${exoError.rendererName ?: "none"} " +
+    val trackType = when {
+        format?.sampleMimeType?.startsWith("video/") == true -> C.TRACK_TYPE_VIDEO
+        format?.sampleMimeType?.startsWith("audio/") == true -> C.TRACK_TYPE_AUDIO
+        else -> C.TRACK_TYPE_UNKNOWN
+    }
+    val trackName = when (trackType) {
+        C.TRACK_TYPE_VIDEO -> "video"
+        C.TRACK_TYPE_AUDIO -> "audio"
+        else -> "unknown"
+    }
+    return "type=$typeName track=$trackName renderer=${exoError.rendererName ?: "none"} " +
         "rendererIndex=${exoError.rendererIndex} " +
         "mime=${format?.sampleMimeType ?: "none"} codecs=${format?.codecs ?: "none"} " +
+        "format=${format?.toTrackLogSummary(trackType) ?: "none"} " +
         "formatSupport=${exoError.rendererFormatSupport}"
 }
 
