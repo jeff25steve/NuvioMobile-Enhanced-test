@@ -22,7 +22,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.Collections
@@ -190,7 +189,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             if (wasReady) onSurfaceFailure(error)
         },
     ) {
-        surfaceLifecycleMutex.withLock {
+        withSurfaceLifecycleLock {
             if (!surfaceGeneration.isCurrent(generation)) return@withLock
 
             val previousGeneration = attachedSurfaceGeneration
@@ -223,8 +222,14 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         }
     }
 
-    protected suspend fun <T> withSurfaceLifecycleLock(block: suspend () -> T): T =
-        surfaceLifecycleMutex.withLock { block() }
+    protected suspend fun <T> withSurfaceLifecycleLock(block: suspend () -> T): T {
+        surfaceLifecycleMutex.lock()
+        return try {
+            block()
+        } finally {
+            surfaceLifecycleMutex.unlock()
+        }
+    }
 
     private fun trackSurfaceRelease(generation: Long, releaseSurface: () -> Unit) {
         surfaceReleases.add(generation to releaseSurface)
