@@ -21,6 +21,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -35,6 +36,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     protected val released = AtomicBoolean(false)
     private val initialized = AtomicBoolean(false)
     private var destroyJob: Job? = null
+    private val deferredSurfaceReleases = CopyOnWriteArrayList<() -> Unit>()
     private var surfaceAttached = false
     private val frameRateLock = Any()
     private var activeVideoLayer: Any? = null
@@ -184,10 +186,21 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun detach(releaseSurface: () -> Unit) {
+        deferredSurfaceReleases.add(releaseSurface)
         val job = destroyJob ?: mpvScope.launch { detachSurface() }
         job.invokeOnCompletion { cause ->
-            if (cause == null) releaseSurface() else logFailure(cause)
+            if (cause == null) releaseDeferredSurface(releaseSurface) else logFailure(cause)
         }
+    }
+
+    private fun releaseDeferredSurface(releaseSurface: () -> Unit) {
+        if (deferredSurfaceReleases.remove(releaseSurface)) {
+            runCatching(releaseSurface).onFailure(::logFailure)
+        }
+    }
+
+    private fun releaseAllDeferredSurfaces() {
+        deferredSurfaceReleases.toList().forEach(::releaseDeferredSurface)
     }
 
     private fun detachSurface() {
@@ -227,6 +240,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             try {
                 runCatching { detachSurface() }.onFailure(::logFailure)
                 if (mpvInstance.isInitialized()) mpv.close()
+                releaseAllDeferredSurfaces()
             } finally {
                 mpvDispatcher.close()
             }
