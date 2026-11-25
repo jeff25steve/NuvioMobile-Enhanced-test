@@ -15,6 +15,11 @@ import androidx.media3.exoplayer.video.VideoDecoderOutputBufferRenderer
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import com.nuvio.app.core.logging.InAppLogger
 
+internal fun shouldSoftwareVideoRendererHandleFormat(
+    needsSoftwareDecoding: Boolean,
+    forceSoftwareDecoding: Boolean,
+): Boolean = needsSoftwareDecoding || forceSoftwareDecoding
+
 @UnstableApi
 internal class SoftwareVideoRenderer(
     allowedJoiningTimeMs: Long,
