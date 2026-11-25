@@ -231,3 +231,9 @@ Implemented an independent, Nuvio-native progress watchdog based on the failure 
 The initial 15% expected-progress threshold and sample cadence are a conservative diagnostic starting point informed by the external project's documented failure mode, not a Nuvio-measured production threshold. The policy must be tuned only from captured playback traces. The external GPL-2.0-only source was not copied.
 
 **Verification boundary:** source and test files were committed to `main-build-testing`; tests were authored but not executed. No build, CI or device run was started. Context7's exact 1.10.2 coroutine docs were unavailable; the closest indexed coroutine documentation confirms structured cancellation for child jobs and suspending `delay`, while Nuvio already uses these APIs and has the dependency pinned at 1.10.2. No dependency change was required.
+
+### Follow-up audit — watchdog polling cost and terminal lifecycle
+
+A source review found the initial polling loop still requested a native-backed MPV snapshot every three seconds while the player was paused or idle, even though the watchdog could not report in those states. The loop now re-baselines and skips the snapshot call until a playback-restart boundary is active and the player is neither user-paused nor seeking. END_FILE clears the active playback gate, preventing post-EOF polling. Buffer-cache stalls remain observable because `paused-for-cache` is deliberately not used as an exclusion. The playback-speed regression test now asserts the five-sample threshold at 2x speed.
+
+This is a real efficiency improvement: it removes unnecessary MPV dispatcher/property reads during idle, pause, seek and after END_FILE without changing playback behavior. The source/test changes remain unexecuted due to the no-build/no-test restriction.
