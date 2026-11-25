@@ -1276,7 +1276,6 @@ internal fun PlayerSeekBar(
     val chapterMarks = remember(chapters, durationMs) { chapters.chapterMarkFractions(durationMs) }
     val seekDescription = stringResource(Res.string.player_seek_position)
     val seekState = remember(seekDurationMs) { SliderState(trackRange = 0f..seekDurationMs.toFloat()) }
-    seekState.value = framePositionMs.coerceIn(0L, seekDurationMs).toFloat()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
@@ -1288,6 +1287,7 @@ internal fun PlayerSeekBar(
         playbackSpeed = playbackSpeed,
         isInteracting = isInteracting,
     )
+    seekState.value = framePositionMs.coerceIn(0L, seekDurationMs).toFloat()
     var trackWidthPx by remember { mutableStateOf(0) }
     val fractionalSeekTolerance = fractionalSeekToleranceForTrack(
         trackWidthPx,
