@@ -44,6 +44,36 @@ class MpvSurfaceReadinessTest {
     }
 
     @Test
+    fun videoOutputReleaseGateIgnoresReconfigWhileAndroidVoIsStillActive() {
+        val gate = MpvVideoOutputReleaseGate()
+
+        gate.onVideoReconfigured("gpu")
+
+        assertTrue(!gate.isComplete())
+    }
+
+    @Test
+    fun videoOutputReleaseGateCompletesOnlyAfterVoIsUnavailableOrNull() {
+        val gate = MpvVideoOutputReleaseGate()
+
+        gate.onVideoReconfigured("gpu")
+        assertTrue(!gate.isComplete())
+
+        gate.onVideoReconfigured(null)
+
+        assertTrue(gate.isComplete())
+    }
+
+    @Test
+    fun videoOutputReleaseGateAcceptsNullVoAsDetached() {
+        val gate = MpvVideoOutputReleaseGate()
+
+        gate.onVideoReconfigured("null")
+
+        assertTrue(gate.isComplete())
+    }
+
+    @Test
     fun successfulSurfaceAttachmentReleasesWaitingPlayback() = runTest {
         val readiness = MpvSurfaceReadiness()
         val waitingPlayback = async { readiness.await() }
