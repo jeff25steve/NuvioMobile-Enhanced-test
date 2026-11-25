@@ -1408,7 +1408,7 @@ private fun ExoPlayerSurface(
 
                 val isSourceError = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW ||
                         error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-                        error.cause?.toString()?.contains("UnrecognizedInputFormatException") == true ||
+                        error.hasUnrecognizedInputFormatCause() ||
                         // A channel link often names no format (or the wrong one): the probe reads what the server sends.
                         (liveStream && error.errorCode in LIVE_PROBE_ERROR_CODES)
 
@@ -1416,7 +1416,7 @@ private fun ExoPlayerSurface(
                 val isContainerError = error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
                     error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-                    error.cause?.toString()?.contains("UnrecognizedInputFormatException") == true
+                    error.hasUnrecognizedInputFormatCause()
                 if (discSession != null && discSession.canProbeAfterFailure && isContainerError && exoPlayer.duration == C.TIME_UNSET) {
                     val resumeMs = stallSession.prepareStartPositionMs(fallbackStartPositionMs) ?: positionMs
                     coroutineScope.launch {
