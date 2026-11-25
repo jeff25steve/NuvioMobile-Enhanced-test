@@ -36,6 +36,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import com.nuvio.app.features.streams.redactedForLogs
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 import androidx.lifecycle.LifecycleEventObserver
@@ -81,6 +83,7 @@ import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.text.TextOutput
 import androidx.media3.exoplayer.video.MediaCodecVideoRenderer
+import androidx.media3.exoplayer.video.VideoFrameMetadataListener
 import androidx.media3.exoplayer.video.VideoRendererEventListener
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
@@ -137,6 +140,11 @@ import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
+// Diagnostic-only grace period; do not trigger decoder/engine recovery from this heuristic.
+private const val NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS = 20_000L
+private const val VIDEO_FRAME_OUTPUT_GAP_DIAGNOSTIC_TIMEOUT_MS = 5_000L
+private const val VIDEO_FRAME_OUTPUT_GAP_MIN_POSITION_PROGRESS_MS = 2_000L
+private const val SEEK_STALL_DIAGNOSTIC_TIMEOUT_MS = 15_000L
 
 internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
     if (mediaItem == null) return null
@@ -214,6 +222,9 @@ internal class PlaybackDiagnostics {
         ) return false
         return loadEventElapsedRealtimeMs - loadDurationMs >= prepareStartedAtMs
     }
+
+    fun isCurrentMediaIdentity(mediaIdentity: String?): Boolean =
+        expectedMediaIdentity != null && expectedMediaIdentity == mediaIdentity
 
     fun markPlaybackStarted() {
         playbackHasStarted = true
@@ -509,6 +520,9 @@ private fun ExoPlayerSurface(
     }
     val exoVideoEffects = remember(playerSourceKey) { ExoVideoEffectsHolder() }
     val playbackDiagnostics = remember(playerSourceKey) { PlaybackDiagnostics() }
+    val videoStartupWatchdog = remember(playerSourceKey) { ExoVideoStartupWatchdog() }
+    val videoFrameOutputGapWatchdog = remember(playerSourceKey) { VideoFrameOutputGapWatchdog() }
+    val seekStallWatchdog = remember(playerSourceKey) { ExoSeekStallWatchdog() }
     var subtitleDelayMs by remember(playerSourceKey) { mutableStateOf(0) }
     var selectedExternalSubtitleMimeType by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     // Addon subtitle attached by media reload. A player rebuild (libass VIDEO_EFFECT) prepares
@@ -519,6 +533,10 @@ private fun ExoPlayerSurface(
     val latestSubtitleDelayMs = rememberUpdatedState(subtitleDelayMs)
     // Read by the loading and playback threads; outlives player rebuilds of the same surface.
     val audioDelayUs = remember { AtomicLong(0L) }
+    val selectedAudioTrack = remember(playerSourceKey) { AtomicBoolean(false) }
+    val effectiveAudioDelayUsProvider = remember(playerSourceKey) {
+        { effectiveAudioDelayUs(selectedAudioTrack.get(), audioDelayUs.get()) }
+    }
     // Read by the playback thread's audio sink; every rebuilt player picks up the current gain.
     val audioAmplificationDb = remember { AtomicInteger(AUDIO_AMPLIFICATION_MIN_DB) }
     val centerMixLevelDb = remember { AtomicInteger(0) }
@@ -536,6 +554,8 @@ private fun ExoPlayerSurface(
     var sidecarControllerRef by remember { mutableStateOf<SidecarSubtitleController?>(null) }
     val subtitleStyleGuard = remember { SubtitleStyleGuard() }
     var decoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
+    var audioDecoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
+    var forceSoftwareVideoFallback by remember(playerSourceKey) { mutableStateOf(false) }
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
     var pendingPlaybackSpeed by remember(playerSourceKey) { mutableStateOf<Float?>(null) }
     var initializedVideoDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
@@ -546,7 +566,13 @@ private fun ExoPlayerSurface(
     val stallSession = remember(playerSourceKey) { PlaybackReopenSession(initialPositionMs) }
     val effectiveDecoderPriority = decoderPriorityOverride ?: playerSettings.decoderPriority
     val volumeBoostAudioProcessor = remember(playerSourceKey) {
-        PlayerOutputAudioProcessor(stereoDownmixEnabled = !playerSettings.androidAudioPassthroughEnabled).apply {
+        PlayerOutputAudioProcessor(
+            stereoDownmixEnabled = shouldStereoDownmixPcm(
+                audioPassthroughEnabled = playerSettings.androidAudioPassthroughEnabled,
+                appDownmixEnabled = playerSettings.effectiveDownmixEnabled,
+                outputChannels = playerSettings.audioOutputChannels,
+            ),
+        ).apply {
             nightModeEnabled = playerSettings.nightModeButtonEnabled && playerSettings.nightModeEnabled
         }
     }
@@ -728,6 +754,7 @@ private fun ExoPlayerSurface(
         normalizedStreamType,
         useYoutubeChunkedPlayback,
         effectiveDecoderPriority,
+        audioDecoderPriorityOverride,
         initialPositionRequestKey,
         videoEffectsNeeded,
         animeRebuildGeneration,
@@ -745,6 +772,12 @@ private fun ExoPlayerSurface(
         // Bluetooth headphones and speakers are stereo: decode audio with FFmpeg and mix surround
         // down to a clean 2.0, so dialogue keeps its level against music and effects.
         val bluetoothOutput = context.isMediaOutputBluetooth()
+        val configuredAudioRendererPriority = if (bluetoothOutput) {
+            DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+        } else {
+            playerSettings.decoderPriority
+        }
+        val effectiveAudioRendererPriority = audioDecoderPriorityOverride ?: configuredAudioRendererPriority
         val audioDownmix = when {
             bluetoothOutput -> FfmpegAudioDownmix(
                 channels = AudioOutputChannels.CHANNELS_2_0,
@@ -760,10 +793,11 @@ private fun ExoPlayerSurface(
         val renderersFactory = SubtitleOffsetRenderersFactory(
             context = context,
             subtitleDelayUsProvider = { latestSubtitleDelayMs.value.toLong() * 1_000L },
-            audioDelayUsProvider = audioDelayUs::get,
+            audioDelayUsProvider = effectiveAudioDelayUsProvider,
             audioAmplificationDbProvider = audioAmplificationDb::get,
             audioDownmix = audioDownmix,
-            preferAppAudioDecoder = bluetoothOutput,
+            forceSoftwareVideoDecoding = forceSoftwareVideoFallback,
+            audioExtensionRendererMode = effectiveAudioRendererPriority,
             centerMixLevelDbProvider = centerMixLevelDb::get,
             onFfmpegAudioRenderer = ffmpegAudioRenderer::set,
             shouldNormalizeCuePositionProvider = {
@@ -1047,6 +1081,9 @@ private fun ExoPlayerSurface(
             SystemClock.elapsedRealtime(),
             expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem),
         )
+        videoStartupWatchdog.beginAttempt(playbackDiagnostics.attempt)
+        videoFrameOutputGapWatchdog.beginAttempt(playbackDiagnostics.attempt)
+        seekStallWatchdog.beginAttempt(playbackDiagnostics.attempt)
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
@@ -1108,7 +1145,7 @@ private fun ExoPlayerSurface(
             scope = coroutineScope,
             getPlayer = { exoPlayer },
             getSubtitleDelayMs = { latestSubtitleDelayMs.value },
-            getAudioDelayUs = audioDelayUs::get,
+            getAudioDelayUs = effectiveAudioDelayUsProvider,
             presentCues = { cues ->
                 val mimeType = sidecarControllerRef?.subtitleMimeType
                 subtitlePresenter.present(
@@ -1259,21 +1296,46 @@ private fun ExoPlayerSurface(
         var errorDisplayMessageJob: Job? = null
 
         fun reportPlayerError(error: PlaybackException) {
-            val fallbackDecoderPriority = decoderPriorityFallbackAfterFailure(
-                configuredPriority = playerSettings.decoderPriority,
-                activePriority = effectiveDecoderPriority,
+            val failedRenderer = error as? ExoPlaybackException
+            val failedRendererType = failedRenderer
+                ?.takeIf {
+                    it.type == ExoPlaybackException.TYPE_RENDERER &&
+                        it.rendererIndex in 0 until exoPlayer.rendererCount
+                }
+                ?.let { exoPlayer.getRendererType(it.rendererIndex) }
+                ?: C.TRACK_TYPE_UNKNOWN
+            val failedRendererTrackType = when {
+                isVideoRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_VIDEO
+                isAudioRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_AUDIO
+                else -> C.TRACK_TYPE_UNKNOWN
+            }
+            val configuredAudioPriority = if (context.isMediaOutputBluetooth()) {
+                DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            } else {
+                playerSettings.decoderPriority
+            }
+            val activeAudioPriority = audioDecoderPriorityOverride ?: configuredAudioPriority
+            val fallback = decoderPriorityFallbackForRendererFailure(
+                failedRendererType = failedRendererTrackType,
+                configuredVideoPriority = playerSettings.decoderPriority,
+                activeVideoPriority = effectiveDecoderPriority,
+                configuredAudioPriority = configuredAudioPriority,
+                activeAudioPriority = activeAudioPriority,
                 isDecoderFailure = error.isDecoderFailure(),
             )
-            if (fallbackDecoderPriority != null) {
+            if (fallback != null) {
+                val fallbackDecoderPriority = fallback.priority
                 val fallbackPriorityName = fallbackDecoderPriority.decoderPriorityName()
                 Log.w(
                     TAG,
-                    "Decoder failure (${error.errorCodeName}); rebuilding with renderer priority=$fallbackPriorityName. " +
+                    "${if (fallback.trackType == C.TRACK_TYPE_VIDEO) "Video" else "Audio"} decoder failure " +
+                        "(${error.errorCodeName}); rebuilding that renderer at priority=$fallbackPriorityName. " +
                         "cause=${diagnosticThrowableChain(error)}",
                 )
                 InAppLogger.warn(
                     "ExoPlayer/Android",
-                    "Decoder failure ${error.errorCodeName}; retrying with renderer priority=$fallbackPriorityName. " +
+                    "${if (fallback.trackType == C.TRACK_TYPE_VIDEO) "Video" else "Audio"} decoder failure " +
+                        "${error.errorCodeName}; retrying that renderer at priority=$fallbackPriorityName. " +
                         "cause=${error.cause?.let(::diagnosticThrowableChain) ?: diagnosticThrowableChain(error)}",
                 )
                 // A renderer-priority rebuild creates a fresh track selector. Preserve user choices
@@ -1290,7 +1352,14 @@ private fun ExoPlayerSurface(
                     pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
                 }
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
-                decoderPriorityOverride = fallbackDecoderPriority
+                if (fallback.trackType == C.TRACK_TYPE_VIDEO) {
+                    if (fallbackDecoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER) {
+                        forceSoftwareVideoFallback = true
+                    }
+                    decoderPriorityOverride = fallbackDecoderPriority
+                } else {
+                    audioDecoderPriorityOverride = fallbackDecoderPriority
+                }
                 latestOnError.value(null)
                 return
             }
@@ -1314,6 +1383,22 @@ private fun ExoPlayerSurface(
                 newPosition: Player.PositionInfo,
                 reason: Int,
             ) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) {
+                    val recorded = seekStallWatchdog.recordSeek(
+                        attempt = playbackDiagnostics.attempt,
+                        startedAtMs = SystemClock.elapsedRealtime(),
+                        fromPositionMs = oldPosition.positionMs,
+                        targetPositionMs = newPosition.positionMs,
+                    )
+                    if (recorded) {
+                        Log.i(
+                            PLAYER_DIAGNOSTIC_TAG,
+                            "seek begin attempt=${playbackDiagnostics.attempt} " +
+                                "fromMs=${oldPosition.positionMs.coerceAtLeast(0L)} " +
+                                "targetMs=${newPosition.positionMs.coerceAtLeast(0L)}",
+                        )
+                    }
+                }
                 dispatchExoPlayerSnapshot()
             }
 
@@ -1406,7 +1491,7 @@ private fun ExoPlayerSurface(
 
                 val isSourceError = error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW ||
                         error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-                        error.cause?.toString()?.contains("UnrecognizedInputFormatException") == true ||
+                        error.hasUnrecognizedInputFormatCause() ||
                         // A channel link often names no format (or the wrong one): the probe reads what the server sends.
                         (liveStream && error.errorCode in LIVE_PROBE_ERROR_CODES)
 
@@ -1414,7 +1499,7 @@ private fun ExoPlayerSurface(
                 val isContainerError = error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
                     error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
                     error.errorCode == PlaybackException.ERROR_CODE_IO_UNSPECIFIED ||
-                    error.cause?.toString()?.contains("UnrecognizedInputFormatException") == true
+                    error.hasUnrecognizedInputFormatCause()
                 if (discSession != null && discSession.canProbeAfterFailure && isContainerError && exoPlayer.duration == C.TIME_UNSET) {
                     val resumeMs = stallSession.prepareStartPositionMs(fallbackStartPositionMs) ?: positionMs
                     coroutineScope.launch {
@@ -1570,6 +1655,9 @@ private fun ExoPlayerSurface(
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 Log.d(TAG, "onTracksChanged: ${tracks.groups.size} groups total")
                 InAppLogger.info("ExoPlayer/Android", "tracksChanged groups=${tracks.groups.size}")
+                selectedAudioTrack.set(
+                    tracks.groups.any { it.type == C.TRACK_TYPE_AUDIO && it.isSelected },
+                )
                 exoPlayer.logCurrentTracks("onTracksChanged")
                 exoPlayer.logSelectedPlaybackDetails("onTracksChanged")
                 pendingAudioTrackSelection.firstOrNull()?.let { selection ->
@@ -1734,6 +1822,19 @@ private fun ExoPlayerSurface(
                 )
             }
 
+            override fun onRenderedFirstFrame(
+                eventTime: AnalyticsListener.EventTime,
+                output: Any,
+                renderTimeMs: Long,
+            ) {
+                // Unlike Player.Listener, AnalyticsListener carries the event's media identity.
+                // Use it to reject a delayed first-frame event from a previous playlist item.
+                val eventMediaIdentity = playbackDiagnosticEventMediaIdentity(eventTime)
+                if (playbackDiagnostics.isCurrentMediaIdentity(eventMediaIdentity)) {
+                    videoStartupWatchdog.markFirstFrame(playbackDiagnostics.attempt)
+                }
+            }
+
             override fun onDroppedVideoFrames(
                 eventTime: AnalyticsListener.EventTime,
                 droppedFrames: Int,
@@ -1773,6 +1874,34 @@ private fun ExoPlayerSurface(
                 // video's frame-rate request across a stream/format transition.
                 currentVideoFrameRate = normalizedVideoFrameRate(format.frameRate) ?: Float.NaN
                 updateAlwaysFrameRateState()
+
+                // Record signalled HDR/Dolby Vision input metadata at format boundaries only.
+                // This proves what Media3 selected, not what the display ultimately rendered.
+                val colorInfo = format.colorInfo
+                val isDolbyVision = format.sampleMimeType == MimeTypes.VIDEO_DOLBY_VISION
+                val isHdrTransfer = colorInfo?.colorTransfer == C.COLOR_TRANSFER_ST2084 ||
+                    colorInfo?.colorTransfer == C.COLOR_TRANSFER_HLG
+                if (isDolbyVision || isHdrTransfer) {
+                    val transfer = when (colorInfo?.colorTransfer) {
+                        C.COLOR_TRANSFER_ST2084 -> "PQ"
+                        C.COLOR_TRANSFER_HLG -> "HLG"
+                        C.COLOR_TRANSFER_SDR -> "SDR"
+                        Format.NO_VALUE, null -> "unknown"
+                        else -> "other"
+                    }
+                    Log.i(
+                        PLAYER_DIAGNOSTIC_TAG,
+                        "videoFormatHdr attempt=${playbackDiagnostics.attempt} " +
+                            "mime=${format.sampleMimeType ?: "unknown"} codecs=${format.codecs ?: "unknown"} " +
+                            "size=${format.width}x${format.height} frameRate=${format.frameRate} " +
+                            "colorSpace=${colorInfo?.colorSpace ?: Format.NO_VALUE} " +
+                            "colorRange=${colorInfo?.colorRange ?: Format.NO_VALUE} " +
+                            "transfer=$transfer lumaBitDepth=${colorInfo?.lumaBitdepth ?: Format.NO_VALUE} " +
+                            "chromaBitDepth=${colorInfo?.chromaBitdepth ?: Format.NO_VALUE} " +
+                            "staticHdrMetadata=${colorInfo?.hdrStaticInfo != null} " +
+                            "decoder=${initializedVideoDecoderName ?: "not_initialized"}",
+                    )
+                }
             }
 
             // Codec-error callbacks are diagnostic only: Media3 may recover internally, so
@@ -1784,6 +1913,7 @@ private fun ExoPlayerSurface(
                 InAppLogger.warn(
                     "ExoPlayer/Android",
                     "videoCodecError decoder=${initializedVideoDecoderName ?: "unknown"} " +
+                        "format=${exoPlayer.videoFormat?.toTrackLogSummary(C.TRACK_TYPE_VIDEO) ?: "unknown"} " +
                         "positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(videoCodecError)}",
                 )
@@ -1796,6 +1926,7 @@ private fun ExoPlayerSurface(
                 InAppLogger.warn(
                     "ExoPlayer/Android",
                     "audioCodecError decoder=${initializedAudioDecoderName ?: "unknown"} " +
+                        "format=${exoPlayer.audioFormat?.toTrackLogSummary(C.TRACK_TYPE_AUDIO) ?: "unknown"} " +
                         "positionMs=${eventTime.eventPlaybackPositionMs} " +
                         "attempt=${playbackDiagnostics.attempt} error=${diagnosticThrowableChain(audioCodecError)}",
                 )
@@ -1870,9 +2001,91 @@ private fun ExoPlayerSurface(
             alwaysFrameRateController?.release()
             alwaysFrameRateController = null
             playerViewRef?.keepScreenOn = false
+            playerViewRef?.let { view ->
+                if (view.player === exoPlayer) view.player = null
+            }
             subtitleSelectionJob?.cancel()
             errorDisplayMessageJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
+        }
+    }
+
+    LaunchedEffect(exoPlayer, videoStartupWatchdog, videoFrameOutputGapWatchdog, seekStallWatchdog) {
+        while (isActive) {
+            val attempt = playbackDiagnostics.attempt
+            val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+            val tracks = exoPlayer.currentTracks
+            val hasSelectedVideoTrack = tracks.groups.any { group ->
+                group.type == C.TRACK_TYPE_VIDEO && group.isSelected &&
+                    (0 until group.length).any(group::isTrackSelected)
+            }
+            if (videoStartupWatchdog.shouldReportNoFirstFrame(
+                    attempt = attempt,
+                    nowMs = SystemClock.elapsedRealtime(),
+                    isPlaying = exoPlayer.isPlaying,
+                    playbackState = exoPlayer.playbackState,
+                    hasSelectedVideoTrack = hasSelectedVideoTrack,
+                    timeoutMs = NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS,
+                )
+            ) {
+                val bufferedAheadMs = bufferedAheadDurationMs(positionMs, exoPlayer.bufferedPosition)
+                Log.w(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "no_first_video_frame attempt=$attempt " +
+                        "positionMs=$positionMs bufferedAheadMs=$bufferedAheadMs " +
+                        "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)}",
+                )
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "Selected video track is playing but no first frame has rendered; " +
+                        "positionMs=$positionMs bufferedAheadMs=$bufferedAheadMs",
+                )
+            }
+            if (videoFrameOutputGapWatchdog.shouldReportGap(
+                    attempt = attempt,
+                    nowMs = SystemClock.elapsedRealtime(),
+                    playbackPositionMs = positionMs,
+                    isPlaying = exoPlayer.isPlaying,
+                    playbackState = exoPlayer.playbackState,
+                    hasSelectedVideoTrack = hasSelectedVideoTrack,
+                    timeoutMs = VIDEO_FRAME_OUTPUT_GAP_DIAGNOSTIC_TIMEOUT_MS,
+                    minimumPositionProgressMs = VIDEO_FRAME_OUTPUT_GAP_MIN_POSITION_PROGRESS_MS,
+                )
+            ) {
+                val lastFramePtsUs = videoFrameOutputGapWatchdog.lastFramePresentationTimeUs(attempt)
+                val message = "Video frame output stopped while playback position advanced; " +
+                    "positionMs=$positionMs lastFramePtsUs=${lastFramePtsUs ?: "unknown"}"
+                Log.w(PLAYER_DIAGNOSTIC_TAG, "video_frame_output_gap attempt=$attempt $message")
+                InAppLogger.warn("ExoPlayer/Android", message)
+            }
+            val seekStall = seekStallWatchdog.poll(
+                attempt = attempt,
+                nowMs = SystemClock.elapsedRealtime(),
+                playbackState = exoPlayer.playbackState,
+                playWhenReady = exoPlayer.playWhenReady,
+                isPlaybackSuppressed = exoPlayer.playbackSuppressionReason !=
+                    Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+                currentPositionMs = positionMs,
+                timeoutMs = SEEK_STALL_DIAGNOSTIC_TIMEOUT_MS,
+            )
+            if (seekStall != null) {
+                val bufferedAheadMs = bufferedAheadDurationMs(positionMs, exoPlayer.bufferedPosition)
+                Log.w(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "seek_buffering_stall attempt=$attempt fromMs=${seekStall.fromPositionMs} " +
+                        "targetMs=${seekStall.targetPositionMs} positionMs=$positionMs " +
+                        "activeBufferingMs=${seekStall.activeBufferingMs} " +
+                        "seekElapsedMs=${seekStall.seekElapsedMs} " +
+                        "bufferedAheadMs=$bufferedAheadMs isLoading=${exoPlayer.isLoading}",
+                )
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "Seek has remained in active buffering for ${seekStall.activeBufferingMs}ms " +
+                        "(target=${seekStall.targetPositionMs}ms, bufferedAhead=${bufferedAheadMs}ms). " +
+                        "Diagnostic only; playback recovery was not triggered.",
+                )
+            }
+            delay(1_000L)
         }
     }
 
@@ -2370,11 +2583,27 @@ private fun ExoPlayerSurface(
         updateAlwaysFrameRateState()
     }
 
+    val onVideoFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit = { framePlayer, presentationTimeUs, elapsedRealtimeMs, positionMs, frameRate ->
+        // VideoFrameMetadataListener has no AnalyticsListener.EventTime, so this current-item
+        // identity check is best-effort for queued frames crossing a seamless item transition.
+        // It is diagnostic-only; first-frame gating uses the stronger event-time identity check.
+        val frameMediaIdentity = playbackDiagnosticMediaIdentity(framePlayer.currentMediaItem)
+        if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
+            videoFrameOutputGapWatchdog.recordFrame(
+                attempt = playbackDiagnostics.attempt,
+                elapsedRealtimeMs = elapsedRealtimeMs,
+                playbackPositionMs = positionMs,
+                presentationTimeUs = presentationTimeUs,
+                frameRate = frameRate,
+            )
+        }
+    }
+
     Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
-                PlayerView(viewContext).apply {
+                FrameMonitoringPlayerView(viewContext, onVideoFrameMetadata).apply {
                     // Media3's opt-in SurfaceSyncGroup workaround fixes SurfaceView
                     // resizing/clipping when PlayerView is hosted in Compose AndroidView on API 34.
                     if (shouldEnableComposeSurfaceSyncWorkaround(Build.VERSION.SDK_INT)) {
@@ -2414,6 +2643,7 @@ private fun ExoPlayerSurface(
                 }
             },
             update = { playerView ->
+                playerView.updateFrameMetadataCallback(onVideoFrameMetadata)
                 playerView.player = exoPlayer
                 playerView.useController = useNativeController
                 playerView.resizeMode = resizeMode.toExoResizeMode()
@@ -2556,6 +2786,9 @@ private fun LibmpvPlayerSurface(
         }
         val recentErrorLogs = ArrayDeque<String>()
         val errorLog = MpvErrorLog()
+        val progressWatchdog = MpvPlaybackProgressWatchdog()
+        val playbackRestarted = AtomicBoolean(false)
+        val mpvSeeking = AtomicBoolean(false)
         val observer = object : MPV.EventObserver {
             override fun eventProperty(property: String) {
                 if (property == "sub-text" || property == "sid") view.updateStyledSubtitle()
@@ -2574,6 +2807,7 @@ private fun LibmpvPlayerSurface(
                             "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)}",
                     )
                 }
+                if (property == "seeking") mpvSeeking.set(value)
                 if (property == "pause") {
                     mpvPaused.set(value)
                     if (!value) coroutineScope.launch(Dispatchers.Main.immediate) { audioFocus.request() }
@@ -2613,6 +2847,8 @@ private fun LibmpvPlayerSurface(
             override fun event(eventId: Int, data: MPVNode) {
                 when (eventId) {
                     MPV.mpvEvent.MPV_EVENT_START_FILE -> {
+                        playbackRestarted.set(false)
+                        progressWatchdog.beginAttempt(playbackDiagnostics.attempt)
                         view.onFileStarted()
                         synchronized(recentErrorLogs) { recentErrorLogs.clear() }
                         Log.i(
@@ -2629,6 +2865,10 @@ private fun LibmpvPlayerSurface(
                     }
                     MPV.mpvEvent.MPV_EVENT_FILE_LOADED,
                     MPV.mpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
+                        if (eventId == MPV.mpvEvent.MPV_EVENT_PLAYBACK_RESTART) {
+                            playbackRestarted.set(true)
+                            progressWatchdog.rebaseline()
+                        }
                         if (eventId == MPV.mpvEvent.MPV_EVENT_FILE_LOADED) {
                             view.onFileLoaded()
                             view.updateSurfaceFrameRateHint()
@@ -2656,6 +2896,8 @@ private fun LibmpvPlayerSurface(
                         }
                     }
                     MPV.mpvEvent.MPV_EVENT_END_FILE -> {
+                        playbackRestarted.set(false)
+                        progressWatchdog.rebaseline()
                         val endDetails = sanitizeMpvEndFileDetails(
                             reason = data.nodeString("reason"),
                             fileError = data.nodeString("file_error"),
@@ -2688,7 +2930,7 @@ private fun LibmpvPlayerSurface(
                                 ).joinToString("\n").ifBlank { null }
                                 val httpCode = mpvHttpStatusCode(logLine)
                                 val codecContext = if (httpCode == null) {
-                                    runCatching { mpvCodecContextLine(view.mpv, logLine.orEmpty()) }.getOrNull()
+                                    runCatching { view.codecContextLine(logLine.orEmpty()) }.getOrNull()
                                 } else {
                                     null
                                 }
@@ -2735,11 +2977,48 @@ private fun LibmpvPlayerSurface(
                 }
             }
         }
-        view.mpv.addObserver(observer)
-        view.mpv.addLogObserver(logObserver)
+        view.addObserver(observer)
+        view.addLogObserver(logObserver)
+        val progressWatchdogJob = coroutineScope.launch {
+            while (isActive) {
+                delay(3_000L)
+                val attempt = playbackDiagnostics.attempt
+                val sampleTimeMs = SystemClock.elapsedRealtime()
+                // Avoid waking the MPV dispatcher for idle, paused or seeking playback.
+                // An ineligible sample still re-baselines the clock without consuming a stall window.
+                if (!playbackRestarted.get() || mpvPaused.get() || mpvSeeking.get()) {
+                    progressWatchdog.sample(
+                        attempt = attempt,
+                        nowMs = sampleTimeMs,
+                        positionMs = 0L,
+                        playbackSpeed = 1f,
+                        eligible = false,
+                    )
+                    continue
+                }
+                val snapshot = runCatching { view.snapshot() }.getOrNull() ?: continue
+                val report = progressWatchdog.sample(
+                    attempt = attempt,
+                    nowMs = sampleTimeMs,
+                    positionMs = snapshot.positionMs,
+                    playbackSpeed = snapshot.playbackSpeed,
+                    eligible = !snapshot.isEnded,
+                )
+                if (report != null) {
+                    Log.w(
+                        PLAYER_DIAGNOSTIC_TAG,
+                        "mpv_playback_progress_stall attempt=${report.attempt} " +
+                            "elapsedMs=${report.elapsedMs} mediaProgressMs=${report.mediaProgressMs} " +
+                            "expectedProgressMs=${report.expectedProgressMs} " +
+                            "slowSamples=${report.consecutiveSlowSamples} diagnosticOnly=true",
+                    )
+                }
+            }
+        }
         onDispose {
-            view.mpv.removeObserver(observer)
-            view.mpv.removeLogObserver(logObserver)
+            progressWatchdogJob.cancel()
+            view.removeObserver(observer)
+            view.removeLogObserver(logObserver)
         }
     }
 
@@ -2765,13 +3044,22 @@ private fun LibmpvPlayerSurface(
         val snapshot = PlayerPlaybackSnapshot()
         latestOnSnapshot.value(snapshot)
         nowPlayingController?.syncPlayback(snapshot)
-        view.loadSource(
-            sourceUrl = sourceUrl,
-            sourceAudioUrl = sourceAudioUrl,
-            requestHeaders = sanitizedSourceHeaders,
-            externalSubtitles = externalSubtitles,
-            playWhenReady = latestPlayWhenReady.value,
-        )
+        try {
+            view.loadSource(
+                sourceUrl = sourceUrl,
+                sourceAudioUrl = sourceAudioUrl,
+                requestHeaders = sanitizedSourceHeaders,
+                externalSubtitles = externalSubtitles,
+                playWhenReady = latestPlayWhenReady.value,
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            val message = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+            Log.e(TAG, "Failed to prepare libmpv playback: $message")
+            InAppLogger.error("MPV/Android", "Failed to prepare libmpv playback: $message")
+            latestOnError.value(message.takeUnless { it == "none" } ?: "libmpv unavailable")
+        }
     }
 
     val liveAnimeSettings by rememberAnimeToggles()
@@ -2847,6 +3135,10 @@ private fun LibmpvPlayerSurface(
                     hardwareDecodingEnabled = hardwareDecodingEnabled,
                     yuv420pEnabled = yuv420pEnabled,
                     liveStream = liveStream,
+                    onSurfaceError = { error ->
+                        val message = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+                        latestOnError.value(message.takeUnless { it == "none" } ?: "libmpv unavailable")
+                    },
                     animeShaderPaths = AnimeShaders.mpvShaderPaths(
                         context = viewContext,
                         upscaleEnabled = animeUpscaleEnabled,
@@ -2855,16 +3147,24 @@ private fun LibmpvPlayerSurface(
                 ).apply {
                     layoutParams = android.view.ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     keepScreenOn = false
-                    runCatching {
-                        Utils.copyAssets(viewContext)
-                        initialize(viewContext.filesDir.path, viewContext.cacheDir.path)
-                    }.onFailure { error ->
-                        val safeMessage = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
-                        Log.e(TAG, "Failed to initialize libmpv: $safeMessage")
-                        InAppLogger.error("MPV/Android", "Failed to initialize libmpv: $safeMessage")
-                        latestOnError.value(error.localizedMessage ?: "libmpv unavailable")
-                    }
                     playerViewRef = this
+                    coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                        try {
+                            initialize(
+                                configDir = viewContext.filesDir.path,
+                                cacheDir = viewContext.cacheDir.path,
+                            ) {
+                                Utils.copyAssets(viewContext)
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Throwable) {
+                            val safeMessage = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+                            Log.e(TAG, "Failed to initialize libmpv: $safeMessage")
+                            InAppLogger.error("MPV/Android", "Failed to initialize libmpv: $safeMessage")
+                            latestOnError.value(error.localizedMessage ?: "libmpv unavailable")
+                        }
+                    }
                 }
             },
             update = { view ->
@@ -2909,7 +3209,11 @@ private class NuvioLibmpvView(
     private val yuv420pEnabled: Boolean,
     private val animeShaderPaths: List<String>,
     private val liveStream: Boolean,
+    private val onSurfaceError: (Throwable) -> Unit,
 ) : MpvSurfaceView(context, videoOutput.mpvValue) {
+    override fun onSurfaceFailure(error: Throwable) {
+        onSurfaceError(error)
+    }
     @Volatile
     private var activeAnimeShaderPaths = animeShaderPaths
     @Volatile
@@ -3172,28 +3476,34 @@ private class NuvioLibmpvView(
     ) {
         surfaceReady.await()
         withContext(mpvDispatcher) {
-            if (!released.get()) {
-                val sameSource =
-                    currentSourceUrl == sourceUrl &&
-                        currentSourceAudioUrl == sourceAudioUrl &&
-                        currentRequestHeaders == requestHeaders &&
-                        currentExternalSubtitles == externalSubtitles
-                currentSourceUrl = sourceUrl
-                currentSourceAudioUrl = sourceAudioUrl
-                currentRequestHeaders = requestHeaders
-                currentExternalSubtitles = externalSubtitles
-                if (!sameSource) {
-                    InAppLogger.info(
-                        "MPV/Android",
-                        "loadfile url=${sourceUrl.redactedPlaybackUrlForLogs()} audio=${!sourceAudioUrl.isNullOrBlank()} subtitles=${externalSubtitles.size} playWhenReady=$playWhenReady",
-                    )
-                    loadCurrentSourceNow(playWhenReady = playWhenReady)
-                } else {
-                    applyRequestHeadersNow(requestHeaders)
-                    setPausedNow(!playWhenReady)
+            withSurfaceLifecycleLock {
+                if (!released.get()) {
+                    val sameSource =
+                        currentSourceUrl == sourceUrl &&
+                            currentSourceAudioUrl == sourceAudioUrl &&
+                            currentRequestHeaders == requestHeaders &&
+                            currentExternalSubtitles == externalSubtitles
+                    currentSourceUrl = sourceUrl
+                    currentSourceAudioUrl = sourceAudioUrl
+                    currentRequestHeaders = requestHeaders
+                    currentExternalSubtitles = externalSubtitles
+                    if (!sameSource) {
+                        InAppLogger.info(
+                            "MPV/Android",
+                            "loadfile url=${sourceUrl.redactedPlaybackUrlForLogs()} audio=${!sourceAudioUrl.isNullOrBlank()} subtitles=${externalSubtitles.size} playWhenReady=$playWhenReady",
+                        )
+                        loadCurrentSourceNow(playWhenReady = playWhenReady)
+                    } else {
+                        applyRequestHeadersNow(requestHeaders)
+                        setPausedNow(!playWhenReady)
+                    }
                 }
             }
         }
+    }
+
+    suspend fun codecContextLine(logLine: String): String? = withContext(mpvDispatcher) {
+        if (released.get()) null else mpvCodecContextLine(mpv, logLine)
     }
 
     private fun loadCurrentSourceNow(playWhenReady: Boolean) {
@@ -5195,6 +5505,13 @@ private fun ExoPlayer.logCurrentTracks(context: String) {
     }
 }
 
+internal fun shouldStereoDownmixPcm(
+    audioPassthroughEnabled: Boolean,
+    appDownmixEnabled: Boolean,
+    outputChannels: AudioOutputChannels,
+): Boolean = !audioPassthroughEnabled &&
+    (!appDownmixEnabled || outputChannels == AudioOutputChannels.CHANNELS_2_0)
+
 @androidx.annotation.OptIn(UnstableApi::class)
 internal fun playerBoostLinearGain(level: Float): Float {
     val clamped = level.coerceIn(0f, 2f)
@@ -5405,6 +5722,40 @@ private data class FfmpegAudioDownmix(
     val normalize: Boolean,
 )
 
+internal data class RendererDecoderPriorityFallback(
+    val trackType: Int,
+    val priority: Int,
+)
+
+internal fun decoderPriorityFallbackForRendererFailure(
+    failedRendererType: Int,
+    configuredVideoPriority: Int,
+    activeVideoPriority: Int,
+    configuredAudioPriority: Int,
+    activeAudioPriority: Int,
+    isDecoderFailure: Boolean,
+): RendererDecoderPriorityFallback? {
+    val configuredPriority: Int
+    val activePriority: Int
+    when (failedRendererType) {
+        C.TRACK_TYPE_VIDEO -> {
+            configuredPriority = configuredVideoPriority
+            activePriority = activeVideoPriority
+        }
+        C.TRACK_TYPE_AUDIO -> {
+            configuredPriority = configuredAudioPriority
+            activePriority = activeAudioPriority
+        }
+        else -> return null
+    }
+    val fallbackPriority = decoderPriorityFallbackAfterFailure(
+        configuredPriority = configuredPriority,
+        activePriority = activePriority,
+        isDecoderFailure = isDecoderFailure,
+    ) ?: return null
+    return RendererDecoderPriorityFallback(failedRendererType, fallbackPriority)
+}
+
 internal fun decoderPriorityFallbackAfterFailure(
     configuredPriority: Int,
     activePriority: Int,
@@ -5451,13 +5802,63 @@ internal fun softwareVideoRendererInsertionIndex(
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
+private class FrameMonitoringPlayerView(
+    context: Context,
+    onFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit,
+) : PlayerView(context) {
+    @Volatile
+    private var frameMetadataCallback = onFrameMetadata
+
+    private var monitoredPlayer: ExoPlayer? = null
+    private var attachedFrameMetadataListener: VideoFrameMetadataListener? = null
+
+    fun updateFrameMetadataCallback(callback: (ExoPlayer, Long, Long, Long, Float) -> Unit) {
+        frameMetadataCallback = callback
+    }
+
+    override fun setPlayer(player: Player?) {
+        val nextPlayer = player as? ExoPlayer
+        val previousPlayer = monitoredPlayer
+        if (previousPlayer !== nextPlayer) {
+            if (previousPlayer != null) {
+                attachedFrameMetadataListener?.let(previousPlayer::clearVideoFrameMetadataListener)
+            }
+            attachedFrameMetadataListener = null
+            super.setPlayer(player)
+            monitoredPlayer = nextPlayer
+            if (nextPlayer != null) {
+                // Capture the player in this listener instance. A delayed callback from a detached
+                // player must never be attributed to the replacement player.
+                val listener = VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
+                    frameMetadataCallback(
+                        nextPlayer,
+                        presentationTimeUs,
+                        SystemClock.elapsedRealtime(),
+                        nextPlayer.currentPosition.coerceAtLeast(0L),
+                        format.frameRate,
+                    )
+                }
+                attachedFrameMetadataListener = listener
+                // PlayerView owns the output surface, so it is also the correct owner for this
+                // Media3 listener. Both MediaCodecVideoRenderer and DecoderVideoRenderer (Nuvio's
+                // FFmpeg software renderer) handle the metadata-listener renderer message.
+                nextPlayer.setVideoFrameMetadataListener(listener)
+            }
+        } else {
+            super.setPlayer(player)
+        }
+    }
+}
+
+@androidx.annotation.OptIn(UnstableApi::class)
 private class SubtitleOffsetRenderersFactory(
     context: Context,
     private val subtitleDelayUsProvider: () -> Long,
     private val audioDelayUsProvider: () -> Long,
     private val audioAmplificationDbProvider: () -> Int,
     private val audioDownmix: FfmpegAudioDownmix?,
-    private val preferAppAudioDecoder: Boolean,
+    private val forceSoftwareVideoDecoding: Boolean,
+    private val audioExtensionRendererMode: Int,
     private val centerMixLevelDbProvider: () -> Int,
     private val onFfmpegAudioRenderer: (FfmpegAudioRenderer?) -> Unit,
     private val shouldNormalizeCuePositionProvider: () -> Boolean,
@@ -5531,6 +5932,7 @@ private class SubtitleOffsetRenderersFactory(
                 eventHandler,
                 eventListener,
                 MAX_DROPPED_VIDEO_FRAME_COUNT_TO_NOTIFY,
+                forceSoftwareVideoDecoding,
             ),
         )
     }
@@ -5548,7 +5950,7 @@ private class SubtitleOffsetRenderersFactory(
         val startIndex = out.size
         super.buildAudioRenderers(
             context,
-            if (preferAppAudioDecoder) DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER else extensionRendererMode,
+            audioExtensionRendererMode,
             DolbyFreeMediaCodecSelector(mediaCodecSelector),
             enableDecoderFallback,
             audioSink,
@@ -5868,9 +6270,20 @@ internal fun PlaybackException.playbackFailureDiagnosticContext(): String {
         else -> "unknown"
     }
     val format = exoError.rendererFormat
-    return "type=$typeName renderer=${exoError.rendererName ?: "none"} " +
+    val trackType = when {
+        format?.sampleMimeType?.startsWith("video/") == true -> C.TRACK_TYPE_VIDEO
+        format?.sampleMimeType?.startsWith("audio/") == true -> C.TRACK_TYPE_AUDIO
+        else -> C.TRACK_TYPE_UNKNOWN
+    }
+    val trackName = when (trackType) {
+        C.TRACK_TYPE_VIDEO -> "video"
+        C.TRACK_TYPE_AUDIO -> "audio"
+        else -> "unknown"
+    }
+    return "type=$typeName track=$trackName renderer=${exoError.rendererName ?: "none"} " +
         "rendererIndex=${exoError.rendererIndex} " +
         "mime=${format?.sampleMimeType ?: "none"} codecs=${format?.codecs ?: "none"} " +
+        "format=${format?.toTrackLogSummary(trackType) ?: "none"} " +
         "formatSupport=${exoError.rendererFormatSupport}"
 }
 

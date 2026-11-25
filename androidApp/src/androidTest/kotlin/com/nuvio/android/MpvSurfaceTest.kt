@@ -66,6 +66,12 @@ class MpvSurfaceTest {
             compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
             awaitVideoFrame()
+            // Repeated stop/start cycles exercise additional SurfaceView/TextureView generations.
+            repeat(2) {
+                compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+                compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+                awaitVideoFrame()
+            }
             compose.runOnIdle { controller!!.play() }
             compose.waitUntil(15_000) { compose.runOnIdle { snapshot.isPlaying && snapshot.positionMs > 5_250L } }
             compose.runOnIdle { visible.value = false }

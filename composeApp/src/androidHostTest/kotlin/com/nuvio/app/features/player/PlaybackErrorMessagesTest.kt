@@ -1,6 +1,7 @@
 package com.nuvio.app.features.player
 
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
@@ -10,7 +11,9 @@ import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.player_error_stream_blocked
@@ -68,6 +71,39 @@ class PlaybackErrorMessagesTest {
             "Unable to connect to host [ERROR_CODE_IO_NETWORK_CONNECTION_FAILED]",
             error.toDisplayMessage(),
         )
+    }
+
+    @Test
+    fun onlyVideoRendererFailuresRequestSoftwareVideoFallback() {
+        val error = ExoPlaybackException.createForRenderer(
+            IOException("Decoder failed"),
+            "MediaCodecVideoRenderer",
+            1,
+            null,
+            C.FORMAT_HANDLED,
+            null,
+            false,
+            PlaybackException.ERROR_CODE_DECODING_FAILED,
+        )
+
+        assertTrue(isVideoRendererPlaybackFailure(error, C.TRACK_TYPE_VIDEO))
+        assertFalse(isVideoRendererPlaybackFailure(error, C.TRACK_TYPE_AUDIO))
+        assertFalse(isVideoRendererPlaybackFailure(error, C.TRACK_TYPE_UNKNOWN))
+    }
+
+    @Test
+    fun nestedUnrecognizedFormatCauseIsDetectedForSourceRecovery() {
+        val parserError = UnrecognizedInputFormatException(
+            "None of the available extractors could read the stream.",
+            Uri.EMPTY,
+            emptyList(),
+        )
+        val error = ExoPlaybackException.createForSource(
+            IOException("Wrapped source failure", parserError),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+
+        assertTrue(error.hasUnrecognizedInputFormatCause())
     }
 
     @Test
