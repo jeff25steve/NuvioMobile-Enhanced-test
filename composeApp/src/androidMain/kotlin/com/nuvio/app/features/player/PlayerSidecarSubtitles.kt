@@ -456,6 +456,7 @@ internal fun legacyActiveSidecarEntries(
             active.add(entry)
         }
     }
+    active.sortBy { it.startTimeUs }
     return active
 }
 
