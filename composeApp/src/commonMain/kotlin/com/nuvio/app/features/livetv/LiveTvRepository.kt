@@ -18,6 +18,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlin.random.Random
 import kotlin.time.Clock
 
@@ -796,6 +801,7 @@ internal fun parseM3uPlaylist(
 ): List<LiveTvChannel> {
     val channels = mutableListOf<LiveTvChannel>()
     var pendingInfo: M3uInfo? = null
+    val pendingHeaders = linkedMapOf<String, String>()
 
     payload.lineSequence()
         .map(String::trim)
@@ -805,28 +811,125 @@ internal fun parseM3uPlaylist(
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
                     pendingInfo = parseExtInf(line)
                 }
+                line.startsWith("#EXTVLCOPT:", ignoreCase = true) -> {
+                    parseVlcOption(line.substringAfter(':'))?.let { (name, value) ->
+                        putM3uHeader(pendingHeaders, name, value)
+                    }
+                }
+                line.startsWith("#EXTHTTP:", ignoreCase = true) -> {
+                    parseM3uHttpHeaders(line.substringAfter(':')).forEach { (name, value) ->
+                        putM3uHeader(pendingHeaders, name, value)
+                    }
+                }
                 line.startsWith("#") -> Unit
                 else -> {
-                    val streamUrl = line
-                    val info = pendingInfo
-                    val name = info?.name?.takeIf(String::isNotBlank)
-                        ?: streamUrl.substringAfterLast('/').substringBefore('?').ifBlank { "Channel" }
-                    channels += LiveTvChannel(
-                        id = stableChannelId(streamUrl, channels.size),
-                        name = name,
-                        streamUrl = streamUrl,
-                        logoUrl = info?.logoUrl?.takeIf(String::isNotBlank),
-                        group = info?.group?.takeIf(String::isNotBlank),
-                        playlistId = playlist?.id,
-                        playlistName = playlist?.name,
-                        epgId = info?.epgId?.takeIf(String::isNotBlank),
-                    )
+                    val streamUrl = line.substringBefore('|').trim()
+                    if (streamUrl.isNotBlank()) {
+                        val info = pendingInfo
+                        val name = info?.name?.takeIf(String::isNotBlank)
+                            ?: streamUrl.substringAfterLast('/').substringBefore('?').ifBlank { "Channel" }
+                        val headers = linkedMapOf<String, String>().apply {
+                            putAll(defaultLiveTvStreamHeaders(streamUrl))
+                            pendingHeaders.forEach { (key, value) -> putM3uHeader(this, key, value) }
+                            parseM3uInlineHeaders(line.substringAfter('|', missingDelimiterValue = ""))
+                                .forEach { (key, value) -> putM3uHeader(this, key, value) }
+                        }
+                        channels += LiveTvChannel(
+                            id = stableChannelId(streamUrl, channels.size),
+                            name = name,
+                            streamUrl = streamUrl,
+                            logoUrl = info?.logoUrl?.takeIf(String::isNotBlank),
+                            group = info?.group?.takeIf(String::isNotBlank),
+                            playlistId = playlist?.id,
+                            playlistName = playlist?.name,
+                            headers = headers,
+                            epgId = info?.epgId?.takeIf(String::isNotBlank),
+                        )
+                    }
                     pendingInfo = null
+                    pendingHeaders.clear()
                 }
             }
         }
 
     return channels.distinctBy { it.streamUrl }
+}
+
+private fun parseVlcOption(option: String): Pair<String, String>? {
+    val name = option.substringBefore('=').trim()
+    val value = option.substringAfter('=', missingDelimiterValue = "").trim()
+    if (name.isBlank() || value.isBlank()) return null
+    val headerName = when (name.lowercase()) {
+        "http-user-agent" -> "User-Agent"
+        "http-referrer", "http-referer" -> "Referer"
+        else -> return null
+    }
+    return headerName to value
+}
+
+private fun parseM3uHttpHeaders(payload: String): Map<String, String> {
+    val objectValue = runCatching { Json.parseToJsonElement(payload).jsonObject }.getOrNull() ?: return emptyMap()
+    return objectValue.entries.mapNotNull { (name, value) ->
+        val content = (value as? JsonPrimitive)
+            ?.takeIf(JsonPrimitive::isString)
+            ?.contentOrNull
+            ?.takeIf(String::isNotBlank)
+            ?: return@mapNotNull null
+        name.trim().takeIf(String::isNotBlank)?.let { it to content }
+    }.toMap(LinkedHashMap())
+}
+
+private fun parseM3uInlineHeaders(suffix: String): Map<String, String> {
+    if (suffix.isBlank()) return emptyMap()
+    return suffix.split('&').mapNotNull { pair ->
+        if (pair.isBlank()) return@mapNotNull null
+        val separator = pair.indexOf('=')
+        if (separator <= 0) return@mapNotNull null
+        val name = decodeM3uUrlComponent(pair.substring(0, separator)).trim()
+        val value = decodeM3uUrlComponent(pair.substring(separator + 1)).trim()
+        if (name.isBlank() || value.isBlank()) null else name to value
+    }.toMap(LinkedHashMap())
+}
+
+private fun decodeM3uUrlComponent(value: String): String = buildString {
+    var index = 0
+    while (index < value.length) {
+        when {
+            value[index] == '+' -> {
+                append(' ')
+                index += 1
+            }
+            value[index] == '%' && index + 2 < value.length -> {
+                val bytes = mutableListOf<Byte>()
+                var cursor = index
+                while (cursor + 2 < value.length && value[cursor] == '%') {
+                    val byte = value.substring(cursor + 1, cursor + 3).toIntOrNull(16) ?: break
+                    bytes += byte.toByte()
+                    cursor += 3
+                }
+                if (bytes.isEmpty()) {
+                    append(value[index])
+                    index += 1
+                } else {
+                    append(bytes.toByteArray().decodeToString())
+                    index = cursor
+                }
+            }
+            else -> {
+                append(value[index])
+                index += 1
+            }
+        }
+    }
+}
+
+private fun putM3uHeader(destination: MutableMap<String, String>, name: String, value: String) {
+    val normalizedName = name.trim()
+    val normalizedValue = value.trim()
+    if (normalizedName.isBlank() || normalizedValue.isBlank()) return
+    destination.keys.firstOrNull { it.equals(normalizedName, ignoreCase = true) }
+        ?.let(destination::remove)
+    destination[normalizedName] = normalizedValue
 }
 
 private data class M3uInfo(
