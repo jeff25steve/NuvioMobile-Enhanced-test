@@ -70,7 +70,7 @@ internal object MetaDetailsParser {
         string(name) ?: error("Missing required field '$name'")
 
     private fun JsonObject.string(name: String): String? =
-        (this[name] as? JsonPrimitive)?.contentOrNull
+        (this[name] as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
 
     private fun JsonObject.artworkUrl(name: String): String? =
         string(name)?.trim()?.takeIf(String::isNotBlank)
@@ -79,13 +79,13 @@ internal object MetaDetailsParser {
         this[name] as? JsonArray ?: JsonArray(emptyList())
 
     private fun JsonObject.stringList(name: String): List<String> =
-        array(name).mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
+        array(name).mapNotNull { (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.contentOrNull?.takeIf(String::isNotBlank) }
 
     private fun JsonObject.stringListOrCsv(name: String): List<String> {
         val value = this[name] ?: return emptyList()
         return when (value) {
-            is JsonArray -> value.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank) }
-            is JsonPrimitive -> value.contentOrNull?.let { csv ->
+            is JsonArray -> value.mapNotNull { (it as? JsonPrimitive)?.takeIf { primitive -> primitive.isString }?.contentOrNull?.takeIf(String::isNotBlank) }
+            is JsonPrimitive -> value.takeIf { it.isString }?.contentOrNull?.let { csv ->
                 buildList {
                     for (entry in csv.split(',')) {
                         val normalized = entry.trim()
