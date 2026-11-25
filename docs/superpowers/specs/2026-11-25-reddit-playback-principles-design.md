@@ -44,7 +44,7 @@ Adapt the most useful engineering principles from Reddit's Android video-player 
 
 ## Implementation decisions
 
-- Add a pure `interpolatePlaybackPositionMs(positionMs, elapsedNanos, playbackSpeed, durationMs)` helper in `PlayerTimeline.kt`.
+- Add pure `shouldAnimatePlaybackTimeline(isPlaying, isInteracting, durationMs, playbackSpeed)` and `interpolatePlaybackPositionMs(positionMs, elapsedNanos, playbackSpeed, durationMs)` helpers in `PlayerTimeline.kt`.
 - Add a Compose helper that uses `produceState` and `withFrameNanos` only while playback is active and the timeline is not being dragged/pressed.
 - Use the same helper from the standard `PlayerTimeline` and legacy `PlayerSeekBar`.
 - Pass the current snapshot's playback speed and playing state into the legacy seekbar; do not infer them from a ticker or global singleton.
@@ -68,3 +68,12 @@ Adapt the most useful engineering principles from Reddit's Android video-player 
 - Re-fetched the modified sources, test, dependency catalog and custom-AAR compatibility guard from the remote branch. Static inspection caught and corrected a local declaration-order issue in the legacy seekbar before completion.
 - The new common tests have not been run and no compile result is claimed. No Gradle, build, CI, benchmark or device run was performed.
 - No Media3 dependency or AAR was changed. The custom 1.8.0 AAR source/patch provenance remains unverified; Media3 modernization and Android 17 Eclipsa playback remain a separate, source-backed AAR rebuild and validation project.
+
+
+## API references
+
+- Compose Runtime 1.13.0-beta01 release: https://github.com/JetBrains/compose-multiplatform/releases/tag/v1.13.0-beta01
+- Official Compose Runtime MonotonicFrameClock API: https://developer.android.com/reference/kotlin/androidx/compose/runtime/MonotonicFrameClock
+- Official Compose Runtime produceState API (producer cancellation on key change/composition removal): https://developer.android.com/reference/kotlin/androidx/compose/runtime/produceState.composable
+- AndroidX Media3 releases and compatibility notes: https://developer.android.com/jetpack/androidx/releases/media3
+- Reddit engineering rewrite reference: https://www.reddit.com/r/RedditEng/comments/1urq7f6/how_we_rewrote_reddits_video_player_on_android/
