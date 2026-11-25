@@ -64,8 +64,8 @@ class SearchHistoryRepositoryTest {
     @Test
     fun `applySearchHistoryEntry respects max size`() {
         val updated = applySearchHistoryEntry(
-            current = listOf("a", "b", "c"),
-            query = "d",
+            current = listOf("aa", "bb", "cc"),
+            query = "dd",
             limit = 3,
         )
 
