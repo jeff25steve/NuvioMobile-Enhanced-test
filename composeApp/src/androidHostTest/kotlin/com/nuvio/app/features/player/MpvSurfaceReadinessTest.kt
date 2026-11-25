@@ -1,6 +1,7 @@
 package com.nuvio.app.features.player
 
 import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -97,17 +98,21 @@ class MpvSurfaceReadinessTest {
 
     @Test
     fun failedSurfaceAttachmentPropagatesFailureMessage() = runTest {
-        val readiness = MpvSurfaceReadiness()
-        val waitingPlayback = async { readiness.await() }
-        runCurrent()
-        val failure = IllegalStateException("surface attachment failed")
+        supervisorScope {
+            // An async child failure normally cancels its parent. Supervise it here so
+            // await() observes the original failure and this test can assert its message.
+            val readiness = MpvSurfaceReadiness()
+            val waitingPlayback = async { readiness.await() }
+            runCurrent()
+            val failure = IllegalStateException("surface attachment failed")
 
-        readiness.fail(failure)
+            readiness.fail(failure)
 
-        val observed = assertFailsWith<IllegalStateException> {
-            waitingPlayback.await()
+            val observed = assertFailsWith<IllegalStateException> {
+                waitingPlayback.await()
+            }
+            assertEquals(failure.message, observed.message)
         }
-        assertEquals(failure.message, observed.message)
     }
 
     @Test
