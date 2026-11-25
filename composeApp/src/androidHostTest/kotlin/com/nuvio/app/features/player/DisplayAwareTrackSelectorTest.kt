@@ -13,7 +13,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class DisplayAwareTrackSelectorTest {
     private val primaryDecoderSupport = RendererCapabilities.create(C.FORMAT_HANDLED)
     private val exceedsCapabilitiesSupport = RendererCapabilities.create(C.FORMAT_EXCEEDS_CAPABILITIES)
