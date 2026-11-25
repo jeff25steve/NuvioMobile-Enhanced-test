@@ -50,6 +50,10 @@ internal suspend fun mpvNonHttpExplanationText(fileError: String?, logLine: Stri
 internal fun PlaybackException.findInvalidResponseCodeException(): HttpDataSource.InvalidResponseCodeException? =
     findCause<HttpDataSource.InvalidResponseCodeException>()
 
+/** Detects an extractor/parser rejection even when Media3 wraps it in an intermediate IOException. */
+internal fun PlaybackException.hasUnrecognizedInputFormatCause(): Boolean =
+    findCause<UnrecognizedInputFormatException>() != null
+
 /** The error screen text for an ExoPlayer failure. */
 @OptIn(UnstableApi::class)
 internal suspend fun PlaybackException.toDisplayMessage(): String {
