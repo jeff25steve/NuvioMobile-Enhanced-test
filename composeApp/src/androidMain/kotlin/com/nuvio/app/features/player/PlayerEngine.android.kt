@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import com.nuvio.app.features.streams.redactedForLogs
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
 import androidx.lifecycle.LifecycleEventObserver
@@ -2688,7 +2689,7 @@ private fun LibmpvPlayerSurface(
                                 ).joinToString("\n").ifBlank { null }
                                 val httpCode = mpvHttpStatusCode(logLine)
                                 val codecContext = if (httpCode == null) {
-                                    runCatching { mpvCodecContextLine(view.mpv, logLine.orEmpty()) }.getOrNull()
+                                    runCatching { view.codecContextLine(logLine.orEmpty()) }.getOrNull()
                                 } else {
                                     null
                                 }
@@ -2735,11 +2736,11 @@ private fun LibmpvPlayerSurface(
                 }
             }
         }
-        view.mpv.addObserver(observer)
-        view.mpv.addLogObserver(logObserver)
+        view.addObserver(observer)
+        view.addLogObserver(logObserver)
         onDispose {
-            view.mpv.removeObserver(observer)
-            view.mpv.removeLogObserver(logObserver)
+            view.removeObserver(observer)
+            view.removeLogObserver(logObserver)
         }
     }
 
@@ -2855,16 +2856,24 @@ private fun LibmpvPlayerSurface(
                 ).apply {
                     layoutParams = android.view.ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     keepScreenOn = false
-                    runCatching {
-                        Utils.copyAssets(viewContext)
-                        initialize(viewContext.filesDir.path, viewContext.cacheDir.path)
-                    }.onFailure { error ->
-                        val safeMessage = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
-                        Log.e(TAG, "Failed to initialize libmpv: $safeMessage")
-                        InAppLogger.error("MPV/Android", "Failed to initialize libmpv: $safeMessage")
-                        latestOnError.value(error.localizedMessage ?: "libmpv unavailable")
-                    }
                     playerViewRef = this
+                    coroutineScope.launch {
+                        try {
+                            initialize(
+                                configDir = viewContext.filesDir.path,
+                                cacheDir = viewContext.cacheDir.path,
+                            ) {
+                                Utils.copyAssets(viewContext)
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (error: Throwable) {
+                            val safeMessage = diagnosticPlayerMessage(error.localizedMessage ?: error.message)
+                            Log.e(TAG, "Failed to initialize libmpv: $safeMessage")
+                            InAppLogger.error("MPV/Android", "Failed to initialize libmpv: $safeMessage")
+                            latestOnError.value(error.localizedMessage ?: "libmpv unavailable")
+                        }
+                    }
                 }
             },
             update = { view ->
@@ -3170,7 +3179,13 @@ private class NuvioLibmpvView(
         externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle>,
         playWhenReady: Boolean,
     ) {
-        surfaceReady.await()
+        try {
+            surfaceReady.await()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            return
+        }
         withContext(mpvDispatcher) {
             if (!released.get()) {
                 val sameSource =
@@ -3194,6 +3209,10 @@ private class NuvioLibmpvView(
                 }
             }
         }
+    }
+
+    suspend fun codecContextLine(logLine: String): String? = withContext(mpvDispatcher) {
+        if (released.get()) null else mpvCodecContextLine(mpv, logLine)
     }
 
     private fun loadCurrentSourceNow(playWhenReady: Boolean) {
