@@ -149,7 +149,7 @@ class SettingsPagesTest {
         compose.onNodeWithText("Touch Gestures").performScrollTo().performClick()
         assertFalse(PlayerSettingsRepository.uiState.value.touchGesturesEnabled)
         assertEquals(false, PlayerSettingsStorage.loadTouchGesturesEnabled())
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.onNodeWithText("Back").performClick()
         compose.onNodeWithText("Audio").performScrollTo().performClick()
         compose.onNodeWithText("Preferred Audio Language").performClick()
         compose.onNodeWithText("Original language").performClick()
@@ -245,7 +245,8 @@ class SettingsPagesTest {
                 "navigation-bar" to SettingsPage.Layout,
                 "app-icon" to SettingsPage.Appearance,
             ).forEach { (key, page) ->
-                assertEquals(SettingsSearchTarget.Page(page), entries.single { it.key == key }.target)
+                val target = entries.single { it.key == key }.target
+                assertTrue(target is SettingsSearchTarget.Page && target.page == page)
             }
             assertEquals("Services", entries.single { it.key == "tracking" }.category)
             PlayerSettingsRepository.setAndroidPlaybackEngine(AndroidPlaybackEngine.Libmpv)
