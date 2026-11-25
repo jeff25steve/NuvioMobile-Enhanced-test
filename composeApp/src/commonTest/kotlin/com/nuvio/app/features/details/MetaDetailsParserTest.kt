@@ -615,6 +615,7 @@ class MetaDetailsParserTest {
                   "title": "Episode",
                   "streams": [{
                     "url": "https://example.test/video.m3u8",
+                    "name": "Embedded source",
                     "behaviorHints": {
                       "proxyHeaders": {
                         "request": {
@@ -671,7 +672,7 @@ class MetaDetailsParserTest {
                     "streams": [false, {"url": "https://example.test/video.m3u8", "fileIdx": []}]
                   }
                 ],
-                "trailers": [null, {"key": "trailer-1", "size": {}, "official": []}],
+                "trailers": [null, {"key": "trailer-1", "name": "Trailer", "type": "Trailer", "size": {}, "official": []}],
                 "behaviorHints": ["wrong-shape"],
                 "app_extras": {"seasonPosters": ["https://example.test/season.jpg", {"bad": true}]}
               }
