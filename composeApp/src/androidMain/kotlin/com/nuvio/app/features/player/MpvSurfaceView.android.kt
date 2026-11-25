@@ -70,10 +70,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 prepareAssets()
                 mpv.setConfigDir(configDir)
                 mpv.setCacheDir(cacheDir)
-                mpv.setOptionString("vo", vo)
+                checkMpvResult("set option vo", mpv.setOptionString("vo", vo))
                 initOptions()
-                mpv.setOptionString("force-window", "no")
-                mpv.setOptionString("idle", "once")
+                checkMpvResult("set option force-window", mpv.setOptionString("force-window", "no"))
+                checkMpvResult("set option idle", mpv.setOptionString("idle", "once"))
                 observeProperties()
                 initialized.set(true)
             }
@@ -325,7 +325,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private fun createSurfaceView() = SurfaceView(context).apply {
         holder.addCallback(object : SurfaceHolder.Callback {
             private lateinit var layer: SurfaceControl
-            private lateinit var output: Surface
             private var generation: Long? = null
 
             override fun surfaceCreated(holder: SurfaceHolder) {
@@ -339,7 +338,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     .build()
                 val createdOutput = Surface(createdLayer)
                 layer = createdLayer
-                output = createdOutput
                 trackSurfaceRelease(currentGeneration) {
                     createdOutput.release()
                     createdLayer.release()
@@ -354,7 +352,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 SurfaceControl.Transaction().use {
                     it.setLayer(layer, 1).setVisibility(layer, true).apply()
                 }
-                attach(output, currentGeneration)
+                attach(createdOutput, currentGeneration)
             }
 
             override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -383,19 +381,17 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     private fun createTextureView() = TextureView(context).apply {
         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-            private lateinit var output: Surface
             private var generation: Long? = null
 
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
                 val createdOutput = Surface(texture)
-                output = createdOutput
                 trackSurfaceRelease(currentGeneration) {
                     createdOutput.release()
                     texture.release()
                 }
-                attach(output, currentGeneration)
+                attach(createdOutput, currentGeneration)
                 resize(width, height, currentGeneration)
             }
 
