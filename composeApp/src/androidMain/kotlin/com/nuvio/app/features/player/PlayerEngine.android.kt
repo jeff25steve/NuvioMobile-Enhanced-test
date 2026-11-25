@@ -1558,10 +1558,6 @@ private fun ExoPlayerSurface(
             }
 
             override fun onRenderedFirstFrame() {
-                val frameMediaIdentity = playbackDiagnosticMediaIdentity(exoPlayer.currentMediaItem)
-                if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
-                    videoStartupWatchdog.markFirstFrame(playbackDiagnostics.attempt)
-                }
                 InAppLogger.info(
                     "ExoPlayer/Android",
                     "firstFrame attempt=${playbackDiagnostics.attempt} " +
@@ -1775,6 +1771,19 @@ private fun ExoPlayerSurface(
                         "bytes=${loadEventInfo.bytesLoaded} " +
                         "track=${trackKind(mediaLoadData.trackType)}",
                 )
+            }
+
+            override fun onRenderedFirstFrame(
+                eventTime: AnalyticsListener.EventTime,
+                output: Any,
+                renderTimeMs: Long,
+            ) {
+                // Unlike Player.Listener, AnalyticsListener carries the event's media identity.
+                // Use it to reject a delayed first-frame event from a previous playlist item.
+                val eventMediaIdentity = playbackDiagnosticEventMediaIdentity(eventTime)
+                if (playbackDiagnostics.isCurrentMediaIdentity(eventMediaIdentity)) {
+                    videoStartupWatchdog.markFirstFrame(playbackDiagnostics.attempt)
+                }
             }
 
             override fun onDroppedVideoFrames(
