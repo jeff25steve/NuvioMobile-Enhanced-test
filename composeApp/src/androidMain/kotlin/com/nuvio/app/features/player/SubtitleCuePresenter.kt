@@ -48,7 +48,7 @@ internal class SubtitleCuePresenter(private val style: () -> SubtitleStyleState)
             ).usesStyledOverlay
         if (
             !canStyle ||
-            !currentStyle.usesStyledOverlay ||
+            (!currentStyle.usesStyledOverlay && !letterboxPlacementOnly) ||
             (letterboxPlacementOnly && !allowLetterboxPlacement)
         ) {
             cues = StyledSubtitleCues()
