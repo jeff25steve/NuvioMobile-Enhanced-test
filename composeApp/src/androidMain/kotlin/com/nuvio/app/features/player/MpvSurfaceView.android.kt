@@ -51,8 +51,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     private val surfaceTextureGenerations = Collections.synchronizedMap(
         IdentityHashMap<SurfaceTexture, Long>(),
     )
-    @Volatile
-    private var surfaceAttached = false
     private var attachedSurfaceGeneration: Long? = null
     private val surfaceGeneration = MpvSurfaceGeneration()
     private val frameRateLock = Any()
@@ -201,17 +199,16 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
 
             val previousGeneration = attachedSurfaceGeneration
-            if (surfaceAttached && previousGeneration == generation) {
+            if (previousGeneration == generation) {
                 return@withSurfaceLifecycleLock
             }
-            if (surfaceAttached) {
+            if (previousGeneration != null) {
                 detachSurface(previousGeneration)
-                previousGeneration?.let(::releaseSurface)
+                releaseSurface(previousGeneration)
             }
 
             if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
             mpv.attachSurface(surface)
-            surfaceAttached = true
             attachedSurfaceGeneration = generation
             checkMpvResult("set option force-window", mpv.setOptionString("force-window", "yes"))
             checkMpvResult("set property vo", mpv.setPropertyString("vo", vo))
@@ -275,8 +272,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private suspend fun detachSurface(generation: Long? = null) {
-        if (!initialized.get() || !surfaceAttached) return
-        if (generation != null && attachedSurfaceGeneration != generation) return
+        val attachedGeneration = attachedSurfaceGeneration ?: return
+        if (!initialized.get()) return
+        if (generation != null && attachedGeneration != generation) return
 
         val currentVideoOutput = mpv.getPropertyString("current-vo")
         if (!currentVideoOutput.isNullOrBlank() && currentVideoOutput != "null") {
@@ -330,7 +328,6 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         // mpv emits VIDEO_RECONFIG after uninit_video_out() has destroyed and joined
         // the previous VO. Only now is it safe for JNI to delete its global Surface ref.
         mpv.detachSurface()
-        surfaceAttached = false
         attachedSurfaceGeneration = null
     }
 
