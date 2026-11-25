@@ -5636,7 +5636,9 @@ private class FrameMonitoringPlayerView(
         val nextPlayer = player as? ExoPlayer
         val previousPlayer = monitoredPlayer
         if (previousPlayer !== nextPlayer) {
-            attachedFrameMetadataListener?.let(previousPlayer::clearVideoFrameMetadataListener)
+            if (previousPlayer != null) {
+                attachedFrameMetadataListener?.let(previousPlayer::clearVideoFrameMetadataListener)
+            }
             attachedFrameMetadataListener = null
             super.setPlayer(player)
             monitoredPlayer = nextPlayer
