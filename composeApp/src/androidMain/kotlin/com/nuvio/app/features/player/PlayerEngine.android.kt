@@ -139,6 +139,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
+// Diagnostic-only grace period; do not trigger decoder/engine recovery from this heuristic.
+private const val NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS = 20_000L
 
 internal fun playbackDiagnosticMediaIdentity(mediaItem: MediaItem?): String? {
     if (mediaItem == null) return null
@@ -216,6 +218,9 @@ internal class PlaybackDiagnostics {
         ) return false
         return loadEventElapsedRealtimeMs - loadDurationMs >= prepareStartedAtMs
     }
+
+    fun isCurrentMediaIdentity(mediaIdentity: String?): Boolean =
+        expectedMediaIdentity == null || expectedMediaIdentity == mediaIdentity
 
     fun markPlaybackStarted() {
         playbackHasStarted = true
@@ -511,6 +516,7 @@ private fun ExoPlayerSurface(
     }
     val exoVideoEffects = remember(playerSourceKey) { ExoVideoEffectsHolder() }
     val playbackDiagnostics = remember(playerSourceKey) { PlaybackDiagnostics() }
+    val videoStartupWatchdog = remember(playerSourceKey) { ExoVideoStartupWatchdog() }
     var subtitleDelayMs by remember(playerSourceKey) { mutableStateOf(0) }
     var selectedExternalSubtitleMimeType by remember(playerSourceKey) { mutableStateOf<String?>(null) }
     // Addon subtitle attached by media reload. A player rebuild (libass VIDEO_EFFECT) prepares
@@ -1061,6 +1067,7 @@ private fun ExoPlayerSurface(
             SystemClock.elapsedRealtime(),
             expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem),
         )
+        videoStartupWatchdog.beginAttempt(playbackDiagnostics.attempt)
         Log.i(
             PLAYER_DIAGNOSTIC_TAG,
             "prepare begin attempt=${playbackDiagnostics.attempt} reason=$reason ${details}".trimEnd(),
@@ -1551,6 +1558,10 @@ private fun ExoPlayerSurface(
             }
 
             override fun onRenderedFirstFrame() {
+                val frameMediaIdentity = playbackDiagnosticMediaIdentity(exoPlayer.currentMediaItem)
+                if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
+                    videoStartupWatchdog.markFirstFrame(playbackDiagnostics.attempt)
+                }
                 InAppLogger.info(
                     "ExoPlayer/Android",
                     "firstFrame attempt=${playbackDiagnostics.attempt} " +
@@ -1905,6 +1916,41 @@ private fun ExoPlayerSurface(
             subtitleSelectionJob?.cancel()
             errorDisplayMessageJob?.cancel()
             sidecarController.stopSidecarAddonSubtitle(clearView = true)
+        }
+    }
+
+    LaunchedEffect(exoPlayer, videoStartupWatchdog) {
+        while (isActive) {
+            val attempt = playbackDiagnostics.attempt
+            val tracks = exoPlayer.currentTracks
+            val hasSelectedVideoTrack = tracks.groups.any { group ->
+                group.type == C.TRACK_TYPE_VIDEO && group.isSelected &&
+                    (0 until group.length).any(group::isTrackSelected)
+            }
+            if (videoStartupWatchdog.shouldReportNoFirstFrame(
+                    attempt = attempt,
+                    nowMs = SystemClock.elapsedRealtime(),
+                    isPlaying = exoPlayer.isPlaying,
+                    playbackState = exoPlayer.playbackState,
+                    hasSelectedVideoTrack = hasSelectedVideoTrack,
+                    timeoutMs = NO_FIRST_VIDEO_FRAME_DIAGNOSTIC_TIMEOUT_MS,
+                )
+            ) {
+                val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+                val bufferedAheadMs = bufferedAheadDurationMs(positionMs, exoPlayer.bufferedPosition)
+                Log.w(
+                    PLAYER_DIAGNOSTIC_TAG,
+                    "no_first_video_frame attempt=$attempt " +
+                        "positionMs=$positionMs bufferedAheadMs=$bufferedAheadMs " +
+                        "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)}",
+                )
+                InAppLogger.warn(
+                    "ExoPlayer/Android",
+                    "Selected video track is playing but no first frame has rendered; " +
+                        "positionMs=$positionMs bufferedAheadMs=$bufferedAheadMs",
+                )
+            }
+            delay(1_000L)
         }
     }
 
