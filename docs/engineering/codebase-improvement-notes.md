@@ -2884,3 +2884,52 @@ A follow-up source trace found a separate, directly actionable startup issue in 
 - Added host tests for the VO release gate: active `current-vo` does not release; null/unavailable `current-vo` does; the `null` VO is accepted; observer query failure fails the gate. Together with existing generation/readiness tests, these are authored but unexecuted. Expanded the existing `MpvSurfaceTest` instrumented regression to repeat Activity stop/start surface recreation twice, in addition to seeking and view removal/recreation; it is also unexecuted.
 - Important provenance caveat: mpv-android 0.2.2's build script shallow-clones mpv master and does not record a fixed mpv commit in the published source metadata. The inspected mpv source revision establishes the documented event ordering, but the exact mpv core revision inside the published AAR is not independently attested. The 5-second timeout fails closed: it does not detach or release the old Surface wrapper. Final `mpv.close()` remains the ultimate native teardown fallback. If that exceptional timeout path occurs, the JNI global Surface reference may remain until process exit because the pinned `nativeDestroy()` does not delete `ctx->surface`. This is an explicit runtime validation item, not a claimed normal-path outcome.
 - Verification boundary: source-level re-fetch/review only. No Gradle tasks, tests, build, APK, device playback or CI were run, in accordance with the standing authorization restriction. Tests remain unexecuted; no compile or runtime pass is claimed.
+
+## ExoPlayer full-stack review — 25 November 2026
+
+**Reviewed branch:** `main-build-testing`  
+**Review base:** `551e39422bdedbbd47da599d5f3f8c2c917ba2d6`  
+**Source-level changes now at:** `522f9d0d0ffab136921b6222a2465b78008828f3`  
+**Scope:** Media3 1.8.0 player construction, custom renderer selection, software decoder lifecycle, renderer error classification, source/parser recovery, buffering/data-source seams, subtitle routing, Blu-ray integration, and current external implementations. This is a continuing audit; the remaining items below are deliberately not marked complete.
+
+### Dependency and upstream compatibility
+
+- The actual catalog still pins the complete Media3 dependency family to **1.8.0**. Seven local AARs and explicit Maven exclusions make this a coordinated binary migration, not a one-line version bump.
+- The official 1.8.0 `DefaultRenderersFactory.buildVideoRenderers()` configures codec adapter, selector, joining time, decoder fallback, event callbacks and dropped-frame notifications. Nuvio's custom platform renderer rebuild mirrors the values actually configured by the app. The 1.8.0 experimental AV1 dependency parser and late-input-drop flags remain at their upstream defaults (false and `C.TIME_UNSET`); do not claim a current mismatch. If either is enabled in Nuvio later, mirror it in the custom builder.
+- Media3 1.11.1 release notes contain relevant fixes: renderer prewarming/surface restoration and stalls, HLS fully-consumed chunk EOF retry, Matroska seekability, AudioSink release-count cleanup after a dead playback thread, concurrent Opus decoder initialization memory corruption, and MPEG-H memory/leak fixes. These are evidence for a future coordinated AAR rebuild, not permission to replace the current binaries with Maven artifacts.
+- Media3 1.12.0-beta01 adds Dolby Vision Profile 7 HEVC fallback and more precise profile selection, plus a 65,520-byte buffer segment intended to reduce sample-buffer memory on 4 KiB/16 KiB page devices. It remains pre-release and is not a safe current dependency target.
+- Upstream [issue #3421](https://github.com/androidx/media/issues/3421) and [PR #3422](https://github.com/androidx/media/pull/3422) remain open: Media3's `setEnableDecoderFallback` retries initialization failures, not every decoder that crashes after successful initialization. Do not represent this as fixed upstream.
+
+### Concrete Nuvio defects found and source changes made
+
+1. **Nested extractor failures were misclassified.** Two source/container recovery checks searched only `error.cause.toString()` for `UnrecognizedInputFormatException`. That misses an extractor exception wrapped by an intermediate `IOException`, even though the display-message path already walks the complete cause chain. Both checks now use `PlaybackException.hasUnrecognizedInputFormatCause()`, backed by the existing generic `findCause<T>()` traversal. A nested-cause regression test was added.
+2. **The hardware-to-software video fallback did not necessarily select software.** The software renderer intentionally reports ordinary hardware-compatible H.264/HEVC as `FORMAT_EXCEEDS_CAPABILITIES` during normal playback, so simply moving it ahead of the platform renderer cannot make it win while the platform renderer still reports `FORMAT_HANDLED`. The player now identifies a failed renderer using the Media3 1.8.0 `ExoPlaybackException.rendererIndex` and `ExoPlayer.getRendererType()` APIs. Only a video-renderer failure that is actually switching from hardware-first `ON` to `PREFER` enables a per-source forced software capability. The software renderer can then claim supported H.264/HEVC/VC-1 formats for the one recovery rebuild, while normal playback remains hardware-first. Audio failures do not force the video decoder.
+3. **Regression coverage was added** for nested parser causes, video-vs-audio renderer classification, forced software capability, unchanged hardware-first capability, and intrinsically software-required formats.
+
+These are source changes only. No compile, host test, Gradle task, APK, device run or CI was executed. The tests are committed but unexecuted; do not claim the new recovery path compiles or works on a device until authorized verification is completed.
+
+### Maintained external implementations compared
+
+- [NextLib](https://github.com/anilbeesetti/nextlib), current 0.19.0 line, uses Media3 1.11.1. Its `NextRenderersFactory`, `DecoderRendererController` and `DecoderManager` demonstrate per-track renderer enablement, a MediaCodec selector that filters hardware/software decoder categories, active decoder tracking, and explicit analytics-listener detach. Its lifecycle tests cover renderer disable/reuse and stale reuse callbacks. This is useful architectural prior art, but its Media3 baseline and FFmpeg renderer/AAR family do not match Nuvio's 1.8.0 custom binaries; do not transplant those classes or dependency coordinates directly.
+- [NextPlayer](https://github.com/anilbeesetti/nextplayer), especially the recent decoder-recovery changes in commit [431d34c](https://github.com/anilbeesetti/nextplayer/commit/431d34cd33b122f8b5a6e8f49caa65413bbaf88f), adds a per-media-item failed-mode set, distinct video/audio recovery, bounded HW → HW+ → software attempts, parser-reader recovery, and explicit handling for user-selected unsupported modes. Its tests exercise the recovery manager and reader fallback. The transferable design principle is to track failed modes per item rather than repeatedly trying a known-bad decoder. Nuvio's current one-shot renderer-priority fallback is narrower and is not equivalent to NextPlayer's manager.
+- [Jellyfin Android TV](https://github.com/jellyfin/jellyfin-androidtv) is actively maintained (repository commits observed on 24 November 2026). Its Media3 implementation separates `ExoPlayerBackend`, `ExoPlayerAudioPipeline`, options, decoder-support mapping and surface view responsibilities. This is a useful maintainability boundary for a later Nuvio extraction. Its simple DefaultRenderersFactory setup is not a replacement for Nuvio's Dolby Vision, Blu-ray, FFmpeg, sidecar subtitle and custom buffering stack.
+- [Just Player](https://github.com/moneytoo/Player) remains useful for decoder diagnostics and Media3 compatibility reports, but individual issue workarounds must be traced to merged code and matching Media3 versions before reuse.
+
+### Preserved Nuvio-specific behavior
+
+Do not remove or replace the custom Dolby Vision soft-match renderer, display-aware track selector, FFmpeg audio sink/processors, custom software decoder, libass/AIOStreams subtitle routing, Blu-ray media/session path, external audio delay source, custom VOD/buffering data sources, source MIME probing, decoder diagnostics, frame-rate matching, PiP handling or playback-state restoration. Generic ExoPlayer examples and third-party renderer factories do not cover these integration requirements.
+
+### Remaining audit work — not yet complete
+
+- Trace every ExoPlayer creation/rebuild and teardown path, including listener removal, `PlayerView` detachment, surface replacement, PiP, Activity stop/start and stale controller calls.
+- Complete the audio pipeline audit: passthrough/downmix/PCM-only sink interaction, FFmpeg audio renderer ordering, audio delay stream timestamp handling, audio decoder runtime recovery and audio-session lifecycle.
+- Complete the custom buffering/data-source audit: reader cancellation, close ordering, partial reads, cache ownership, seek/read-ahead cancellation, upstream errors and Blu-ray source replacement.
+- Complete subtitle routing review: native text vs libass vs sidecar selection, renderer reconfiguration, subtitle view attach/detach and timeline/seek resets.
+- Compare Nuvio's per-source decoder fallback with NextPlayer's per-item failed-mode tracking. Do not blacklist a decoder globally: the same codec may fail on one format/device and work on another. The key should include media identity/format and decoder identity, with bounded lifetime.
+- Establish a reproducible source/build provenance path for all custom AARs before considering Media3 1.11.1 or 1.12.0-beta01. The current black-box AARs prevent safely backporting upstream internal fixes.
+- Only after source review is complete, request authorization for host tests, compilation, release builds and a same-device playback matrix. No performance or reliability improvement is verified until those runs are completed.
+
+### Verification boundary
+
+The current remote branch head is `522f9d0d0ffab136921b6222a2465b78008828f3`. The source and test files were re-fetched from that branch after the commits. The compare view confirms the change set is limited to the two playback source files, two existing host-test files and this canonical engineering note. No build, test, CI or device validation has been performed.
+
