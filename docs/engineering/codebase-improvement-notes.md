@@ -2932,7 +2932,7 @@ Do not remove or replace the custom Dolby Vision soft-match renderer, display-aw
 
 ### Verification boundary
 
-The current remote branch head is `522f9d0d0ffab136921b6222a2465b78008828f3`. The source and test files were re-fetched from that branch after the commits. The compare view confirms the change set is limited to the two playback source files, two existing host-test files and this canonical engineering note. No build, test, CI or device validation has been performed.
+The first renderer/error source commit ended at `522f9d0d0ffab136921b6222a2465b78008828f3`; the later timing, subtitle, selected-audio and multichannel changes are recorded in the following addenda. The latest source-only commit in this review is `a016709076c96f68a8a21f0d322603cc1430cf3e`; the current remote branch head including the engineering-note update is `9b9c7ab0c13e2a9387329e0d2ae87c88ef2052a9`. The compare view confirms the change set is limited to ExoPlayer playback code, its focused Android host-test coverage, and this canonical engineering note. No build, test, CI or device validation has been performed.
 
 ### Additional timing and subtitle correctness fixes — 25 November 2026
 
