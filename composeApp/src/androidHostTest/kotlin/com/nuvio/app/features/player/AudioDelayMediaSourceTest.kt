@@ -5,19 +5,15 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.decoder.DecoderInputBuffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class AudioDelayMediaSourceTest {
     @Test
     fun onlyShiftsVideoWhenAnAudioTrackIsSelected() {
-        assertEquals(
-            true,
-            hasSelectedAudioTrack(listOf(MimeTypes.VIDEO_H264, MimeTypes.AUDIO_AAC)),
-        )
-        assertEquals(
-            false,
-            hasSelectedAudioTrack(listOf(MimeTypes.VIDEO_H264)),
-        )
-        assertEquals(false, hasSelectedAudioTrack(emptyList()))
+        assertTrue(hasSelectedAudioTrack(listOf(MimeTypes.VIDEO_H264, MimeTypes.AUDIO_AAC)))
+        assertFalse(hasSelectedAudioTrack(listOf(MimeTypes.VIDEO_H264)))
+        assertFalse(hasSelectedAudioTrack(emptyList()))
     }
 
     @Test
