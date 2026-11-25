@@ -157,7 +157,7 @@ class SettingsPagesTest {
         compose.runOnIdle { PlayerSettingsRepository.onProfileChanged() }
         assertFalse(PlayerSettingsRepository.uiState.value.touchGesturesEnabled)
         assertEquals("original", PlayerSettingsRepository.uiState.value.preferredAudioLanguage)
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.onNodeWithText("Back").performClick()
         compose.onNodeWithText("Player").performScrollTo().performClick()
         compose.onNodeWithText("Auto-switch engine on playback error").performScrollTo().performClick()
         assertFalse(PlayerSettingsRepository.uiState.value.autoSwitchPlaybackEngineOnError)
@@ -167,7 +167,7 @@ class SettingsPagesTest {
         compose.onNodeWithText("Playback Engine").performClick()
         compose.onNodeWithText("libmpv").performClick()
         assertEquals(AndroidPlaybackEngine.Libmpv, PlayerSettingsRepository.uiState.value.androidPlaybackEngine)
-        compose.onNodeWithText("Back").performScrollTo().performClick()
+        compose.onNodeWithText("Back").performClick()
         compose.onNodeWithText("Buffer and cache").assertDoesNotExist()
     }
 
