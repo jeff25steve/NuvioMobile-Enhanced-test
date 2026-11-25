@@ -2868,6 +2868,8 @@ private fun LibmpvPlayerSurface(
                         }
                     }
                     MPV.mpvEvent.MPV_EVENT_END_FILE -> {
+                        playbackRestarted.set(false)
+                        progressWatchdog.rebaseline()
                         val endDetails = sanitizeMpvEndFileDetails(
                             reason = data.nodeString("reason"),
                             fileError = data.nodeString("file_error"),
@@ -2952,17 +2954,27 @@ private fun LibmpvPlayerSurface(
         val progressWatchdogJob = coroutineScope.launch {
             while (isActive) {
                 delay(3_000L)
-                val snapshot = runCatching { view.snapshot() }.getOrNull() ?: continue
                 val attempt = playbackDiagnostics.attempt
+                val sampleTimeMs = SystemClock.elapsedRealtime()
+                // Avoid waking the MPV dispatcher for idle, paused or seeking playback.
+                // An ineligible sample still re-baselines the clock without consuming a stall window.
+                if (!playbackRestarted.get() || mpvPaused.get() || mpvSeeking.get()) {
+                    progressWatchdog.sample(
+                        attempt = attempt,
+                        nowMs = sampleTimeMs,
+                        positionMs = 0L,
+                        playbackSpeed = 1f,
+                        eligible = false,
+                    )
+                    continue
+                }
+                val snapshot = runCatching { view.snapshot() }.getOrNull() ?: continue
                 val report = progressWatchdog.sample(
                     attempt = attempt,
-                    nowMs = SystemClock.elapsedRealtime(),
+                    nowMs = sampleTimeMs,
                     positionMs = snapshot.positionMs,
                     playbackSpeed = snapshot.playbackSpeed,
-                    eligible = playbackRestarted.get() &&
-                        !mpvPaused.get() &&
-                        !mpvSeeking.get() &&
-                        !snapshot.isEnded,
+                    eligible = !snapshot.isEnded,
                 )
                 if (report != null) {
                     Log.w(
