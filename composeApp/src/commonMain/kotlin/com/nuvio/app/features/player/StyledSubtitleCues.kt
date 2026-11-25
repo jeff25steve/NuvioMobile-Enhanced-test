@@ -222,7 +222,7 @@ private fun String.toAnnotatedEvent(): AnnotatedString = buildAnnotatedString {
     var cursor = 0
 
     fun appendPlain(raw: String) {
-        val plain = raw.replace("\\\\N", "\\n").replace("\\\\n", "\\n").replace("\\\\h", "\\u00A0")
+        val plain = raw.replace("\\N", "\n").replace("\\n", "\n").replace("\\h", "\u00A0")
         if (plain.isEmpty()) return
         if (!italic && !bold && !underline && color == null) {
             append(plain)
