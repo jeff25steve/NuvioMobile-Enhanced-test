@@ -625,7 +625,9 @@ class MetaDetailsParserTest {
                       "proxyHeaders": {
                         "request": {
                           "Authorization": "Bearer token",
-                          "X-Client": "nuvio"
+                          "X-Client": "nuvio",
+                          "X-Number": 7,
+                          "X-Boolean": true
                         },
                         "response": {
                           "Content-Type": "video/mp2t",

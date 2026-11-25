@@ -148,14 +148,9 @@ class StreamOrientationTest {
                      "behaviorHints":{"bingeGroup":"different-group"}}]}
                 """.trimIndent()).setBodyDelay(500, TimeUnit.MILLISECONDS))
             }
-            val manifestUrl = server.url("/manifest.json").toString()
             AddonStorage.saveInstalledAddonUrls(
                 ProfileRepository.activeProfileId,
-                listOf(manifestUrl),
-            )
-            AddonStorage.saveAddonEnabledStates(
-                ProfileRepository.activeProfileId,
-                mapOf(manifestUrl to true),
+                listOf(server.url("/manifest.json").toString()),
             )
             runBlocking {
                 AddonRepository.initialize()
