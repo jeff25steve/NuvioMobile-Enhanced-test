@@ -71,6 +71,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 }
             }
         } catch (error: Throwable) {
+            initialized.set(false)
             if (error !is CancellationException) {
                 surfaceReady.completeExceptionally(error)
             }
