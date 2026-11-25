@@ -6244,14 +6244,18 @@ internal fun diagnosticThrowableStackTrace(value: Throwable): String =
     generateSequence(value) { it.cause }
         .take(4)
         .joinToString(" <- ") { error ->
+            val errorType = error.javaClass.simpleName
+                .takeIf(String::isNotBlank)
+                ?: error.javaClass.superclass?.simpleName?.takeIf(String::isNotBlank)
+                ?: error.javaClass.name.substringAfterLast('.')
             val frames = try {
-                error.getStackTrace().take(18).joinToString(",") { frame ->
+                error.stackTrace.take(18).joinToString(",") { frame ->
                     "${frame.className}.${frame.methodName}:${frame.lineNumber}"
                 }.ifBlank { "empty" }
             } catch (diagnosticFailure: Throwable) {
                 "unavailable:${diagnosticFailure.javaClass.simpleName}"
             }
-            "${error.javaClass.simpleName}[$frames]"
+            "$errorType[$frames]"
         }
 
 internal fun shouldUseExplicitStartPosition(startPositionMs: Long?): Boolean =

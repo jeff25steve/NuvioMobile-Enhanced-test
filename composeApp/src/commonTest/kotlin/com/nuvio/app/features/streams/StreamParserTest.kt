@@ -134,6 +134,8 @@ class StreamParserTest {
                           "X-First": "one",
                           "X-Blank": " ",
                           "X-Second": "two",
+                          "X-Number": 7,
+                          "X-Boolean": true,
                           "X-Null": null,
                           "X-Object": {"nested": "ignored"}
                         }

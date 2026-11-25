@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.compose.ui.graphics.Color
 import com.nuvio.app.core.storage.LocalAccountDataCleaner
+import com.nuvio.app.core.storage.PlatformLocalAccountDataCleaner
 import com.nuvio.app.core.storage.ProfileScopedKey
 import com.nuvio.app.core.sync.decodeSyncString
 import com.nuvio.app.core.sync.encodeSyncInt
@@ -29,6 +30,7 @@ class SubtitleAppearanceStorageTest {
         context.getSharedPreferences("nuvio_player_settings", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("nuvio_subtitle_device_preferences", Context.MODE_PRIVATE).edit().clear().commit()
         PlayerSettingsStorage.initialize(context)
+        PlatformLocalAccountDataCleaner.initialize(context)
         PlayerSettingsRepository.clearLocalState()
     }
 
