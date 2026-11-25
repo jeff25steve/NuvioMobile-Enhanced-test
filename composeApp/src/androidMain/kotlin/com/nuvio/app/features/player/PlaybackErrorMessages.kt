@@ -1,9 +1,11 @@
 package com.nuvio.app.features.player
 
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.exoplayer.mediacodec.MediaCodecRenderer
 import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
 import com.nuvio.app.core.auth.findCause
@@ -53,6 +55,14 @@ internal fun PlaybackException.findInvalidResponseCodeException(): HttpDataSourc
 /** Detects an extractor/parser rejection even when Media3 wraps it in an intermediate IOException. */
 internal fun PlaybackException.hasUnrecognizedInputFormatCause(): Boolean =
     findCause<UnrecognizedInputFormatException>() != null
+
+/** Only renderer failures from the video renderer should force the software video path. */
+@OptIn(UnstableApi::class)
+internal fun isVideoRendererPlaybackFailure(error: PlaybackException, rendererType: Int): Boolean =
+    error is ExoPlaybackException &&
+        error.type == ExoPlaybackException.TYPE_RENDERER &&
+        error.rendererIndex >= 0 &&
+        rendererType == C.TRACK_TYPE_VIDEO
 
 /** The error screen text for an ExoPlayer failure. */
 @OptIn(UnstableApi::class)
