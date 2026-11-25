@@ -2889,7 +2889,8 @@ A follow-up source trace found a separate, directly actionable startup issue in 
 
 **Reviewed branch:** `main-build-testing`  
 **Review base:** `551e39422bdedbbd47da599d5f3f8c2c917ba2d6`  
-**Source-level changes now at:** `522f9d0d0ffab136921b6222a2465b78008828f3`  
+**Initial renderer/error changes:** `522f9d0d0ffab136921b6222a2465b78008828f3`  
+**Additional timing/subtitle changes:** `b4c4c2e6d39466bcd5f3f6b072602d1370e57831`  
 **Scope:** Media3 1.8.0 player construction, custom renderer selection, software decoder lifecycle, renderer error classification, source/parser recovery, buffering/data-source seams, subtitle routing, Blu-ray integration, and current external implementations. This is a continuing audit; the remaining items below are deliberately not marked complete.
 
 ### Dependency and upstream compatibility
@@ -2932,4 +2933,14 @@ Do not remove or replace the custom Dolby Vision soft-match renderer, display-aw
 ### Verification boundary
 
 The current remote branch head is `522f9d0d0ffab136921b6222a2465b78008828f3`. The source and test files were re-fetched from that branch after the commits. The compare view confirms the change set is limited to the two playback source files, two existing host-test files and this canonical engineering note. No build, test, CI or device validation has been performed.
+
+### Additional timing and subtitle correctness fixes — 25 November 2026
+
+4. **Audio-delay timestamps now preserve sentinel/EOS buffers.** Media3 1.8.0's `Buffer.isEndOfStream()` contract explicitly says all other attributes of an EOS buffer must be ignored. `AudioDelaySampleStream.readData()` previously subtracted the configured delay from every `C.RESULT_BUFFER_READ`, including EOS and `C.TIME_UNSET` timestamps. It now shifts only ordinary timestamped samples. This avoids meaningless sentinel arithmetic/overflow and leaves EOS untouched.
+5. **Audio delay is now conditional on a selected audio track.** The source wrapper shifts video timestamps to create perceived audio delay because audio is normally the master clock. It previously did so even when no audio track was selected (silent video or disabled audio). `AudioDelayMediaPeriod.selectTracks()` now checks the selected MIME types and only wraps video streams when an audio track is selected. This also handles the separate-audio case because the delay wrapper is applied around the merged media source.
+6. **Unsorted sidecar cue fallback no longer truncates captions.** The legacy scan was selected precisely when cues were not chronologically sorted, but it still stopped at the first future cue. It now continues scanning the complete list and sorts active entries chronologically before flattening. The regression test places a future cue before two active cues and verifies both active captions are returned in start-time order.
+
+New host-test source files: `AudioDelayMediaSourceTest.kt` and `SidecarSubtitleControllerTest.kt`. The tests remain unexecuted under the existing authorization restriction.
+
+The current remote branch head at the time of this addendum is `b4c4c2e6d39466bcd5f3f6b072602d1370e57831`. All source changes remain limited to ExoPlayer playback/recovery, software video renderer capability, audio/video timing, and sidecar subtitle handling. No build, test, CI or device run was started.
 
