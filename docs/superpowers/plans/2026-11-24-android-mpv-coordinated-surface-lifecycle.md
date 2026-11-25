@@ -73,7 +73,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - [ ] Write failing tests for resize queued then destroyed; stale resize must be ignored.
 - [ ] Write failing tests for repeated destroy and repeated release; native release actions occur at most once.
 - [ ] Write failing tests for release requested during detach; close occurs only after detach completion.
-- [ ] Write failing tests for rapid generation A destroy then generation B create; A completion must not release B resources.
+- [x] Author host coverage for invalidated generation rejection, stale-destroy isolation and terminal release. Tests are committed but remain unexecuted; they do not yet prove native detach completion or resource release ordering.
 - [ ] Run only the targeted host-test task if separately authorized; otherwise leave tests unexecuted and report that boundary.
 
 ### Task 3: Implement serialized surface lifecycle ownership
@@ -89,8 +89,8 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 
 - [ ] Replace independent `destroyJob`/boolean coordination with the tested lifecycle state model.
 - [ ] Ensure attach, resize, detach and close share one ordered command path.
-- [ ] Invalidate a surface generation synchronously before destruction queues native work.
-- [ ] Make final release terminal and idempotent; reject all new work after release starts.
+- [x] Invalidate a surface generation synchronously before destruction queues native work; attach and resize operations reject stale generations on the MPV dispatcher.
+- [x] Make final release terminal and idempotent; reject new surface generations and queued native operations after release starts.
 - [ ] Use the proven native completion primitive from Task 1 before releasing native surface wrappers or closing mpv.
 - [ ] Preserve SurfaceControl frame-rate cleanup and ensure old-generation cleanup cannot clear a newer layer.
 - [ ] Keep all main-thread callbacks non-blocking; if the SurfaceHolder contract cannot be met with the available native completion mechanism, stop and revisit the ownership approach rather than shipping an unsafe compromise.
@@ -142,3 +142,10 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 ## Execution notes
 
 Task 1 begins with the confirmed UI-thread initialization defect and deterministic startup/lifecycle tests. The native detach completion and child SurfaceControl ownership question remains a hard gate for teardown changes. Tasks 2–5 may then be implemented in small test-first increments. The existing Android integration test exercises seek, activity recreation and view removal/recreation, but it does not prove native detach completion or race safety; host tests must cover ordering deterministically.
+
+
+Implementation note (25 November, continued): SurfaceView and TextureView callbacks now allocate a monotonically increasing surface generation. Destruction invalidates that exact generation synchronously before queuing detach; queued attach and resize work checks the generation on the existing MPV dispatcher, and a late invalidation during attach triggers an immediate detach request before later generations can attach. Final release invalidates all generations. This prevents stale queued work from attaching or resizing a destroyed surface, but it does not prove native VO teardown completion.
+
+Surface operation handling was hardened at the same boundary: negative return codes from the runtime surface property/option setters now become failures; detach attempts the native detachSurface() even if a preceding property update fails, but preserves the failure so the owning cleanup job does not release Java Surface/SurfaceControl resources on a failed detach request. Failed resource releases are retained until final native close succeeds. This is a conservative lifetime fallback, not a native detach acknowledgement.
+
+The pinned JNI implementation remains the hard gate: detachSurface() is void, sets wid=0, and deletes the JNI global reference without waiting for VO teardown. Android's SurfaceHolder contract requires rendering to stop before surfaceDestroyed returns; the current asynchronous callback path still cannot prove that condition. No claim of complete teardown safety is made. The native completion/child-layer ownership design must be resolved before marking Tasks 1, 3 or 4 complete.
