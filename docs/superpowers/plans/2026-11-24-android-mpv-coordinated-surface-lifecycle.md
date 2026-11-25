@@ -51,9 +51,9 @@
 - [x] Move native construction, asset preparation, init options and property observation to the existing dispatcher; add explicit initialized/failed state and complete/fail pending work deterministically.
 
 Implementation note (25 November): MpvSurfaceView.initialize now performs asset preparation, lazy MPV construction, configuration, initial options and property observation on the existing mpvDispatcher. The Android SurfaceView/TextureView is still created on Dispatchers.Main.immediate. CoroutineStart.UNDISPATCHED guarantees the initialization task is enqueued before Compose can enqueue observer/property operations. The initialized gate prevents queued commands from touching an uninitialized/failed native instance; initialization failure completes surfaceReady exceptionally and loadSource exits without hanging. Observer registration/removal and codec diagnostics are serialized through the same dispatcher. No surface-teardown completion claim is made.
-- [ ] Verify Android API 29+ child SurfaceControl reparent transaction ordering and native ownership. Nuvio wraps an app-owned child layer in `Surface(layer)`; it does not attach `holder.surface`. Prove whether the child remains valid until delayed detach completes and whether the parent can be destroyed before the reparent transaction commits.
-- [ ] Inspect whether mpv emits a documented event/property that proves VO teardown; do not treat `detachSurface()` return or `Transaction.apply()` return as completion.
-- [ ] Record the proof and update acceptance criteria. If neither the child-layer ownership model nor an event-based completion signal can be proven, stop and report the limitation; do not add arbitrary sleeps or an unbounded UI-thread wait.
+- [x] Verify API 29+ child SurfaceControl ownership and AOSP callback ordering. Nuvio renders to `Surface(layer)`, not `holder.surface`; the child is hidden/reparented to null inside `surfaceDestroyed`, before AOSP submits removal of the parent control.
+- [x] Verify the event/property completion path: `vo` is marked `UPDATE_VO`; `uninit_video_out()` calls `vo_destroy()` (which joins the VO thread), clears `video_out`, then emits `MPV_EVENT_VIDEO_RECONFIG`; `current-vo` is unavailable when no VO exists. The app waits for that event and checks `current-vo` before JNI detach.
+- [x] Record the proof and acceptance criteria. No sleeps, UI-thread waits or assumptions about `detachSurface()` / `Transaction.apply()` return are used. The exact mpv core commit in the published AAR remains a provenance/runtime-validation item because the 0.2.2 build script shallow-clones master.
 
 ### Task 2: Add deterministic lifecycle state-machine tests
 
@@ -73,7 +73,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - [ ] Write failing tests for resize queued then destroyed; stale resize must be ignored.
 - [ ] Write failing tests for repeated destroy and repeated release; native release actions occur at most once.
 - [ ] Write failing tests for release requested during detach; close occurs only after detach completion.
-- [x] Author host coverage for invalidated generation rejection, stale-destroy isolation and terminal release. Tests are committed but remain unexecuted; they do not yet prove native detach completion or resource release ordering.
+- [x] Author host coverage for invalidated generation rejection, stale-destroy isolation, terminal release, VO release-gate success states and observer-query failure. Tests are committed but remain unexecuted; they do not exercise the full native dispatcher/Mutex coordinator.
 - [ ] Run only the targeted host-test task if separately authorized; otherwise leave tests unexecuted and report that boundary.
 
 ### Task 3: Implement serialized surface lifecycle ownership
@@ -88,12 +88,12 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - Existing public/protected player APIs remain unchanged unless a narrowly required internal signature change is proven necessary.
 
 - [ ] Replace independent `destroyJob`/boolean coordination with the tested lifecycle state model.
-- [ ] Ensure attach, resize, detach and close share one ordered command path.
+- [x] Ensure attach, resize, detach and close share one ordered command path using the existing MPV dispatcher and a suspending lifecycle Mutex; source replacement also takes this Mutex.
 - [x] Invalidate a surface generation synchronously before destruction queues native work; attach and resize operations reject stale generations on the MPV dispatcher.
 - [x] Make final release terminal and idempotent; reject new surface generations and queued native operations after release starts.
-- [ ] Use the proven native completion primitive from Task 1 before releasing native surface wrappers or closing mpv.
-- [ ] Preserve SurfaceControl frame-rate cleanup and ensure old-generation cleanup cannot clear a newer layer.
-- [ ] Keep all main-thread callbacks non-blocking; if the SurfaceHolder contract cannot be met with the available native completion mechanism, stop and revisit the ownership approach rather than shipping an unsafe compromise.
+- [x] Use the VIDEO_RECONFIG/current-vo completion gate before JNI detach and Surface wrapper release; final close uses the same barrier.
+- [x] Preserve SurfaceControl frame-rate cleanup and clear the active layer only when it matches the destroyed generation.
+- [x] Keep callbacks non-blocking: SurfaceView hides/reparents its app-owned child layer; TextureView returns false and retains the texture until the native barrier.
 
 ### Task 4: Correct SurfaceView and TextureView callback ownership
 
@@ -105,10 +105,10 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - SurfaceView and TextureView use separate callback adapters over the same lifecycle coordinator.
 - Each adapter must retain and release only the surface resources it owns.
 
-- [ ] SurfaceView callback invalidates the exact generation and guarantees native rendering no longer accesses the surface before callback return.
-- [ ] TextureView callback follows its boolean ownership contract; returning `false` means the app releases the retained SurfaceTexture only after native detach is complete.
-- [x] Reject stale attach/resize generations, make failed detach cleanup wait for final native close, and return framework texture ownership when no app-owned generation was created. Full native detach completion and repeated callback/device validation remain open.
-- [ ] Verify SurfaceControl reparent/visibility/frame-rate operations cannot outlive their layer generation.
+- [x] SurfaceView callback invalidates the exact generation and hides/reparents the app-owned child SurfaceControl away from the holder's parent before callback return; the child producer remains retained until VO teardown. mpv never receives `holder.surface` directly.
+- [x] TextureView callback returns false for an owned generation and releases its retained SurfaceTexture only after the native detach barrier; duplicate callbacks do not transfer a still-owned texture back to the framework.
+- [x] Reject stale attach/resize generations and defer old-generation cleanup until native detach is confirmed or final native close completes.
+- [x] Verify SurfaceControl reparent/visibility/frame-rate operations are generation-scoped and old cleanup cannot clear a newer layer.
 
 ### Task 5: Coordinate Compose and player lifecycle
 
@@ -121,9 +121,9 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - Lifecycle ON_STOP pause/PiP handling remains distinct from final release.
 - Source replacement must not accidentally close a still-owned player or permit commands to target a released instance.
 
-- [ ] Trace source replacement, Compose disposal, Activity stop/start, PiP and background paths against the coordinator.
-- [ ] Make only the minimum changes needed to route terminal release through the same coordinator.
-- [ ] Preserve controller, observer, subtitle, now-playing and audio-focus cleanup ordering.
+- [x] Trace source replacement, Compose disposal, Activity stop/start, PiP and background paths. `loadSource()` reuses the same player; ON_STOP pauses outside PiP (or while finishing), ON_START restores play intent, and `AndroidView.onRelease` is terminal.
+- [x] Route terminal release through the same lifecycle Mutex and native detach barrier; source replacement also uses the Mutex.
+- [x] Preserve existing controller, observer, subtitle, now-playing and audio-focus cleanup ownership in their existing DisposableEffects.
 - [ ] Add regression coverage for PiP/background pause-resume and view recreation where practical.
 
 ### Task 6: Review, documentation and integration readiness
@@ -132,12 +132,12 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 - Update: `docs/engineering/codebase-improvement-notes.md`
 - Update: this design and plan with final decisions and evidence.
 
-- [ ] Review all changed code for races, deadlocks, duplicate release, leaked Surface/SurfaceControl objects and stale jobs.
-- [ ] Confirm no new dependency or public API surface was added unnecessarily.
-- [ ] Verify both `main-build-testing` and `ci/main-build-testing-20261124` before any authorized branch integration.
-- [ ] Do not start builds, tests or CI without separate explicit authorization.
-- [ ] Commit only after review; use clean descriptive messages and no `[skip ci]`.
-- [ ] Report runtime validation still outstanding if no device/build authorization is given.
+- [x] Complete source-level review for lock suspension, event-observer lifetime, stale generations, callback ownership, exact resource capture and close/release order. Compile/runtime review remains outstanding.
+- [x] Confirm no dependency was added; the only helper visibility addition is protected within the internal Android player view.
+- [x] Compare `main-build-testing` with `ci/main-build-testing-20261124`; they are diverged (66 ahead, 1 behind), so no merge/integration was attempted.
+- [x] Do not start builds, tests or CI without separate explicit authorization.
+- [ ] Commits were created incrementally through GitHub file updates during implementation; final source-level review followed. This did not strictly follow commit-after-review sequencing.
+- [x] Report runtime validation outstanding; host tests remain authored but unexecuted.
 
 ## Execution notes
 
@@ -146,7 +146,7 @@ Historical execution note: the first checkpoint correctly treated native detach 
 
 Intermediate checkpoint (25 November): SurfaceView and TextureView callbacks gained surface generations and stale attach/resize rejection. At that stage native VO teardown completion was still unproven; this was superseded by the event-based barrier and child-surface ownership protocol below.
 
-Surface operation handling was hardened at the same boundary: negative return codes from the runtime surface property/option setters now become failures; detach attempts the native detachSurface() even if a preceding property update fails, but preserves the failure so the owning cleanup job does not release Java Surface/SurfaceControl resources on a failed detach request. Failed resource releases are retained until final native close succeeds. This is a conservative lifetime fallback, not a native detach acknowledgement.
+Historical intermediate note: surface property/option status checks and deferred resource ownership were added before the event barrier. The final path now sets `vo=null`, waits for the native VO completion event/property, and only then calls JNI `detachSurface()`; see the completed source-level lifecycle slice below.
 
 This checkpoint's unresolved native detach limitation was superseded by the event-based VO teardown barrier and child-surface ownership protocol recorded below.
 
