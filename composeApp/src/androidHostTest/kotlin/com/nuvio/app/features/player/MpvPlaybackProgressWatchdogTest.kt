@@ -55,6 +55,7 @@ class MpvPlaybackProgressWatchdogTest {
         healthyWarmup(watchdog)
         var now = 18_000L
         var position = 18_000L
+        assertNull(watchdog.sample(1, now, position, 2f, true))
         // At 2x speed, 300 ms of movement per 3-second interval is below
         // the 15% threshold (900 ms), even though it would pass at 1x.
         repeat(5) {
