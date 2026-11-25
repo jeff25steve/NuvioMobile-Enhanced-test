@@ -64,12 +64,12 @@ class SearchHistoryRepositoryTest {
     @Test
     fun `applySearchHistoryEntry respects max size`() {
         val updated = applySearchHistoryEntry(
-            current = listOf("a", "b", "c"),
-            query = "d",
+            current = listOf("Alien", "Batman", "Dune"),
+            query = "Silo",
             limit = 3,
         )
 
-        assertEquals(listOf("d", "a", "b"), updated)
+        assertEquals(listOf("Silo", "Alien", "Batman"), updated)
     }
     @Test
     fun `normalizeSearchHistoryEntries stops reading after reaching the limit`() {
