@@ -217,7 +217,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     }
 
     private fun resize(width: Int, height: Int, generation: Long) = executeMpv(
-        onFailure = onSurfaceFailure,
+        onFailure = ::onSurfaceFailure,
     ) {
         withSurfaceLifecycleLock {
             if (!surfaceGeneration.isCurrent(generation) || attachedSurfaceGeneration != generation) {
