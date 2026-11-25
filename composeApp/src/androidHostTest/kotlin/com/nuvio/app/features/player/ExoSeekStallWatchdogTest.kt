@@ -35,8 +35,8 @@ class ExoSeekStallWatchdogTest {
         assertNull(watchdog.poll(2, 1_000L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs))
         assertNull(watchdog.poll(2, 20_000L, Player.STATE_BUFFERING, false, false, 30_000L, timeoutMs))
         assertNull(watchdog.poll(2, 40_000L, Player.STATE_BUFFERING, true, true, 30_000L, timeoutMs))
-        assertNull(watchdog.poll(2, 54_999L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs))
-        assertTrue(watchdog.poll(2, 55_000L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs) != null)
+        assertNull(watchdog.poll(2, 69_998L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs))
+        assertTrue(watchdog.poll(2, 69_999L, Player.STATE_BUFFERING, true, false, 30_000L, timeoutMs) != null)
     }
 
     @Test
@@ -59,8 +59,8 @@ class ExoSeekStallWatchdogTest {
         assertNull(watchdog.poll(4, 10_000L, Player.STATE_BUFFERING, true, false, 20_000L, timeoutMs))
 
         watchdog.recordSeek(4, 10_001L, 20_000L, 80_000L)
-        assertNull(watchdog.poll(4, 25_000L, Player.STATE_BUFFERING, true, false, 80_000L, timeoutMs))
-        val report = watchdog.poll(4, 25_001L, Player.STATE_BUFFERING, true, false, 80_000L, timeoutMs)
+        assertNull(watchdog.poll(4, 39_999L, Player.STATE_BUFFERING, true, false, 80_000L, timeoutMs))
+        val report = watchdog.poll(4, 40_000L, Player.STATE_BUFFERING, true, false, 80_000L, timeoutMs)
         assertEquals(20_000L, report?.fromPositionMs)
         assertEquals(80_000L, report?.targetPositionMs)
     }

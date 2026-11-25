@@ -15,7 +15,7 @@ It does not alter decoder priority, renderer ordering, source fallback, engine s
 
 ## Seek observation
 
-`ExoSeekStallWatchdog` starts only after Media3 reports `DISCONTINUITY_REASON_SEEK`. It reports once after 15 seconds of uninterrupted `STATE_BUFFERING` while playWhenReady is true and playback is not suppressed. Pause and suppression time is excluded. READY, IDLE and ENDED clear the pending observation. A newer seek replaces the previous target. The diagnostic is explicitly labelled as prolonged buffering, not proof of a decoder deadlock or failed seek.
+`ExoSeekStallWatchdog` starts only after Media3 reports `DISCONTINUITY_REASON_SEEK`. It reports once after 15 seconds of uninterrupted `STATE_BUFFERING` while playWhenReady is true and playback is not suppressed. Pause and suppression time is excluded from the active-buffering threshold; total elapsed time since the seek is logged separately. READY, IDLE and ENDED clear the pending observation. A newer seek replaces the previous target. The diagnostic is explicitly labelled as prolonged buffering, not proof of a decoder deadlock or failed seek.
 
 ## Decoder and format context
 

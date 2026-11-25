@@ -2022,6 +2022,7 @@ private fun ExoPlayerSurface(
                     "seek_buffering_stall attempt=$attempt fromMs=${seekStall.fromPositionMs} " +
                         "targetMs=${seekStall.targetPositionMs} positionMs=$positionMs " +
                         "activeBufferingMs=${seekStall.activeBufferingMs} " +
+                        "seekElapsedMs=${seekStall.seekElapsedMs} " +
                         "bufferedAheadMs=$bufferedAheadMs isLoading=${exoPlayer.isLoading}",
                 )
                 InAppLogger.warn(

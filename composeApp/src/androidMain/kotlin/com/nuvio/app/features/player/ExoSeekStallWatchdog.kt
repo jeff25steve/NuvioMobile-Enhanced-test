@@ -12,12 +12,14 @@ internal data class ExoSeekStallReport(
     val fromPositionMs: Long,
     val targetPositionMs: Long,
     val activeBufferingMs: Long,
+    val seekElapsedMs: Long,
 )
 
 internal class ExoSeekStallWatchdog {
     private var currentAttempt: Int = 0
     private var fromPositionMs: Long? = null
     private var targetPositionMs: Long? = null
+    private var seekStartedAtMs: Long? = null
     private var activeBufferingStartedAtMs: Long? = null
     private var reported = false
 
@@ -40,6 +42,7 @@ internal class ExoSeekStallWatchdog {
 
         this.fromPositionMs = fromPositionMs
         this.targetPositionMs = targetPositionMs
+        seekStartedAtMs = startedAtMs
         activeBufferingStartedAtMs = null
         reported = false
         return true
@@ -92,12 +95,14 @@ internal class ExoSeekStallWatchdog {
             fromPositionMs = requireNotNull(fromPositionMs),
             targetPositionMs = requireNotNull(targetPositionMs),
             activeBufferingMs = elapsedMs,
+            seekElapsedMs = (nowMs - requireNotNull(seekStartedAtMs)).coerceAtLeast(0L),
         )
     }
 
     private fun clearPendingSeek() {
         fromPositionMs = null
         targetPositionMs = null
+        seekStartedAtMs = null
         activeBufferingStartedAtMs = null
         reported = false
     }
