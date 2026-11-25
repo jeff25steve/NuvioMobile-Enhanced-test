@@ -1957,7 +1957,7 @@ private fun ExoPlayerSurface(
         }
     }
 
-    LaunchedEffect(exoPlayer, videoStartupWatchdog, videoFrameOutputGapWatchdog) {
+    LaunchedEffect(exoPlayer, videoStartupWatchdog, videoFrameOutputGapWatchdog, seekStallWatchdog) {
         while (isActive) {
             val attempt = playbackDiagnostics.attempt
             val positionMs = exoPlayer.currentPosition.coerceAtLeast(0L)

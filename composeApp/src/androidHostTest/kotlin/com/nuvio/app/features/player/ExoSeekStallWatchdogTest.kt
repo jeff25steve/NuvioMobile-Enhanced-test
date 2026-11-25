@@ -23,6 +23,7 @@ class ExoSeekStallWatchdogTest {
         assertEquals(10_000L, report?.fromPositionMs)
         assertEquals(90_000L, report?.targetPositionMs)
         assertEquals(timeoutMs, report?.activeBufferingMs)
+        assertEquals(15_900L, report?.seekElapsedMs)
         assertNull(watchdog.poll(1, 40_000L, Player.STATE_BUFFERING, true, false, 90_000L, timeoutMs))
     }
 
