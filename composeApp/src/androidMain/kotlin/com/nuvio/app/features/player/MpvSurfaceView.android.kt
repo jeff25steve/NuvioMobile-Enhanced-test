@@ -223,6 +223,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         }
     }
 
+    protected suspend fun <T> withSurfaceLifecycleLock(block: suspend () -> T): T =
+        surfaceLifecycleMutex.withLock { block() }
+
     private fun trackSurfaceRelease(generation: Long, releaseSurface: () -> Unit) {
         surfaceReleases.add(generation to releaseSurface)
     }
@@ -291,6 +294,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             } finally {
                 mpv.removeObserver(observer)
             }
+        } else {
+            // Clear a pending VO selection as well: an attach can be queued before
+            // the first VO exists, in which case current-vo is temporarily unavailable.
+            checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
         }
 
         // mpv emits VIDEO_RECONFIG after uninit_video_out() has destroyed and joined
