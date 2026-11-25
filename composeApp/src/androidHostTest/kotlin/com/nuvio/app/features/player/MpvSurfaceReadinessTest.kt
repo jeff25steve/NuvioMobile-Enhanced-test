@@ -10,6 +10,40 @@ import kotlin.test.assertTrue
 
 class MpvSurfaceReadinessTest {
     @Test
+    fun invalidatedSurfaceGenerationCannotAttachAfterRecreation() {
+        val generations = MpvSurfaceGeneration()
+        val first = generations.begin()!!
+
+        assertTrue(generations.invalidate(first))
+        val second = generations.begin()!!
+
+        assertTrue(!generations.isCurrent(first))
+        assertTrue(generations.isCurrent(second))
+    }
+
+    @Test
+    fun staleDestroyCannotInvalidateNewerSurfaceGeneration() {
+        val generations = MpvSurfaceGeneration()
+        val first = generations.begin()!!
+        val second = generations.begin()!!
+
+        assertTrue(!generations.invalidate(first))
+        assertTrue(generations.isCurrent(second))
+    }
+
+    @Test
+    fun releasingSurfaceGenerationsRejectsFutureAttachAndResizeWork() {
+        val generations = MpvSurfaceGeneration()
+        val active = generations.begin()!!
+
+        generations.release()
+
+        assertTrue(!generations.isCurrent(active))
+        assertEquals(null, generations.begin())
+        assertTrue(!generations.invalidate(active))
+    }
+
+    @Test
     fun successfulSurfaceAttachmentReleasesWaitingPlayback() = runTest {
         val readiness = MpvSurfaceReadiness()
         val waitingPlayback = async { readiness.await() }
