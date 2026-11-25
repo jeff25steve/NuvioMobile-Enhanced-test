@@ -11,6 +11,7 @@ import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.player_error_stream_blocked
@@ -68,6 +69,21 @@ class PlaybackErrorMessagesTest {
             "Unable to connect to host [ERROR_CODE_IO_NETWORK_CONNECTION_FAILED]",
             error.toDisplayMessage(),
         )
+    }
+
+    @Test
+    fun nestedUnrecognizedFormatCauseIsDetectedForSourceRecovery() {
+        val parserError = UnrecognizedInputFormatException(
+            "None of the available extractors could read the stream.",
+            Uri.EMPTY,
+            emptyList(),
+        )
+        val error = ExoPlaybackException.createForSource(
+            IOException("Wrapped source failure", parserError),
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        )
+
+        assertTrue(error.hasUnrecognizedInputFormatCause())
     }
 
     @Test
