@@ -107,7 +107,7 @@ Implementation note (25 November): MPV surface attachment now reports thrown nat
 
 - [ ] SurfaceView callback invalidates the exact generation and guarantees native rendering no longer accesses the surface before callback return.
 - [ ] TextureView callback follows its boolean ownership contract; returning `false` means the app releases the retained SurfaceTexture only after native detach is complete.
-- [ ] Handle callback order variations and repeated callbacks without double release.
+- [x] Reject stale attach/resize generations, make failed detach cleanup wait for final native close, and return framework texture ownership when no app-owned generation was created. Full native detach completion and repeated callback/device validation remain open.
 - [ ] Verify SurfaceControl reparent/visibility/frame-rate operations cannot outlive their layer generation.
 
 ### Task 5: Coordinate Compose and player lifecycle
@@ -149,3 +149,6 @@ Implementation note (25 November, continued): SurfaceView and TextureView callba
 Surface operation handling was hardened at the same boundary: negative return codes from the runtime surface property/option setters now become failures; detach attempts the native detachSurface() even if a preceding property update fails, but preserves the failure so the owning cleanup job does not release Java Surface/SurfaceControl resources on a failed detach request. Failed resource releases are retained until final native close succeeds. This is a conservative lifetime fallback, not a native detach acknowledgement.
 
 The pinned JNI implementation remains the hard gate: detachSurface() is void, sets wid=0, and deletes the JNI global reference without waiting for VO teardown. Android's SurfaceHolder contract requires rendering to stop before surfaceDestroyed returns; the current asynchronous callback path still cannot prove that condition. No claim of complete teardown safety is made. The native completion/child-layer ownership design must be resolved before marking Tasks 1, 3 or 4 complete.
+
+
+Implementation note (25 November, final slice): A failure during a later surface reattachment is forwarded through the existing player error callback; the initial attach failure still propagates through the readiness deferred to the source-load error path. TextureView now returns framework ownership when no application-owned texture generation was created, while retained textures continue to return false for deferred app release. This does not close the native detach-completion blocker.
