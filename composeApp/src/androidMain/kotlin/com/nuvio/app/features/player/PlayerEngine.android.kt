@@ -2758,6 +2758,9 @@ private fun LibmpvPlayerSurface(
         }
         val recentErrorLogs = ArrayDeque<String>()
         val errorLog = MpvErrorLog()
+        val progressWatchdog = MpvPlaybackProgressWatchdog()
+        val playbackRestarted = AtomicBoolean(false)
+        val mpvSeeking = AtomicBoolean(false)
         val observer = object : MPV.EventObserver {
             override fun eventProperty(property: String) {
                 if (property == "sub-text" || property == "sid") view.updateStyledSubtitle()
@@ -2776,6 +2779,7 @@ private fun LibmpvPlayerSurface(
                             "elapsedMs=${diagnosticElapsedSince(playbackDiagnostics.prepareStartedAtMs)}",
                     )
                 }
+                if (property == "seeking") mpvSeeking.set(value)
                 if (property == "pause") {
                     mpvPaused.set(value)
                     if (!value) coroutineScope.launch(Dispatchers.Main.immediate) { audioFocus.request() }
@@ -2815,6 +2819,8 @@ private fun LibmpvPlayerSurface(
             override fun event(eventId: Int, data: MPVNode) {
                 when (eventId) {
                     MPV.mpvEvent.MPV_EVENT_START_FILE -> {
+                        playbackRestarted.set(false)
+                        progressWatchdog.beginAttempt(playbackDiagnostics.attempt)
                         view.onFileStarted()
                         synchronized(recentErrorLogs) { recentErrorLogs.clear() }
                         Log.i(
@@ -2831,6 +2837,10 @@ private fun LibmpvPlayerSurface(
                     }
                     MPV.mpvEvent.MPV_EVENT_FILE_LOADED,
                     MPV.mpvEvent.MPV_EVENT_PLAYBACK_RESTART -> {
+                        if (eventId == MPV.mpvEvent.MPV_EVENT_PLAYBACK_RESTART) {
+                            playbackRestarted.set(true)
+                            progressWatchdog.rebaseline()
+                        }
                         if (eventId == MPV.mpvEvent.MPV_EVENT_FILE_LOADED) {
                             view.onFileLoaded()
                             view.updateSurfaceFrameRateHint()
@@ -2939,7 +2949,34 @@ private fun LibmpvPlayerSurface(
         }
         view.addObserver(observer)
         view.addLogObserver(logObserver)
+        val progressWatchdogJob = coroutineScope.launch {
+            while (isActive) {
+                delay(3_000L)
+                val snapshot = runCatching { view.snapshot() }.getOrNull() ?: continue
+                val attempt = playbackDiagnostics.attempt
+                val report = progressWatchdog.sample(
+                    attempt = attempt,
+                    nowMs = SystemClock.elapsedRealtime(),
+                    positionMs = snapshot.positionMs,
+                    playbackSpeed = snapshot.playbackSpeed,
+                    eligible = playbackRestarted.get() &&
+                        !mpvPaused.get() &&
+                        !mpvSeeking.get() &&
+                        !snapshot.isEnded,
+                )
+                if (report != null) {
+                    Log.w(
+                        PLAYER_DIAGNOSTIC_TAG,
+                        "mpv_playback_progress_stall attempt=${report.attempt} " +
+                            "elapsedMs=${report.elapsedMs} mediaProgressMs=${report.mediaProgressMs} " +
+                            "expectedProgressMs=${report.expectedProgressMs} " +
+                            "slowSamples=${report.consecutiveSlowSamples} diagnosticOnly=true",
+                    )
+                }
+            }
+        }
         onDispose {
+            progressWatchdogJob.cancel()
             view.removeObserver(observer)
             view.removeLogObserver(logObserver)
         }
