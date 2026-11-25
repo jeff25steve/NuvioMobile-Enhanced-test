@@ -40,9 +40,9 @@
 **Interface:**
 - Produces: `interpolatePlaybackPositionMs(positionMs: Long, elapsedNanos: Long, playbackSpeed: Float, durationMs: Long): Long`
 
-- [ ] Add tests for 1x and 1.5x progression, 23.976-fps-independent fractional playback speed, invalid speed, negative elapsed time, duration clamp, unknown duration, negative input position and Long overflow.
-- [ ] Implement saturating interpolation using elapsed nanoseconds and positive finite playback speed.
-- [ ] Preserve unknown duration as unbounded while treating negative position as zero.
+- [x] Add common tests for 1x/fractional speed, paused/interacting/invalid eligibility, negative elapsed time, known/unknown duration, negative position and Long overflow. Tests are authored but unexecuted.
+- [x] Implement saturating interpolation using elapsed nanoseconds and positive finite playback speed.
+- [x] Preserve unknown duration as unbounded while treating negative position as zero.
 
 ### Task 2: Add local frame-synchronised state to timeline components
 
@@ -53,11 +53,11 @@
 **Interface:**
 - Produces: `rememberFrameSynchronizedPositionMs(positionMs, durationMs, isPlaying, playbackSpeed, isInteracting): Long`
 
-- [ ] Use `produceState` and `withFrameNanos` to interpolate only while playing, with known duration and a finite positive speed.
-- [ ] Suspend frame updates while the user is pressing/dragging the timeline; use the current displayed scrub position without interpolation.
-- [ ] Wire the helper into standard `PlayerTimeline` slider/preview and legacy `PlayerSeekBar` slider/preview/time display.
-- [ ] Pass the current snapshot `isPlaying` and `playbackSpeed` from `ProgressControls` into `PlayerSeekBar`.
-- [ ] Do not change snapshot polling, gesture callbacks, seek dispatch or progress persistence.
+- [x] Use `produceState` and `withFrameNanos` to interpolate only while playing, with known duration and a finite positive speed.
+- [x] Suspend frame updates while the user is pressing/dragging the timeline; use the current displayed scrub position without interpolation.
+- [x] Wire the helper into standard `PlayerTimeline` slider/preview and legacy `PlayerSeekBar` slider/preview/time display.
+- [x] Pass the current snapshot `isPlaying` and `playbackSpeed` from `ProgressControls` into `PlayerSeekBar`.
+- [x] Do not change snapshot polling, gesture callbacks, seek dispatch or progress persistence.
 
 ### Task 3: Record the architecture decision and inspect the complete diff
 
@@ -66,11 +66,19 @@
 - Create: `docs/superpowers/specs/2026-11-25-reddit-playback-principles-design.md`
 - Create: `docs/superpowers/plans/2026-11-25-reddit-playback-principles.md`
 
-- [ ] Record the Reddit-derived principles that are adopted, deferred or rejected and explain why the Media3 custom AAR upgrade is blocked.
-- [ ] Re-fetch each changed file from `main-build-testing` and inspect imports, types, all call sites, dependency alignment and static compatibility guards.
-- [ ] Record source-only verification accurately. No test/build/CI/device result may be claimed.
+- [x] Record the Reddit-derived principles that are adopted, deferred or rejected and explain why the Media3 custom AAR upgrade is blocked.
+- [x] Re-fetch each changed file from `main-build-testing` and inspect imports, types, all call sites, dependency alignment and static compatibility guards.
+- [x] Record source-only verification accurately. No test/build/CI/device result may be claimed.
 
 ## Execution record
 
 - Plan created against remote `main-build-testing` SHA `0258adbeaf0e6862d501b349f1486d90bb98ecba`.
 - Test/build/CI execution remains prohibited in this task.
+
+
+## Verification boundary and execution record
+
+- Source, test and documentation changes are committed to main-build-testing. Static review re-fetched the latest timeline source, legacy seekbar source, test file, dependency catalog and Media3 AAR compatibility guard.
+- The test file was added before the interpolation and eligibility implementation, but the test suite was not run; no failing RED result or passing test result is claimed.
+- No Gradle task, compiler, test, build, CI, benchmark, APK/AAB generation or device playback was run. Compile/runtime verification remains outstanding.
+- Current implementation commits include the common frame interpolation, legacy seekbar wiring, seekbar declaration-order correction, interaction/bounds correction, and animation-eligibility policy. See the Git history for individual commit IDs.
