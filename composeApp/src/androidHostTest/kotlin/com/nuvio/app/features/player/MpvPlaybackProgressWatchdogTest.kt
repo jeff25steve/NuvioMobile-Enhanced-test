@@ -53,8 +53,16 @@ class MpvPlaybackProgressWatchdogTest {
     fun scalesExpectedProgressByPlaybackSpeed() {
         val watchdog = MpvPlaybackProgressWatchdog()
         healthyWarmup(watchdog)
-        assertNull(watchdog.sample(1, 18_000L, 18_000L, 2f, true))
-        assertNull(watchdog.sample(1, 21_000L, 18_000L, 2f, true))
+        var now = 18_000L
+        var position = 18_000L
+        // At 2x speed, 300 ms of movement per 3-second interval is below
+        // the 15% threshold (900 ms), even though it would pass at 1x.
+        repeat(5) {
+            now += 3_000L
+            position += 300L
+            val report = watchdog.sample(1, now, position, 2f, true)
+            if (it < 4) assertNull(report) else assertEquals(5, report?.consecutiveSlowSamples)
+        }
     }
 
     @Test
