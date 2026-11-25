@@ -193,9 +193,12 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
 
             val previousGeneration = attachedSurfaceGeneration
-            if (surfaceAttached && previousGeneration != null && previousGeneration != generation) {
+            if (surfaceAttached && previousGeneration == generation) {
+                return@withSurfaceLifecycleLock
+            }
+            if (surfaceAttached) {
                 detachSurface(previousGeneration)
-                releaseSurface(previousGeneration)
+                previousGeneration?.let(::releaseSurface)
             }
 
             if (!surfaceGeneration.isCurrent(generation)) return@withSurfaceLifecycleLock
