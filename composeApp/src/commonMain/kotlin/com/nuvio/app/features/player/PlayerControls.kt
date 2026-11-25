@@ -1032,6 +1032,8 @@ private fun ProgressControls(
             durationMs = playbackSnapshot.durationMs,
             displayedPositionMs = displayedPositionMs,
             bufferedPositionMs = playbackSnapshot.bufferedPositionMs,
+            isPlaying = playbackSnapshot.isPlaying,
+            playbackSpeed = playbackSnapshot.playbackSpeed,
             chapters = chapters,
             metrics = metrics,
             onScrubChange = onScrubChange,
@@ -1260,6 +1262,8 @@ internal fun PlayerSeekBar(
     onScrubFinished: (Long) -> Unit,
     modifier: Modifier = Modifier,
     bufferedPositionMs: Long = 0L,
+    isPlaying: Boolean = false,
+    playbackSpeed: Float = 1f,
     seekPreview: SeekPreviewController? = null,
     chapters: List<PlayerChapter> = emptyList(),
     onTouchChange: (Boolean) -> Unit = {},
@@ -1272,10 +1276,18 @@ internal fun PlayerSeekBar(
     val chapterMarks = remember(chapters, durationMs) { chapters.chapterMarkFractions(durationMs) }
     val seekDescription = stringResource(Res.string.player_seek_position)
     val seekState = remember(seekDurationMs) { SliderState(trackRange = 0f..seekDurationMs.toFloat()) }
-    seekState.value = displayedPositionMs.coerceIn(0L, seekDurationMs).toFloat()
+    seekState.value = framePositionMs.coerceIn(0L, seekDurationMs).toFloat()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isDragged by interactionSource.collectIsDraggedAsState()
+    val isInteracting = durationMs > 0L && (isPressed || isDragged)
+    val framePositionMs = rememberFrameSynchronizedPositionMs(
+        positionMs = displayedPositionMs,
+        durationMs = durationMs,
+        isPlaying = isPlaying,
+        playbackSpeed = playbackSpeed,
+        isInteracting = isInteracting,
+    )
     var trackWidthPx by remember { mutableStateOf(0) }
     val fractionalSeekTolerance = fractionalSeekToleranceForTrack(
         trackWidthPx,
@@ -1296,7 +1308,7 @@ internal fun PlayerSeekBar(
                     .graphicsLayer(scaleY = metrics.sliderScaleY)
                     .tapToSeekOnTimeline(
                         durationMs = durationMs,
-                        currentPositionMs = { displayedPositionMs },
+                        currentPositionMs = { framePositionMs },
                         onSeek = { positionMs ->
                             val targetPositionMs = positionMs.coerceIn(0L, seekDurationMs)
                             onScrubChange(targetPositionMs)
@@ -1311,7 +1323,7 @@ internal fun PlayerSeekBar(
                         .semantics { contentDescription = seekDescription },
                     state = seekState,
                     onValueChange = { value -> onScrubChange(value.toLong()) },
-                    onValueChangeFinished = { onScrubFinished(displayedPositionMs.coerceIn(0L, seekDurationMs)) },
+                    onValueChangeFinished = { onScrubFinished(framePositionMs.coerceIn(0L, seekDurationMs)) },
                     enabled = durationMs > 0L,
                     interactionSource = interactionSource,
                     track = { sliderState -> PlayerProgressTrack(sliderState, bufferedFraction, chapterMarks) },
@@ -1320,7 +1332,7 @@ internal fun PlayerSeekBar(
             SeekPreviewOverlay(
                 controller = seekPreview,
                 active = durationMs > 0L && (isPressed || isDragged),
-                positionMs = displayedPositionMs.coerceIn(0L, seekDurationMs),
+                positionMs = framePositionMs.coerceIn(0L, seekDurationMs),
                 durationMs = durationMs,
                 modifier = Modifier.matchParentSize(),
             )
@@ -1334,7 +1346,7 @@ internal fun PlayerSeekBar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TimePill(text = formatPlaybackTime(displayedPositionMs), fontSize = metrics.timeSize)
+                TimePill(text = formatPlaybackTime(framePositionMs), fontSize = metrics.timeSize)
                 TimePill(text = formatPlaybackTime(durationMs), fontSize = metrics.timeSize)
             }
         }
