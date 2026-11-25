@@ -114,3 +114,107 @@ Do not move release to `ON_STOP` or recreate the player on `ON_START` without me
 ### Outcome
 
 No confirmed surface ownership defect was found, so no speculative `onRelease`, surface-clear, engine-switch or lifecycle rewrite was applied. The open item is now narrowed from a general surface-lifecycle audit to a measurable non-PiP background resource-retention question. No source code, dependencies, tests, builds, CI or device playback were changed or started.
+
+
+## sukerxi Jellyfin Android with MPV — 25 November 2026
+
+Repository: [sukerxi/jellyfin-android-with-mpv](https://github.com/sukerxi/jellyfin-android-with-mpv)  
+Reviewed default branch: `main`  
+Reviewed HEAD: `886300bc68a2fd2e14466d020c8568491d00821c` (20 November 2026)  
+Latest release observed: [3.0.0-68](https://github.com/sukerxi/jellyfin-android-with-mpv/releases/tag/3.0.0-68), published 20 November 2026  
+License declared by repository: **GPL-2.0-only** (`LICENSE.md`; GitHub license metadata reports GPL-2.0). This is not a source-reuse-compatible license for Nuvio's GPL-3.0-only project absent additional permission or a separate legal basis. Treat this repository as a technical reference; do not copy its source files.
+
+### Project architecture and version baseline
+
+This is a Jellyfin Android fork, not a generic streaming client. It keeps Jellyfin's WebView/client integration and adds an MPV backend alongside ExoPlayer. The README describes a single Activity, Navigation Compose and a persistent WebView host, with playback as a full-screen overlay so returning from playback preserves the underlying page.
+
+The inspected `gradle/libs.versions.toml` pins:
+
+- Android Gradle Plugin 9.4.0, Kotlin 2.4.20, KSP 2.3.12, compile SDK 37, min SDK 26, target SDK 36.
+- Compose BOM 2026.09.00, Lifecycle 2.11.0, Coroutines 1.11.0.
+- Media3 1.11.1 and Jellyfin's Media3 FFmpeg decoder 1.9.0+1.
+- Jellyfin SDK 1.8.12 and `dev.jdtech.mpv:libmpv:1.1.0`; the version-catalog comment identifies that libmpv-android release as mpv 0.42.0 + FFmpeg 9.0.2.
+
+These versions are useful for ecosystem awareness, not a drop-in upgrade set for Nuvio. Nuvio remains pinned to Media3 1.8.0 with its own custom AAR/renderer compatibility constraints. The fork's MPV artifact, SDK, Gradle/AGP and Compose graph need independent provenance and compatibility work before any dependency is considered.
+
+### Source-level findings
+
+#### 1. MPV IPC is serialized off the UI thread
+
+Files: `player/mpv/MpvCore.kt`, `player/mpv/MpvPlayer.kt`.
+
+- All native initialization, property writes, commands and surface attach/detach calls are queued on a dedicated single-thread `mpv-ipc` executor. Native initialization (asset installation, DataStore preference read, config write, MPVLib creation and `init()`) is queued first and runs off the caller/UI thread.
+- Hot properties needed by Media3's synchronous `getState()` path—pause, speed, time position, demuxer cache, duration and track-list JSON—are observed and cached. The player reads the cache instead of synchronously calling `mpv_get_property` while mpv may hold its core/dispatch lock during demuxer open, cache fill or decoder initialization.
+- Property writes update the hot cache synchronously before their native operation is queued, so immediate state reads see the intended value without blocking for the native safe point.
+- The code explicitly documents the trade-off: one ordered queue can delay a surface-size update behind a long `loadfile` or `seek`; splitting native operations across threads would risk violating command ordering. The chosen follow-up is coalescing redundant size updates, not weakening serialization.
+
+This is a strong concurrency/performance pattern. Nuvio's own MPV surface runtime already has a dedicated coroutine dispatcher, a lifecycle mutex and generation fencing; compare the actual Nuvio native property-read path before proposing a second IPC queue or duplicating an existing cache. Never introduce synchronous native MPV property reads into Compose/UI callbacks.
+
+#### 2. Surface replacement and resize churn
+
+File: `player/mpv/MpvPlayer.kt`.
+
+- The MPV-backed Media3 player receives `clearVideoSurfaceView` immediately before `setVideoSurfaceView` on repeated PlayerView binding. The fork reports that treating every clear literally detached and recreated the native output during frequent Compose position recompositions, causing black video with continuing audio.
+- It defers a clear by one main-loop turn and cancels that pending detach when the matching set arrives. It also avoids reattaching an already attached identical Surface and only detaches when the view/surface identity still matches.
+- Surface dimensions are coalesced until stable for 32 ms. Duplicate dimensions are dropped; the first size after a fresh attach is applied immediately. The code explains that changing `android-surface-size` rebuilds mpv's VO/EGL/swapchain and can interrupt frame output, so applying every intermediate rotation/inset size causes repeated video-output rebuilds.
+
+Nuvio uses a different, native `MpvSurfaceView` owner rather than this fork's Media3 `PlayerView` bridge. Nuvio already has stronger generation ownership, a surface lifecycle mutex, old-output teardown barriers and texture ownership tracking. Therefore do **not** transplant the one-loop deferred-clear workaround. One concrete comparison remains: Nuvio currently sends `android-surface-size` from each accepted `surfaceChanged` / texture-size callback without the same 32 ms settle window. The fork's rationale makes this a plausible rotation-stutter optimization candidate, but not a proven Nuvio defect. Only consider a Nuvio-native coalescer after a device trace shows repeated VO rebuilds or visible rotation stutter; preserve immediate initial sizing, generation checks and final-size correctness.
+
+#### 3. MPV playback-stall watchdog — strongest new reliability reference
+
+Files: `player/mpv/PlaybackStallWatchdog.kt`, `player/mpv/MpvPlayer.kt`, test: `app/src/test/java/org/jellyfin/mobile/player/mpv/PlaybackStallWatchdogTest.kt`.
+
+The author investigated a real Jellyfin HLS outage where mpv repeatedly failed to open segments but remained alive, did not reliably set `paused-for-cache`, continued producing audio underruns, and advanced `time-pos` by a few milliseconds per second. Neither `isBuffering` nor a strict zero-position-change check was sufficient.
+
+The watchdog is a small engine-neutral policy object that receives `positionMs`, playback speed, a scheduler and an `onStall` callback. It uses one delayed Handler task on the player's looper (no extra thread):
+
+- Sample interval: 3 seconds.
+- Expected movement per sample: interval × playback speed × 0.15.
+- Startup warm-up: five healthy intervals must establish normal playback before stall checks are armed. A single slow interval steps the warm-up counter back one rather than resetting it completely.
+- Failure threshold: five consecutive under-progress samples after establishment (roughly 15 seconds).
+- It is gated by file loaded, first frame rendered, READY/BUFFERING, not user-paused, not EOF, and no already-pending error.
+- A seek resets the sample baseline but preserves the established-playback conclusion; pause/stop cancels scheduled work; new item resets the entire state; one stall is reported once.
+- On detection, `MpvPlayer` maps it to Media3 `ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT`, marks the current file terminal and queues mpv `stop` before exposing the error. Stopping first matters because the old MPV file otherwise continues its periodic HLS segment retries while the fallback starts.
+
+The committed test uses a virtual scheduler and has 15 cases covering no-progress startup, intermittent cold start, healthy playback, slow position crawl, transient missed intervals, pause/resume, seek re-baselining, one-shot reporting, new-item reset and speed-aware progress. The 16 November commit message reports these tests passed and describes an API 34 x86_64 emulator test with a Jellyfin 720p HLS transcode, including server termination and resume from the saved position. Those are the author's recorded results; this review did not run that repository's tests or reproduce the experiment.
+
+**Transfer boundary:** this is a useful second signal to compare with Nuvio's first-frame and frame-output-gap watchdogs. It measures media-clock progress after first output, whereas Nuvio's frame-metadata watchdog measures a frame-output pipeline gap while media position advances. Those signals are complementary, not interchangeable. Before implementation, locate the current Nuvio MPV position/cache observables and confirm whether the MPV path already has a same-purpose watchdog. If it does not, first add deterministic diagnostic policy tests and prove the signal on Nuvio's actual stream types/devices. Do not import the 3 s / 15% / 5-cycle thresholds: they were tuned for one Jellyfin HLS 720p emulator scenario, not arbitrary addon, debrid, local, DASH or live streams. The Jellyfin fallback below is not portable to Nuvio.
+
+#### 4. First-frame-driven seek HUD timing
+
+Files: `player/PlayerViewModel.kt`, `ui/screens/player/PlayerGestureHandler.kt`.
+
+The fork adds a persistent `StateFlow<Long>` resume tick. A seek gesture snapshots the tick before issuing `seekTo`, then suspends until the tick changes; `StateFlow.first { it != oldTick }` avoids a polling loop and handles the already-changed-before-collector-starts case. The MPV event `PLAYBACK_RESTART` and ExoPlayer `onRenderedFirstFrame` both increment the same flow.
+
+The fork explicitly rejected ExoPlayer `onPositionDiscontinuity(SEEK)`: its `seekTo()` call dispatches that callback synchronously before the new frame is rendered. Using it hid the seek HUD roughly 20 ms after release and exposed the frozen interval before the picture returned. In the reported emulator test, MPV's playback-restart signal dismissed the HUD 41 ms after seek while playing and 24 ms while paused; ExoPlayer's first frame arrived 475 ms after seek and the HUD cleared 21 ms later (one Compose frame). The commit also coordinates the seek card with the loading indicator to avoid a large spinner flashing immediately after the card disappears.
+
+This is a high-value UX/state-machine reference. The semantic rule is transferable: a seek-complete visual affordance should wait for actual rendered output, not a seek-command acknowledgement or position discontinuity. Preserve source/player generation fencing in Nuvio so an old player's delayed first-frame event cannot complete a newer seek. Nuvio's existing first-frame/frame-output instrumentation provides useful primitives, but the seek HUD behavior itself needs a focused comparison against current Nuvio UI before any implementation.
+
+#### 5. Error fallback is Jellyfin-server-specific
+
+Files: `player/PlayerViewModel.kt`, `player/queue/QueueManager.kt`, `player/source/MediaSourceResolver.kt`.
+
+The queue manager has a bounded, source-negotiated fallback ladder: first retry with server defaults, then disable direct play (permit direct stream), then disable direct stream (force server transcode), with at most three attempts. If the current source is already transcoding, it only retries once for a transient failure. Retry count resets after 30 seconds of stability or a new session. The player reports network timeout/connection loss as retryable to the UI and captures the current position before asynchronous fallback. This is robust in a Jellyfin client because the server can generate a new media source and transcode URL.
+
+Nuvio's arbitrary addon/debrid sources do not expose this common Jellyfin `PlaybackInfo` negotiation contract. Do not copy the direct-play/direct-stream/transcode ladder or assume a source can be downgraded by changing a local flag. Only the general properties transfer: bounded retry budget, preserve resume position, stop the failed engine before retry, reset attempts on new source or proven stability, and keep retry ownership tied to the current source generation.
+
+#### 6. Additional useful patterns
+
+- The fork has a debug-only gesture harness that runs a real ExoPlayer and the production gesture overlay without needing a live Jellyfin server. This is a good testing approach for isolating player UI/gesture semantics from the provider/server path.
+- MPV track selection and ASS/SSA handling are deliberately separate from Media3's generic track-selection structures. Its device profile advertises MPV-specific embedded/external subtitle formats; its README claims native ASS styling via MPV/libass. This is Jellyfin profile negotiation and does not replace Nuvio's own subtitle pipeline.
+- The same-frame comparison feature uses independent MPV instances to render a captured frame under alternate configurations and compare pixel output. It is a useful diagnostic concept but has a meaningful native-memory/GPU cost; do not add it to production playback without a dedicated debug-only resource budget.
+- The README's mobile-data prompt and unified buffer tier are backed by server-specific bitrate negotiation and paired MPV `cache-secs` + `demuxer-max-bytes` limits. Nuvio already owns its own cache/read-ahead policy; do not copy the settings or limits without benchmarking its own sources.
+
+### Adopt / defer / reject decisions for Nuvio
+
+| Finding | Decision | Reason |
+|---|---|---|
+| Dedicated serialized MPV IPC + hot-property cache | Compare only | Nuvio already has a single-thread MPV dispatcher, lifecycle mutex and generation fencing; verify UI property reads before changing architecture |
+| One-loop deferred surface clear for PlayerView | Reject for current Nuvio surface owner | Different bridge; Nuvio has native surface generation ownership and a teardown barrier |
+| 32 ms surface-size settle/coalescing | Benchmark candidate | Nuvio currently forwards accepted size callbacks immediately; possible rotation VO churn, not yet measured |
+| Progress-based MPV stall watchdog | High-priority comparison candidate | Adds post-first-frame media-clock stall detection complementary to frame-output gap detection; requires Nuvio-specific thresholds and source gates |
+| First-rendered-frame seek HUD | High-value UX comparison candidate | Better semantic signal than seek-discontinuity acknowledgement; requires checking current Nuvio seek UI and source fencing |
+| Jellyfin direct-play → direct-stream → transcode ladder | Reject as direct implementation | Requires Jellyfin PlaybackInfo/server transcode negotiation absent from generic Nuvio addon sources |
+| MPV/Media3 dependency versions | Do not transplant | Different AAR/native graph and GPL-2.0-only source baseline; Nuvio remains on its own compatibility baseline |
+
+No source code, dependency, test, build, CI or device run was changed or started while reviewing this project.
