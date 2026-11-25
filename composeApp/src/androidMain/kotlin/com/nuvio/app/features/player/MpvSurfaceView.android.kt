@@ -278,6 +278,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         val currentVideoOutput = mpv.getPropertyString("current-vo")
         if (!currentVideoOutput.isNullOrBlank() && currentVideoOutput != "null") {
             val releaseGate = MpvVideoOutputReleaseGate()
+            val observerActive = AtomicBoolean(true)
             val observer = object : MPV.EventObserver {
                 override fun eventProperty(property: String) = Unit
                 override fun eventProperty(property: String, value: Long) = Unit
@@ -287,8 +288,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 override fun eventProperty(property: String, value: MPVNode) = Unit
 
                 override fun event(eventId: Int, data: MPVNode) {
-                    if (eventId == MPV.mpvEvent.MPV_EVENT_VIDEO_RECONFIG) {
+                    if (eventId == MPV.mpvEvent.MPV_EVENT_VIDEO_RECONFIG && observerActive.get()) {
                         mpvScope.launch {
+                            if (!observerActive.get()) return@launch
                             try {
                                 val activeVideoOutput = mpv.getPropertyString("current-vo")
                                 releaseGate.onVideoReconfigured(activeVideoOutput)
@@ -312,6 +314,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
                 }
             } finally {
+                observerActive.set(false)
                 mpv.removeObserver(observer)
             }
         } else {
