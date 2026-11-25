@@ -538,6 +538,7 @@ private fun ExoPlayerSurface(
     var sidecarControllerRef by remember { mutableStateOf<SidecarSubtitleController?>(null) }
     val subtitleStyleGuard = remember { SubtitleStyleGuard() }
     var decoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
+    var forceSoftwareVideoFallback by remember(playerSourceKey) { mutableStateOf(false) }
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
     var pendingPlaybackSpeed by remember(playerSourceKey) { mutableStateOf<Float?>(null) }
     var initializedVideoDecoderName by remember(playerSourceKey) { mutableStateOf<String?>(null) }
@@ -765,7 +766,7 @@ private fun ExoPlayerSurface(
             audioDelayUsProvider = audioDelayUs::get,
             audioAmplificationDbProvider = audioAmplificationDb::get,
             audioDownmix = audioDownmix,
-            forceSoftwareVideoDecoding = decoderPriorityOverride == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+            forceSoftwareVideoDecoding = forceSoftwareVideoFallback,
             preferAppAudioDecoder = bluetoothOutput,
             centerMixLevelDbProvider = centerMixLevelDb::get,
             onFfmpegAudioRenderer = ffmpegAudioRenderer::set,
@@ -1262,6 +1263,15 @@ private fun ExoPlayerSurface(
         var errorDisplayMessageJob: Job? = null
 
         fun reportPlayerError(error: PlaybackException) {
+            val failedRenderer = error as? ExoPlaybackException
+            val failedRendererType = failedRenderer
+                ?.takeIf {
+                    it.type == ExoPlaybackException.TYPE_RENDERER &&
+                        it.rendererIndex in 0 until exoPlayer.rendererCount
+                }
+                ?.let { exoPlayer.getRendererType(it.rendererIndex) }
+                ?: C.TRACK_TYPE_UNKNOWN
+            val videoRendererFailure = isVideoRendererPlaybackFailure(error, failedRendererType)
             val fallbackDecoderPriority = decoderPriorityFallbackAfterFailure(
                 configuredPriority = playerSettings.decoderPriority,
                 activePriority = effectiveDecoderPriority,
@@ -1293,6 +1303,12 @@ private fun ExoPlayerSurface(
                     pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
                 }
                 fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+                if (
+                    fallbackDecoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER &&
+                    videoRendererFailure
+                ) {
+                    forceSoftwareVideoFallback = true
+                }
                 decoderPriorityOverride = fallbackDecoderPriority
                 latestOnError.value(null)
                 return
