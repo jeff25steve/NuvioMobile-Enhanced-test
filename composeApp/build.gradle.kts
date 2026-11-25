@@ -552,6 +552,7 @@ kotlin {
             implementation(libs.androidx.savedstate.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.http)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.atomicfu)
             implementation(libs.kmpalette.core)
