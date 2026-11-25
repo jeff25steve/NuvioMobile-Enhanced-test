@@ -12,6 +12,7 @@ import android.view.TextureView
 import android.widget.FrameLayout
 import androidx.annotation.RequiresApi
 import `is`.xyz.mpv.MPV
+import `is`.xyz.mpv.MPVNode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -221,7 +222,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceReleases.add(generation to releaseSurface)
     }
 
-    private fun detach(generation: Long, releaseSurface: () -> Unit) {
+    private fun detach(generation: Long) {
         val job = destroyJob ?: mpvScope.launch {
             surfaceLifecycleMutex.withLock {
                 detachSurface(generation)
@@ -262,9 +263,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 override fun eventProperty(property: String, value: Boolean) = Unit
                 override fun eventProperty(property: String, value: String) = Unit
                 override fun eventProperty(property: String, value: Double) = Unit
-                override fun eventProperty(property: String, value: is.xyz.mpv.MPVNode) = Unit
+                override fun eventProperty(property: String, value: MPVNode) = Unit
 
-                override fun event(eventId: Int, data: is.xyz.mpv.MPVNode) {
+                override fun event(eventId: Int, data: MPVNode) {
                     if (eventId == MPV.mpvEvent.MPV_EVENT_VIDEO_RECONFIG) {
                         mpvScope.launch {
                             val activeVideoOutput = runCatching {
@@ -331,15 +332,17 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
                 val frame = holder.surfaceFrame
-                layer = SurfaceControl.Builder()
+                val createdLayer = SurfaceControl.Builder()
                     .setName("MPV video")
                     .setParent(surfaceControl)
                     .setBufferSize(frame.width(), frame.height())
                     .build()
-                output = Surface(layer)
+                val createdOutput = Surface(createdLayer)
+                layer = createdLayer
+                output = createdOutput
                 trackSurfaceRelease(currentGeneration) {
-                    output.release()
-                    layer.release()
+                    createdOutput.release()
+                    createdLayer.release()
                 }
                 synchronized(frameRateLock) {
                     activeVideoLayer = layer
@@ -374,10 +377,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     }
                 }
                 SurfaceControl.Transaction().use { it.reparent(oldLayer, null).apply() }
-                detach(destroyedGeneration) {
-                    oldOutput.release()
-                    oldLayer.release()
-                }
+                detach(destroyedGeneration)
             }
         })
     }
@@ -390,9 +390,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
-                output = Surface(texture)
+                val createdOutput = Surface(texture)
+                output = createdOutput
                 trackSurfaceRelease(currentGeneration) {
-                    output.release()
+                    createdOutput.release()
                     texture.release()
                 }
                 attach(output, currentGeneration)
@@ -408,10 +409,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 generation = null
                 surfaceGeneration.invalidate(destroyedGeneration)
                 val oldOutput = output
-                detach(destroyedGeneration) {
-                    oldOutput.release()
-                    texture.release()
-                }
+                detach(destroyedGeneration)
                 return false
             }
 
