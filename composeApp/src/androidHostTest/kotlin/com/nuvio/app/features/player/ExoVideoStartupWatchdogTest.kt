@@ -56,6 +56,16 @@ class ExoVideoStartupWatchdogTest {
     }
 
     @Test
+    fun firstFrameIdentityMustMatchTheCurrentPrepareAttempt() {
+        val diagnostics = PlaybackDiagnostics()
+        diagnostics.beginAttempt(1_000L, expectedMediaIdentity = "id:current")
+
+        assertTrue(diagnostics.isCurrentMediaIdentity("id:current"))
+        assertFalse(diagnostics.isCurrentMediaIdentity("id:previous"))
+        assertFalse(diagnostics.isCurrentMediaIdentity(null))
+    }
+
+    @Test
     fun pauseBufferingAndTrackLossResetTheActiveWindow() {
         val watchdog = ExoVideoStartupWatchdog()
         watchdog.beginAttempt(5)
