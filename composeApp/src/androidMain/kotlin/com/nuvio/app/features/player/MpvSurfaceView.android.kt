@@ -20,7 +20,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -37,7 +40,9 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
     protected val released = AtomicBoolean(false)
     private val initialized = AtomicBoolean(false)
     private var destroyJob: Job? = null
-    private val deferredSurfaceReleases = CopyOnWriteArrayList<() -> Unit>()
+    private val surfaceLifecycleMutex = Mutex()
+    private val surfaceReleases = CopyOnWriteArrayList<Pair<Long, () -> Unit>>()
+    @Volatile
     private var surfaceAttached = false
     private var attachedSurfaceGeneration: Long? = null
     private val surfaceGeneration = MpvSurfaceGeneration()
@@ -155,7 +160,7 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
 
     protected fun executeMpv(
         onFailure: ((Throwable) -> Unit)? = null,
-        block: () -> Unit,
+        block: suspend () -> Unit,
     ) {
         if (released.get()) return
         mpvScope.launch {
@@ -179,75 +184,115 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
             if (wasReady) onSurfaceFailure(error)
         },
     ) {
-        if (!surfaceGeneration.isCurrent(generation)) return@executeMpv
-        mpv.attachSurface(surface)
-        surfaceAttached = true
-        attachedSurfaceGeneration = generation
-        if (!surfaceGeneration.isCurrent(generation)) {
-            detachSurface(generation)
-            return@executeMpv
+        surfaceLifecycleMutex.withLock {
+            if (!surfaceGeneration.isCurrent(generation)) return@withLock
+
+            val previousGeneration = attachedSurfaceGeneration
+            if (surfaceAttached && previousGeneration != null && previousGeneration != generation) {
+                detachSurface(previousGeneration)
+                releaseSurface(previousGeneration)
+            }
+
+            if (!surfaceGeneration.isCurrent(generation)) return@withLock
+            mpv.attachSurface(surface)
+            surfaceAttached = true
+            attachedSurfaceGeneration = generation
+            checkMpvResult("set option force-window", mpv.setOptionString("force-window", "yes"))
+            checkMpvResult("set property vo", mpv.setPropertyString("vo", vo))
+            if (surfaceGeneration.isCurrent(generation)) surfaceReady.complete()
         }
-        checkMpvResult("set option force-window", mpv.setOptionString("force-window", "yes"))
-        if (!surfaceGeneration.isCurrent(generation)) {
-            detachSurface(generation)
-            return@executeMpv
-        }
-        checkMpvResult("set property vo", mpv.setPropertyString("vo", vo))
-        if (surfaceGeneration.isCurrent(generation)) surfaceReady.complete()
-        else detachSurface(generation)
     }
 
-    private fun resize(width: Int, height: Int, generation: Long) = executeMpv {
-        if (!surfaceGeneration.isCurrent(generation) || attachedSurfaceGeneration != generation) {
-            return@executeMpv
+    private fun resize(width: Int, height: Int, generation: Long) = executeMpv(
+        onFailure = onSurfaceFailure,
+    ) {
+        surfaceLifecycleMutex.withLock {
+            if (!surfaceGeneration.isCurrent(generation) || attachedSurfaceGeneration != generation) {
+                return@withLock
+            }
+            checkMpvResult(
+                "set property android-surface-size",
+                mpv.setPropertyString("android-surface-size", "${width}x$height"),
+            )
         }
-        checkMpvResult(
-            "set property android-surface-size",
-            mpv.setPropertyString("android-surface-size", "${width}x$height"),
-        )
+    }
+
+    private fun trackSurfaceRelease(generation: Long, releaseSurface: () -> Unit) {
+        surfaceReleases.add(generation to releaseSurface)
     }
 
     private fun detach(generation: Long, releaseSurface: () -> Unit) {
-        deferredSurfaceReleases.add(releaseSurface)
-        val job = destroyJob ?: mpvScope.launch { detachSurface(generation) }
+        trackSurfaceRelease(generation, releaseSurface)
+        val job = destroyJob ?: mpvScope.launch {
+            surfaceLifecycleMutex.withLock {
+                detachSurface(generation)
+                releaseSurface(generation)
+            }
+        }
         job.invokeOnCompletion { cause ->
-            if (cause == null) releaseDeferredSurface(releaseSurface) else logFailure(cause)
+            if (cause == null) {
+                releaseSurface(generation)
+            } else {
+                logFailure(cause)
+                onSurfaceFailure(cause)
+            }
         }
     }
 
-    private fun releaseDeferredSurface(releaseSurface: () -> Unit) {
-        if (deferredSurfaceReleases.remove(releaseSurface)) {
-            runCatching(releaseSurface).onFailure(::logFailure)
+    private fun releaseSurface(generation: Long) {
+        val entry = surfaceReleases.firstOrNull { it.first == generation } ?: return
+        if (surfaceReleases.remove(entry)) {
+            runCatching(entry.second).onFailure(::logFailure)
         }
     }
 
-    private fun releaseAllDeferredSurfaces() {
-        deferredSurfaceReleases.toList().forEach(::releaseDeferredSurface)
+    private fun releaseAllSurfaceResources() {
+        surfaceReleases.toList().forEach { (generation, _) -> releaseSurface(generation) }
     }
 
-    private fun detachSurface(generation: Long? = null) {
+    private suspend fun detachSurface(generation: Long? = null) {
         if (!initialized.get() || !surfaceAttached) return
         if (generation != null && attachedSurfaceGeneration != generation) return
-        var failure: Throwable? = null
-        try {
-            checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
-            checkMpvResult(
-                "set option force-window=no",
-                mpv.setOptionString("force-window", "no"),
-            )
-        } catch (error: Throwable) {
-            failure = error
-        }
-        try {
-            mpv.detachSurface()
-            if (failure == null) {
-                surfaceAttached = false
-                attachedSurfaceGeneration = null
+
+        val currentVideoOutput = mpv.getPropertyString("current-vo")
+        if (!currentVideoOutput.isNullOrBlank() && currentVideoOutput != "null") {
+            val releaseGate = MpvVideoOutputReleaseGate()
+            val observer = object : MPV.EventObserver {
+                override fun eventProperty(property: String) = Unit
+                override fun eventProperty(property: String, value: Long) = Unit
+                override fun eventProperty(property: String, value: Boolean) = Unit
+                override fun eventProperty(property: String, value: String) = Unit
+                override fun eventProperty(property: String, value: Double) = Unit
+                override fun eventProperty(property: String, value: is.xyz.mpv.MPVNode) = Unit
+
+                override fun event(eventId: Int, data: is.xyz.mpv.MPVNode) {
+                    if (eventId == MPV.mpvEvent.MPV_EVENT_VIDEO_RECONFIG) {
+                        mpvScope.launch {
+                            val activeVideoOutput = runCatching {
+                                mpv.getPropertyString("current-vo")
+                            }.getOrNull()
+                            releaseGate.onVideoReconfigured(activeVideoOutput)
+                        }
+                    }
+                }
             }
-        } catch (error: Throwable) {
-            if (failure == null) failure = error else failure.addSuppressed(error)
+
+            mpv.addObserver(observer)
+            try {
+                checkMpvResult("set property vo=null", mpv.setPropertyString("vo", "null"))
+                withTimeout(5_000) {
+                    releaseGate.await()
+                }
+            } finally {
+                mpv.removeObserver(observer)
+            }
         }
-        failure?.let { throw it }
+
+        // mpv emits VIDEO_RECONFIG after uninit_video_out() has destroyed and joined
+        // the previous VO. Only now is it safe for JNI to delete its global Surface ref.
+        mpv.detachSurface()
+        surfaceAttached = false
+        attachedSurfaceGeneration = null
     }
 
     fun releaseMpv() {
@@ -265,9 +310,11 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
         surfaceReady.cancel()
         destroyJob = mpvScope.launch {
             try {
-                runCatching { detachSurface() }.onFailure(::logFailure)
-                if (mpvInstance.isInitialized()) mpv.close()
-                releaseAllDeferredSurfaces()
+                surfaceLifecycleMutex.withLock {
+                    runCatching { detachSurface() }.onFailure(::logFailure)
+                    if (mpvInstance.isInitialized()) mpv.close()
+                    releaseAllSurfaceResources()
+                }
             } finally {
                 mpvDispatcher.close()
             }
@@ -291,6 +338,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                     .setBufferSize(frame.width(), frame.height())
                     .build()
                 output = Surface(layer)
+                trackSurfaceRelease(currentGeneration) {
+                    output.release()
+                    layer.release()
+                }
                 synchronized(frameRateLock) {
                     activeVideoLayer = layer
                     appliedFrameRateRequest = null
@@ -341,6 +392,10 @@ internal abstract class MpvSurfaceView(context: Context, private val vo: String)
                 val currentGeneration = surfaceGeneration.begin() ?: return
                 generation = currentGeneration
                 output = Surface(texture)
+                trackSurfaceRelease(currentGeneration) {
+                    output.release()
+                    texture.release()
+                }
                 attach(output, currentGeneration)
                 resize(width, height, currentGeneration)
             }
@@ -398,6 +453,22 @@ internal class MpvSurfaceGeneration {
 
     fun release() {
         if (released.compareAndSet(false, true)) current.incrementAndGet()
+    }
+}
+
+internal class MpvVideoOutputReleaseGate {
+    private val detached = CompletableDeferred<Unit>()
+
+    fun onVideoReconfigured(currentVideoOutput: String?) {
+        if (currentVideoOutput == null || currentVideoOutput == "null") {
+            detached.complete(Unit)
+        }
+    }
+
+    fun isComplete(): Boolean = detached.isCompleted
+
+    suspend fun await() {
+        detached.await()
     }
 }
 
