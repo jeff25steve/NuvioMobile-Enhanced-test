@@ -220,7 +220,7 @@ internal class PlaybackDiagnostics {
     }
 
     fun isCurrentMediaIdentity(mediaIdentity: String?): Boolean =
-        expectedMediaIdentity == null || expectedMediaIdentity == mediaIdentity
+        expectedMediaIdentity != null && expectedMediaIdentity == mediaIdentity
 
     fun markPlaybackStarted() {
         playbackHasStarted = true
