@@ -4,6 +4,7 @@ import android.content.pm.ProviderInfo
 import android.os.Bundle
 import androidx.core.content.FileProvider
 import com.nuvio.app.R
+import com.nuvio.app.features.addons.AddonHttpClientProvider
 import com.nuvio.app.features.player.ExternalPlayerPlaybackRequest
 import com.nuvio.app.features.player.PlayerSubtitleCueParser
 import com.nuvio.app.features.player.SubtitleFileCache
@@ -40,6 +41,11 @@ import kotlin.test.assertTrue
 @Config(sdk = [34])
 class DownloadSubtitlesTest {
     @get:Rule val temporary = TemporaryFolder()
+
+    @org.junit.Before
+    fun initializeAddonHttpClient() {
+        AddonHttpClientProvider.initialize(RuntimeEnvironment.getApplication())
+    }
 
     @Test
     fun backgroundDownloadSavesAddonAndStreamSubtitlesWithoutBlockingVideoStart(): Unit = runBlocking {
