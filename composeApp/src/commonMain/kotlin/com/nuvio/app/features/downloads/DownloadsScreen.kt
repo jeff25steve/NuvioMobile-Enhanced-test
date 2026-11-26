@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import com.nuvio.app.core.ui.NuvioActionLabel
 import com.nuvio.app.core.ui.NuvioScreen
@@ -84,7 +85,7 @@ fun DownloadsScreen(
     onOpenSettings: (() -> Unit)? = null,
 ) {
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.Default) {
+        withContext(Dispatchers.IO) {
             DownloadsPlatformDownloader.preloadTransferStore()
         }
         DownloadsRepository.ensureLoaded()
