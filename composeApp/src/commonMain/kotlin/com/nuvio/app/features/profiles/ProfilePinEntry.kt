@@ -136,7 +136,17 @@ internal fun InlinePinEntry(
                         isVerifying = true
                         scope.launch {
                             try {
-                                val result = verifyPin(pin)
+                                val result = try {
+                                    verifyPin(pin)
+                                } catch (cancellation: CancellationException) {
+                                    pin = ""
+                                    throw cancellation
+                                } catch (_: Exception) {
+                                    error = getString(Res.string.profile_pin_offline_verification_requires_online)
+                                    pin = ""
+                                    return@launch
+                                }
+
                                 if (result.unlocked) {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onVerified()
@@ -149,12 +159,6 @@ internal fun InlinePinEntry(
                                         }
                                     pin = ""
                                 }
-                            } catch (cancellation: CancellationException) {
-                                pin = ""
-                                throw cancellation
-                            } catch (_: Exception) {
-                                error = getString(Res.string.profile_pin_offline_verification_requires_online)
-                                pin = ""
                             } finally {
                                 isVerifying = false
                             }
