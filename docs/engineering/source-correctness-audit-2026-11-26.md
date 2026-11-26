@@ -63,3 +63,16 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 - Source and regression-test changes were committed and re-fetched from GitHub for review.
 - No Gradle test task, Android APK/AAB build, iOS build or CI run is claimed as successful by this document.
 - The Android benchmark workflow currently has a manual trigger and CI-branch push filters; the available GitHub integration can inspect workflow runs but does not expose a workflow-dispatch action. A supported trigger route must be established before claiming that verification ran.
+
+## Android ExoPlayer frame-metadata thread failure — 26 November 2026
+
+The user-supplied playback log contained an `IllegalStateException` because `FrameMonitoringPlayerView` read `ExoPlayer.currentPosition` from `VideoFrameMetadataListener`. The callback is invoked on `ExoPlayer:Playback`; the player and `PlayerView` integration require application-looper access. The exact API/source review and corrective design are recorded in [the frame-metadata thread correctness note](player-frame-metadata-thread-correctness-2026-11-26.md).
+
+The correction was integrated in two commits:
+
+- `3c79e5dd88e72a5d7f051982014498f28fbc78d1`: publish immutable attempt/media/position state through `AtomicReference` and remove Player getters from the playback-thread metadata callback.
+- `761995c639b643a923e7b23a34b2250feafcefda`: fix the remaining stale five-parameter callback method signature so all frame-metadata callback declarations and call sites use the same `(Long, Long, Float) -> Unit` type.
+
+No new dependency or Media3 upgrade was required. The current dependency baseline remains Media3 1.8.0 with the local custom AAR family. Run #141 checked out the exact code commit; Android host regression tests passed and the full profile-capture/Play Store APK stages were progressing at the last status check. The complete workflow was not yet reported as finished, and physical-device playback has not been verified.
+
+**Verification boundary:** source was re-fetched and compared against the exact Media3 1.8.0 source. The host tests for the Android regression suite passed in run #141. This confirms the host-test job, not the original runtime scenario on a physical device. Do not report the wrong-thread playback issue as device-validated until the affected stream is retested with fresh playback logs.
