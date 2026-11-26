@@ -6,6 +6,7 @@ plugins {
 android {
     namespace = "com.nuvio.android.baselineprofile"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdkMinor = libs.versions.android.compileSdkMinor.get().toInt()
 
     defaultConfig {
         // BaselineProfileRule requires API 28+ (rooted through API 32, or API 33+ without root).
