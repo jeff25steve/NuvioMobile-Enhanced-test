@@ -986,6 +986,9 @@ private fun ExoPlayerSurface(
         player
     }
     val exoPlayerReleased = remember(exoPlayer) { AtomicBoolean(false) }
+    // VideoFrameMetadataListener executes on ExoPlayer:Playback. Publish Player state from
+    // the application thread so the frame callback never calls Player getters itself.
+    val framePlaybackContextStore = remember(exoPlayer) { VideoFramePlaybackContextStore() }
     var isExoPlayerPlaying by remember(exoPlayer) { mutableStateOf(exoPlayer.isPlaying) }
 
     val nowPlayingController = remember(context, exoPlayer) {
@@ -1031,6 +1034,10 @@ private fun ExoPlayerSurface(
                     )
                 }
             }
+        framePlaybackContextStore.updatePlayerState(
+            currentMediaIdentity = playbackDiagnosticMediaIdentity(exoPlayer.currentMediaItem),
+            playbackPositionMs = snapshot.positionMs,
+        )
         latestOnSnapshot.value(snapshot)
         nowPlayingController.syncPlayback(snapshot)
     }
@@ -1087,9 +1094,16 @@ private fun ExoPlayerSurface(
         details: String = "",
         mediaItem: MediaItem? = exoPlayer.currentMediaItem,
     ) {
+        val expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem)
         playbackDiagnostics.beginAttempt(
             SystemClock.elapsedRealtime(),
-            expectedMediaIdentity = playbackDiagnosticMediaIdentity(mediaItem),
+            expectedMediaIdentity = expectedMediaIdentity,
+        )
+        framePlaybackContextStore.beginAttempt(
+            attempt = playbackDiagnostics.attempt,
+            expectedMediaIdentity = expectedMediaIdentity,
+            currentMediaIdentity = playbackDiagnosticMediaIdentity(exoPlayer.currentMediaItem),
+            playbackPositionMs = exoPlayer.currentPosition,
         )
         videoStartupWatchdog.beginAttempt(playbackDiagnostics.attempt)
         videoFrameOutputGapWatchdog.beginAttempt(playbackDiagnostics.attempt)
@@ -2634,16 +2648,15 @@ private fun ExoPlayerSurface(
         updateAlwaysFrameRateState()
     }
 
-    val onVideoFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit = { framePlayer, presentationTimeUs, elapsedRealtimeMs, positionMs, frameRate ->
-        // VideoFrameMetadataListener has no AnalyticsListener.EventTime, so this current-item
-        // identity check is best-effort for queued frames crossing a seamless item transition.
-        // It is diagnostic-only; first-frame gating uses the stronger event-time identity check.
-        val frameMediaIdentity = playbackDiagnosticMediaIdentity(framePlayer.currentMediaItem)
-        if (playbackDiagnostics.isCurrentMediaIdentity(frameMediaIdentity)) {
+    val onVideoFrameMetadata: (Long, Long, Float) -> Unit = { presentationTimeUs, elapsedRealtimeMs, frameRate ->
+        // This callback runs on ExoPlayer:Playback. Read only the immutable snapshot published
+        // by Player.Listener / the main-thread polling loop; never query ExoPlayer here.
+        val frameContext = framePlaybackContextStore.snapshot()
+        if (frameContext.isCurrentMedia) {
             videoFrameOutputGapWatchdog.recordFrame(
-                attempt = playbackDiagnostics.attempt,
+                attempt = frameContext.attempt,
                 elapsedRealtimeMs = elapsedRealtimeMs,
-                playbackPositionMs = positionMs,
+                playbackPositionMs = frameContext.playbackPositionMs,
                 presentationTimeUs = presentationTimeUs,
                 frameRate = frameRate,
             )
@@ -5855,7 +5868,7 @@ internal fun softwareVideoRendererInsertionIndex(
 @androidx.annotation.OptIn(UnstableApi::class)
 private class FrameMonitoringPlayerView(
     context: Context,
-    onFrameMetadata: (ExoPlayer, Long, Long, Long, Float) -> Unit,
+    onFrameMetadata: (Long, Long, Float) -> Unit,
 ) : PlayerView(context) {
     @Volatile
     private var frameMetadataCallback = onFrameMetadata
@@ -5881,11 +5894,11 @@ private class FrameMonitoringPlayerView(
                 // Capture the player in this listener instance. A delayed callback from a detached
                 // player must never be attributed to the replacement player.
                 val listener = VideoFrameMetadataListener { presentationTimeUs, _, format, _ ->
+                    // Media3 invokes this listener on its playback thread. Do not read Player
+                    // properties here; the callback only forwards renderer-provided metadata.
                     frameMetadataCallback(
-                        nextPlayer,
                         presentationTimeUs,
                         SystemClock.elapsedRealtime(),
-                        nextPlayer.currentPosition.coerceAtLeast(0L),
                         format.frameRate,
                     )
                 }
