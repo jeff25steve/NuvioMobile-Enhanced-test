@@ -44,7 +44,7 @@ internal actual object DownloadsStorage {
             val payload = defaults.stringForKey(key) ?: return@forEach
             val items = DownloadsCodec.decodePayload(payload).items
             items.filter { it.status != DownloadStatus.Completed }
-                .forEach { DownloadsPlatformDownloader.removePartialFile(it.fileName) }
+                .forEach { DownloadsPlatformDownloader.removePartialFile(it.id, it.fileName) }
             defaults.setObject(
                 DownloadsCodec.encodePayload(items.filter { it.status == DownloadStatus.Completed }),
                 forKey = key,
