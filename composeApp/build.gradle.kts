@@ -576,12 +576,14 @@ kotlin {
 // Robolectric's runtime SDK downloader bypasses Gradle's Maven repository configuration.
 // Pin only the Android host-test worker to the EU Maven Central mirror so the
 // android-all-instrumented runtime is not fetched from the rate-limited repo1 endpoint.
-tasks.named<org.gradle.api.tasks.testing.Test>("testAndroidHostTest") {
-    systemProperty(
-        "robolectric.dependency.repo.url",
-        "https://maven-central-eu.storage-download.googleapis.com/maven2/",
-    )
-    systemProperty("robolectric.dependency.repo.id", "google-maven-central-eu")
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    if (name == "testAndroidHostTest") {
+        systemProperty(
+            "robolectric.dependency.repo.url",
+            "https://maven-central-eu.storage-download.googleapis.com/maven2/",
+        )
+        systemProperty("robolectric.dependency.repo.id", "google-maven-central-eu")
+    }
 }
 
 val bootIosTestSimulator = tasks.register<Exec>("bootIosTestSimulator") {
