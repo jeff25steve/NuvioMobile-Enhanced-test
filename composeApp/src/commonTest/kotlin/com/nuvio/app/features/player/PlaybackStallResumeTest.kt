@@ -82,6 +82,63 @@ class PlaybackStallResumeTest {
     }
 
     @Test
+    fun mediaItemRefreshPreservesCurrentPositionInsteadOfRewindingToInitialResumePoint() {
+        assertEquals(
+            1_245_041L,
+            reprepareStartPositionMs(
+                decoderFallbackMs = null,
+                sessionFallbackMs = null,
+                currentPositionMs = 1_245_041L,
+                initialPositionMs = 1_193_023L,
+            ),
+        )
+    }
+
+    @Test
+    fun explicitDecoderAndSessionRecoveryPositionsTakePrecedenceOverCurrentPosition() {
+        assertEquals(
+            50_000L,
+            reprepareStartPositionMs(
+                decoderFallbackMs = 50_000L,
+                sessionFallbackMs = 45_000L,
+                currentPositionMs = 47_500L,
+                initialPositionMs = 30_000L,
+            ),
+        )
+        assertEquals(
+            45_000L,
+            reprepareStartPositionMs(
+                decoderFallbackMs = null,
+                sessionFallbackMs = 45_000L,
+                currentPositionMs = 47_500L,
+                initialPositionMs = 30_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun initialResumePositionIsUsedOnlyBeforeAPlayerHasAnActiveMediaItem() {
+        assertEquals(
+            30_000L,
+            reprepareStartPositionMs(
+                decoderFallbackMs = null,
+                sessionFallbackMs = null,
+                currentPositionMs = null,
+                initialPositionMs = 30_000L,
+            ),
+        )
+        assertEquals(
+            0L,
+            reprepareStartPositionMs(
+                decoderFallbackMs = null,
+                sessionFallbackMs = null,
+                currentPositionMs = -1L,
+                initialPositionMs = 30_000L,
+            ),
+        )
+    }
+
+    @Test
     fun startupFailureDoesNotReplaceTheInitialPosition() {
         val session = PlaybackReopenSession(initialPositionMs = 1_193_023L)
 
