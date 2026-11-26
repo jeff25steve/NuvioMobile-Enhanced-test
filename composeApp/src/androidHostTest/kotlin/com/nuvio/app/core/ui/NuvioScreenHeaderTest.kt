@@ -59,7 +59,7 @@ class NuvioScreenHeaderTest {
         assertTrue(abs(actionBounds.right - (parentWidthPx - contentInsetPx)) <= 1f, "Action should retain the matching trailing inset")
     }
 
-    @Test fun settingsHeaderBackgroundAlignsWithScreenContentPadding() {
+    @Test fun settingsHeaderLayoutStaysWithinScreenContentPadding() {
         compose.setContent {
             CompositionLocalProvider(LocalNuvioScreenMetrics provides NuvioScreenMetrics(16.dp)) {
                 NuvioTheme {
@@ -80,11 +80,15 @@ class NuvioScreenHeaderTest {
         val headerBounds = compose.onNodeWithTag("settingsHeader").fetchSemanticsNode().boundsInRoot
         val titleBounds = compose.onNodeWithText("Settings").fetchSemanticsNode().boundsInRoot
         val insetPx = with(compose.density) { 16.dp.toPx() }
-        val expectedWidthPx = with(compose.density) { 320.dp.toPx() }
+        val expectedLayoutWidthPx = with(compose.density) { 288.dp.toPx() }
 
+        // Semantics bounds describe the measured layout node, not the extra pixels
+        // painted by nuvioScreenSideBleed/drawBehind. The expanded draw rectangle
+        // is asserted independently by SettingsHeaderShapeTest.
         assertTrue(
-            abs(headerBounds.left) <= 1f && abs(headerBounds.width - expectedWidthPx) <= 1f,
-            "Settings header's expanded draw area should span the screen before its background inset is applied",
+            abs(headerBounds.left - insetPx) <= 1f &&
+                abs(headerBounds.width - expectedLayoutWidthPx) <= 1f,
+            "Settings header layout should remain within the 16 dp screen-content inset",
         )
         assertTrue(
             abs(titleBounds.left - insetPx) <= 1f,
