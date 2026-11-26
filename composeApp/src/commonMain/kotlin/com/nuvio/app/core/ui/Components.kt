@@ -277,6 +277,11 @@ fun NuvioScreenHeader(
         }
     }
     val sideBleed = screenMetrics?.horizontalPadding ?: NuvioTokens.Space.none
+    val backgroundInsetModifier = if (backgroundHorizontalInset > NuvioTokens.Space.none) {
+        Modifier.padding(horizontal = backgroundHorizontalInset)
+    } else {
+        Modifier
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
