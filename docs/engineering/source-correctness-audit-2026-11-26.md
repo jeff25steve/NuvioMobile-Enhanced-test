@@ -26,6 +26,11 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 - It now uses the same `StaticImageWithFallback` path as non-animated artwork, so a failed animated asset can fall back to its static cover.
 - Existing Android fallback behavior and the common image API remain unchanged.
 
+### Android networking: duplicate error interceptor
+
+- Ktor 3.4.1's OkHttp engine creates its client with `preconfigured.newBuilder()` and then applies the engine configuration. The shared OkHttp client already installs `NetworkErrorInterceptor`.
+- Removed the second registration from the Ktor engine configuration. The interceptor remains on the shared client for both Ktor and direct OkHttp users, but now runs once per request.
+
 ### Android native build cache
 
 - The custom cacheable Cargo/NDK task now fingerprints Rust/Cargo/cargo-ndk versions, relevant compiler and linker environment overrides, Cargo/Rustup configuration files in the workspace ancestor chain and Cargo home, plus the existing source/lockfile/ABI/minSdk/NDK inputs.
