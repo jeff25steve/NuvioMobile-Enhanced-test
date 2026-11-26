@@ -84,7 +84,7 @@ fun DownloadsScreen(
     onOpenSettings: (() -> Unit)? = null,
 ) {
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.Default) {
             DownloadsPlatformDownloader.preloadTransferStore()
         }
         DownloadsRepository.ensureLoaded()
