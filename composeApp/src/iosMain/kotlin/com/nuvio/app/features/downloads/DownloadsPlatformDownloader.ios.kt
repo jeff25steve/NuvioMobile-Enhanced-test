@@ -1,8 +1,10 @@
 package com.nuvio.app.features.downloads
 
 import com.nuvio.app.core.concurrency.IdentityKeyedRegistry
+import com.nuvio.app.core.logging.InAppLogger
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCObjectVar
 import kotlinx.cinterop.alloc
@@ -58,6 +60,7 @@ import platform.Foundation.setValue
 import platform.Foundation.timeIntervalSince1970
 import platform.Foundation.valueForHTTPHeaderField
 import platform.UIKit.UIApplication
+import platform.posix.FILE
 import platform.posix.feof
 import platform.posix.fclose
 import platform.posix.fflush
@@ -754,7 +757,7 @@ private fun appendFile(
     return false
 }
 
-@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
+@OptIn(ExperimentalForeignApi::class)
 private fun moveOrCopy(fromPath: String, toPath: String): Boolean {
     val manager = NSFileManager.defaultManager
     val moveError = memScoped {
