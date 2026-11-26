@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Set up Java
         uses: actions/setup-java@v6
@@ -73,12 +73,9 @@ jobs:
           # main-build-testing is not the repository default branch; allow its own
           # successful builds to maintain a reusable branch-scoped Gradle cache.
           cache-read-only: ${{ github.event_name == 'pull_request' }}
+          # Cross-run configuration-cache reuse requires a shared GRADLE_ENCRYPTION_KEY.
+          # Keep the project-local cache within this job; do not archive it with a machine-local key.
 
-      - name: Cache Gradle configuration cache
-        uses: actions/cache@v6
-        with:
-          path: .gradle/configuration-cache
-          key: ${{ runner.os }}-${{ runner.arch }}-ios-config-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'gradle.properties', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties', 'buildSrc/**', 'build-logic/**') }}
       - name: Verify Java and Gradle toolchains
         shell: bash
         run: |
