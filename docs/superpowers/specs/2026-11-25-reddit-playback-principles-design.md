@@ -89,3 +89,12 @@ Adapt the most useful engineering principles from Reddit's Android video-player 
 - Keep Nuvio's Dolby Vision soft-match renderer, audio Dolby blacklist, FFmpeg extension and software-video renderer ordering unchanged.
 - Do not create a global device blacklist. Do not use MediaCodecInfo.secure or .tunneling as query requirements: those fields describe codec capabilities. The filter operates on the exact candidate list returned for the current decoder query.
 - Add Android host tests using the already-declared Robolectric 4.16 dependency for exception extraction, exact-query filtering, empty-result fallback, bounded/deduplicated exclusions, and secure/nonsecure query alternatives. Tests are authored but not run.
+
+
+## Decoder-recovery API references
+
+- Media3 1.8.0 MediaCodecSelector: https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecSelector.java
+- Media3 1.8.0 MediaCodecDecoderException: https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecDecoderException.java
+- Media3 1.8.0 MediaCodecRenderer.DecoderInitializationException: https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecRenderer.java
+- Media3 1.8.0 MediaCodecUtil decoder query behavior: https://github.com/androidx/media/blob/1.8.0/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/mediacodec/MediaCodecUtil.java
+- Stable Media3 1.11.1 release notes (upgrade reference; not the version currently bundled by Nuvio): https://developer.android.com/jetpack/androidx/releases/media3
