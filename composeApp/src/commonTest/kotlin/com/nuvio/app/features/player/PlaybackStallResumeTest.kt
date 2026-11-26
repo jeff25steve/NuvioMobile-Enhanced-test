@@ -128,7 +128,7 @@ class PlaybackStallResumeTest {
             ),
         )
         assertEquals(
-            0L,
+            30_000L,
             reprepareStartPositionMs(
                 decoderFallbackMs = null,
                 sessionFallbackMs = null,
