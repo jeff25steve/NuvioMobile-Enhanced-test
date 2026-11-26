@@ -11,7 +11,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class FailedMediaCodecSelectorTest {
     @Test
     fun failedCodecIdentityIncludesMimeNameAndSecurityRequirements() {
@@ -20,8 +25,6 @@ class FailedMediaCodecSelectorTest {
             FailedMediaCodecIdentity(
                 mimeType = MimeTypes.VIDEO_H264,
                 name = "codec.avc.hw",
-                requiresSecureDecoder = true,
-                requiresTunnelingDecoder = false,
             ),
             codec.failedMediaCodecIdentity(),
         )
@@ -59,32 +62,22 @@ class FailedMediaCodecSelectorTest {
     }
 
     @Test
-    fun failedCodecIsExcludedOnlyWhenAnUnexcludedAlternativeExists() {
+    fun failedCodecExclusionSetIsDeduplicatedAndBoundedPerTrack() {
         val failed = codec("codec.avc.hw").failedMediaCodecIdentity()
         val alternate = codec("codec.avc.alt").failedMediaCodecIdentity()
         val alreadyExcluded = codec("codec.avc.alt2").failedMediaCodecIdentity()
 
         val planned = newFailedMediaCodecExclusions(
-            failedMediaCodecs = listOf(failed),
+            failedMediaCodecs = listOf(failed, failed),
             previouslyExcluded = emptySet(),
             maxExcludedCount = 2,
-            availableDecoders = { listOf(failed, alternate) },
         )
         assertEquals(listOf(failed), planned)
-
-        val noAlternative = newFailedMediaCodecExclusions(
-            failedMediaCodecs = listOf(failed),
-            previouslyExcluded = setOf(alternate),
-            maxExcludedCount = 2,
-            availableDecoders = { listOf(failed, alternate) },
-        )
-        assertTrue(noAlternative.isEmpty())
 
         val alreadyFailedAgain = newFailedMediaCodecExclusions(
             failedMediaCodecs = listOf(failed),
             previouslyExcluded = setOf(failed),
             maxExcludedCount = 2,
-            availableDecoders = { listOf(failed, alternate) },
         )
         assertTrue(alreadyFailedAgain.isEmpty())
 
@@ -92,7 +85,6 @@ class FailedMediaCodecSelectorTest {
             failedMediaCodecs = listOf(failed, alternate),
             previouslyExcluded = setOf(alreadyExcluded),
             maxExcludedCount = 2,
-            availableDecoders = { listOf(failed, alternate, alreadyExcluded) },
         )
         assertEquals(1, capped.size)
         assertFalse(capped.contains(alreadyExcluded))
