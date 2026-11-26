@@ -20,13 +20,18 @@ import org.robolectric.annotation.Config
 class FailedMediaCodecSelectorTest {
     @Test
     fun failedCodecIdentityIncludesMimeAndNameNotCapabilityFlags() {
-        val codec = codec("codec.avc.hw", secure = true)
+        val secureCapableCodec = codec("codec.avc.hw", secure = true)
+        val nonSecureVariant = codec("codec.avc.hw", secure = false)
         assertEquals(
             FailedMediaCodecIdentity(
                 mimeType = MimeTypes.VIDEO_H264,
                 name = "codec.avc.hw",
             ),
-            codec.failedMediaCodecIdentity(),
+            secureCapableCodec.failedMediaCodecIdentity(),
+        )
+        assertEquals(
+            secureCapableCodec.failedMediaCodecIdentity(),
+            nonSecureVariant.failedMediaCodecIdentity(),
         )
     }
 
@@ -43,6 +48,32 @@ class FailedMediaCodecSelectorTest {
             .getDecoderInfos(MimeTypes.VIDEO_H264, requiresSecureDecoder = false, requiresTunnelingDecoder = false)
 
         assertEquals(listOf(alternate), result)
+    }
+
+    @Test
+    fun secureAndTunneledRequirementsAreAppliedByTheActiveDelegateQuery() {
+        val failedSecure = codec("codec.avc.hw", secure = true)
+        val alternateSecure = codec("codec.avc.alt", secure = true)
+        val nonSecureVariant = codec("codec.avc.hw", secure = false)
+        val delegate = FixedMediaCodecSelector(listOf(failedSecure, alternateSecure, nonSecureVariant))
+        val selector = FailedMediaCodecSelector(delegate, setOf(failedSecure.failedMediaCodecIdentity()))
+
+        assertEquals(
+            listOf(alternateSecure),
+            selector.getDecoderInfos(
+                MimeTypes.VIDEO_H264,
+                requiresSecureDecoder = true,
+                requiresTunnelingDecoder = false,
+            ),
+        )
+        assertEquals(
+            listOf(nonSecureVariant),
+            selector.getDecoderInfos(
+                MimeTypes.VIDEO_H264,
+                requiresSecureDecoder = false,
+                requiresTunnelingDecoder = false,
+            ),
+        )
     }
 
     @Test
