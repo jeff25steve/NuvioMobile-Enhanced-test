@@ -95,11 +95,11 @@ object StreamParser {
             .orEmpty()
 
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
-        for ((key, value) in entries) {
+        // Qualify the receiver: inside buildMap, bare "entries" refers to this
+        // map being constructed, which is empty, not the source JsonObject.
+        for ((key, value) in this@stringMap.entries) {
             val primitive = value as? JsonPrimitive ?: continue
-            if (!primitive.toString().let { encoded ->
-                encoded.length >= 2 && encoded.first() == '"' && encoded.last() == '"'
-            }) continue
+            if (!primitive.isString) continue
             val content = primitive.content.takeIf { it.isNotBlank() } ?: continue
             put(key, content)
         }
