@@ -566,6 +566,7 @@ fun SearchScreen(
                                                 value = query,
                                                 onValueChange = { query = it },
                                                 placeholder = stringResource(Res.string.compose_search_placeholder),
+                                                textDirection = TextDirection.Content,
                                                 modifier = Modifier
                                                     .focusRequester(focusRequester)
                                                     .onFocusChanged { isSearchFocused = it.isFocused },
@@ -585,6 +586,7 @@ fun SearchScreen(
                                         value = query,
                                         onValueChange = { query = it },
                                         placeholder = stringResource(Res.string.compose_search_placeholder),
+                                        textDirection = TextDirection.Content,
                                         shape = RoundedCornerShape(NuvioTokens.Radius.xl),
                                         modifier = Modifier
                                             .focusRequester(focusRequester)
