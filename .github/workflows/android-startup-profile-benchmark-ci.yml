@@ -8,6 +8,18 @@ on:
     branches:
       - ci/main-build-testing-20261124
       - ci/main-build-testing-preflight-20261126
+      - main-build-testing
+    paths:
+      - '.github/workflows/android-startup-profile-benchmark-ci.yml'
+      - 'androidApp/**'
+      - 'baselineProfile/**'
+      - 'composeApp/**'
+      - 'native/**'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'settings.gradle.kts'
+      - 'build.gradle.kts'
+      - 'scripts/**'
   workflow_dispatch:
 
 permissions:
