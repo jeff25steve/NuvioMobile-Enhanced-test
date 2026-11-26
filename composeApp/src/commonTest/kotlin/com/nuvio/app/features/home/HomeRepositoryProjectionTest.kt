@@ -133,6 +133,28 @@ class HomeRepositoryProjectionTest {
         assertEquals(listOf(firstDefinition.key, secondDefinition.key), requestedDefinitions)
     }
 
+    @Test
+    fun `retained hero items match refreshed catalog items by stable media identity`() {
+        val retained = MetaPreview(
+            id = "movie-1",
+            type = "movie",
+            name = "Old title",
+            poster = "https://example.com/old-poster.jpg",
+        )
+        val refreshed = MetaPreview(
+            id = "movie-1",
+            type = "movie",
+            name = "Updated title",
+            poster = "https://example.com/new-poster.jpg",
+        )
+        val differentType = refreshed.copy(type = "series")
+        val differentId = refreshed.copy(id = "movie-2")
+
+        assertEquals(true, listOf(retained).allComeFrom(listOf(refreshed)))
+        assertEquals(false, listOf(retained).allComeFrom(listOf(differentType)))
+        assertEquals(false, listOf(retained).allComeFrom(listOf(differentId)))
+    }
+
     private fun definition(key: String) = HomeCatalogDefinition(
         key = key,
         defaultTitle = key,
