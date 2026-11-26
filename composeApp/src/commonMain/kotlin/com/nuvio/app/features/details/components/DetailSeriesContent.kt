@@ -1117,7 +1117,13 @@ private fun EpisodeHorizontalCard(
     val imdbRatingLabel = remember(imdbRating, showsRating) {
         imdbRating?.takeIf { it > 0.0 && showsRating }?.let(::formatEpisodeRating)
     }
-    val hasAnyRating = tmdbRatingLabel != null || imdbRatingLabel != null || userRating != null
+    val addonRatingLabel = remember(video.rating, showsRating, tmdbRatingLabel, imdbRatingLabel) {
+        video.rating?.takeIf {
+            it > 0.0 && showsRating && tmdbRatingLabel == null && imdbRatingLabel == null
+        }?.let(::formatEpisodeRating)
+    }
+    val hasAnyRating = tmdbRatingLabel != null || imdbRatingLabel != null ||
+        addonRatingLabel != null || userRating != null
     val formattedDate = remember(video.released) { video.released?.let { formatReleaseDateForDisplay(it) } }
     val runtimeLabel = remember(video.runtime) { video.runtime?.takeIf { it > 0 }?.let(::formatEpisodeRuntime) }
     val episodeImage = rememberEpisodeImageState(video.thumbnail, fallbackImage)
@@ -1276,6 +1282,7 @@ private fun EpisodeHorizontalCard(
                     EpisodeRatingBadges(
                         imdbRating = imdbRatingLabel,
                         tmdbRating = tmdbRatingLabel,
+                        addonRating = addonRatingLabel,
                         userRating = userRating,
                         logoSize = metrics.tmdbLogoSize,
                         textSize = metrics.metaTextSize,
@@ -1554,12 +1561,13 @@ internal fun EpisodeDownloadBadge(
 private fun EpisodeRatingBadges(
     imdbRating: String?,
     tmdbRating: String?,
+    addonRating: String? = null,
     logoSize: Dp,
     textSize: androidx.compose.ui.unit.TextUnit,
     modifier: Modifier = Modifier,
     userRating: Int? = null,
 ) {
-    if (imdbRating == null && tmdbRating == null && userRating == null) return
+    if (imdbRating == null && tmdbRating == null && addonRating == null && userRating == null) return
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1581,9 +1589,44 @@ private fun EpisodeRatingBadges(
                 textSize = textSize,
             )
         }
+        addonRating?.let { rating ->
+            AddonEpisodeRatingBadge(rating = rating, iconSize = logoSize, textSize = textSize)
+        }
         userRating?.let { rating ->
             UserEpisodeRatingBadge(rating = rating, iconSize = logoSize, textSize = textSize)
         }
+    }
+}
+
+@Composable
+private fun AddonEpisodeRatingBadge(
+    rating: String,
+    iconSize: Dp,
+    textSize: androidx.compose.ui.unit.TextUnit,
+) {
+    val color = MaterialTheme.nuvio.colors.textMuted
+    Row(
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = "Addon rating $rating"
+        },
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Star,
+            contentDescription = null,
+            tint = color,
+            modifier = Modifier.size(iconSize + 2.dp),
+        )
+        Text(
+            text = rating,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = textSize,
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = color,
+            maxLines = 1,
+        )
     }
 }
 
@@ -1697,7 +1740,13 @@ private fun EpisodeListCard(
     val imdbRatingLabel = remember(imdbRating, showsRating) {
         imdbRating?.takeIf { it > 0.0 && showsRating }?.let(::formatEpisodeRating)
     }
-    val hasAnyRating = tmdbRatingLabel != null || imdbRatingLabel != null || userRating != null
+    val addonRatingLabel = remember(video.rating, showsRating, tmdbRatingLabel, imdbRatingLabel) {
+        video.rating?.takeIf {
+            it > 0.0 && showsRating && tmdbRatingLabel == null && imdbRatingLabel == null
+        }?.let(::formatEpisodeRating)
+    }
+    val hasAnyRating = tmdbRatingLabel != null || imdbRatingLabel != null ||
+        addonRatingLabel != null || userRating != null
     val formattedDate = remember(video.released) { video.released?.let { formatReleaseDateForDisplay(it) } }
     val cardGlassEnabled = isLiquidGlassSurfaceEffectivelyEnabled(
         surface = LiquidGlassSurface.DETAIL_CONTENT_CARDS,
@@ -1846,6 +1895,7 @@ private fun EpisodeListCard(
                         EpisodeRatingBadges(
                             imdbRating = imdbRatingLabel,
                             tmdbRating = tmdbRatingLabel,
+                            addonRating = addonRatingLabel,
                             userRating = userRating,
                             logoSize = 12.dp,
                             textSize = sizing.metaTextSize,
