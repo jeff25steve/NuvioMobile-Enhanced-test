@@ -943,6 +943,11 @@ internal fun findEmbeddedStreamsForMeta(
     meta: MetaDetails,
     videoId: String,
 ): List<com.nuvio.app.features.streams.StreamItem> {
+    // Exact video requests must keep their own stream list. A root-meta request instead
+    // aggregates all embedded episode streams in the server-provided video order.
+    meta.videos.firstOrNull { it.id == videoId }?.let { return it.streams }
+    if (videoId == meta.id) return meta.videos.flatMap { it.streams }
+
     val lastSeparator = videoId.lastIndexOf(':')
     val previousSeparator = if (lastSeparator > 0) videoId.lastIndexOf(':', lastSeparator - 1) else -1
     val season = if (previousSeparator >= 0 && lastSeparator > previousSeparator) {
@@ -953,48 +958,12 @@ internal fun findEmbeddedStreamsForMeta(
     val episode = if (previousSeparator >= 0) videoId.substring(lastSeparator + 1).toIntOrNull() else null
     val prefix = "$videoId:"
 
-    var firstVideoWithStreams: MetaVideo? = null
-    var rootStreams: MutableList<com.nuvio.app.features.streams.StreamItem>? = null
-    var hasMultipleVideosWithStreams = false
-    var episodeMatch: MetaVideo? = null
-    var prefixMatch: MetaVideo? = null
-
-    for (video in meta.videos) {
-        if (video.streams.isEmpty()) continue
-        if (video.id == videoId) return video.streams
-
-        if (firstVideoWithStreams == null) {
-            firstVideoWithStreams = video
-        } else if (!hasMultipleVideosWithStreams) {
-            hasMultipleVideosWithStreams = true
-            if (videoId == meta.id) {
-                rootStreams = firstVideoWithStreams.streams.toMutableList().apply {
-                    addAll(video.streams)
-                }
-            }
-        } else if (videoId == meta.id) {
-            rootStreams?.addAll(video.streams)
-        }
-
-        // Preserve the fallback order: exact season/episode coordinates, then ID prefix.
-        if (
-            episodeMatch == null &&
-            season != null &&
-            episode != null &&
-            video.season == season &&
-            video.episode == episode
-        ) {
-            episodeMatch = video
-        }
-        if (prefixMatch == null && video.id.startsWith(prefix)) prefixMatch = video
+    if (season != null && episode != null) {
+        meta.videos.firstOrNull { it.season == season && it.episode == episode }
+            ?.let { return it.streams }
     }
 
-    episodeMatch?.let { return it.streams }
-    prefixMatch?.let { return it.streams }
-    if (videoId != meta.id) return emptyList()
-
-    val onlyVideoWithStreams = firstVideoWithStreams ?: return emptyList()
-    return if (hasMultipleVideosWithStreams) rootStreams.orEmpty() else onlyVideoWithStreams.streams
+    return meta.videos.firstOrNull { it.id.startsWith(prefix) }?.streams.orEmpty()
 }
 
 internal sealed interface MetaLookupOutcome {
