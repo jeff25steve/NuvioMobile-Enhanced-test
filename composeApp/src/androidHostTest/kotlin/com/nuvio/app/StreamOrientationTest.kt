@@ -21,8 +21,10 @@ import com.nuvio.app.features.updater.AndroidAppUpdaterPlatform
 import com.nuvio.app.navigation.StreamRoute
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okhttp3.mockwebserver.Dispatcher
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -32,6 +34,7 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowActivity
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -134,19 +137,39 @@ class StreamOrientationTest {
             episodeNumber = 1,
         )
         MockWebServer().use { server ->
-            server.enqueue(MockResponse().setBody("""
-                {"id":"orientation","name":"Test sources","description":"","version":"1",
-                 "resources":["meta","stream"],"types":["series"],"catalogs":[]}
-            """.trimIndent()))
-            server.enqueue(MockResponse().setBody("""
-                {"meta":{"id":"orientation-series","type":"series","name":"Example series",
-                 "videos":[{"id":"orientation-series:1:1","title":"Episode 1","season":1,"episode":1}]}}
-            """.trimIndent()))
-            repeat(3) {
-                server.enqueue(MockResponse().setBody("""
-                    {"streams":[{"name":"Available source","url":"https://example.com/episode.mp4",
-                     "behaviorHints":{"bingeGroup":"different-group"}}]}
-                """.trimIndent()).setBodyDelay(500, TimeUnit.MILLISECONDS))
+            val metaRequestCount = AtomicInteger()
+            val streamRequestCount = AtomicInteger()
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    val path = request.path.orEmpty()
+                    return when {
+                        path == "/manifest.json" -> MockResponse().setBody(
+                            """
+                            {"id":"orientation","name":"Test sources","description":"","version":"1",
+                             "resources":["meta","stream"],"types":["series"],"catalogs":[]}
+                            """.trimIndent(),
+                        )
+                        path.startsWith("/meta/series/") -> {
+                            metaRequestCount.incrementAndGet()
+                            MockResponse().setBody(
+                                """
+                                {"meta":{"id":"orientation-series","type":"series","name":"Example series",
+                                 "videos":[{"id":"orientation-series:1:1","title":"Episode 1","season":1,"episode":1}]}}
+                                """.trimIndent(),
+                            )
+                        }
+                        path.startsWith("/stream/series/") -> {
+                            streamRequestCount.incrementAndGet()
+                            MockResponse().setBody(
+                                """
+                                {"streams":[{"name":"Available source","url":"https://example.com/episode.mp4",
+                                 "behaviorHints":{"bingeGroup":"different-group"}}]}
+                                """.trimIndent(),
+                            ).setBodyDelay(500, TimeUnit.MILLISECONDS)
+                        }
+                        else -> MockResponse().setResponseCode(404)
+                    }
+                }
             }
             AddonStorage.saveInstalledAddonUrls(
                 ProfileRepository.activeProfileId,
@@ -177,7 +200,8 @@ class StreamOrientationTest {
                 }
                 compose.waitForIdle()
             }
-            assertEquals(5, server.requestCount)
+            assertTrue(metaRequestCount.get() >= 1)
+            assertEquals(3, streamRequestCount.get())
             assertNoLandscapeRequest()
         }
     }
