@@ -1109,10 +1109,12 @@ private fun ExoPlayerSurface(
             "load mediaItem uri=${InAppLogger.redactUrl(mediaItem.localConfiguration?.uri?.toString() ?: sourceUrl)} " +
                 "mime=${mediaItem.localConfiguration?.mimeType ?: "unknown"} startPositionMs=${fallbackStartPositionMs ?: 0L}",
         )
-        val requestedStartPositionMs = fallbackStartPositionMs
-            ?: stallSession.fallbackStartPositionMs
-            ?: exoPlayer.currentMediaItem?.let { exoPlayer.currentPosition.coerceAtLeast(0L) }
-            ?: stallSession.prepareStartPositionMs()
+        val requestedStartPositionMs = reprepareStartPositionMs(
+            decoderFallbackMs = fallbackStartPositionMs,
+            sessionFallbackMs = stallSession.fallbackStartPositionMs,
+            currentPositionMs = exoPlayer.currentMediaItem?.let { exoPlayer.currentPosition },
+            initialPositionMs = initialPositionMs,
+        )
         val mediaMimeType = mediaItem.localConfiguration?.mimeType
         if (bluraySession != null && mediaMimeType != MimeTypes.APPLICATION_M3U8 &&
             mediaMimeType != MimeTypes.APPLICATION_MPD && mediaMimeType != MimeTypes.APPLICATION_SS
