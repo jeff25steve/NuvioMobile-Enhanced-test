@@ -65,6 +65,17 @@ internal fun stalledReopenPositionMs(
     return positionMs
 }
 
+internal fun reprepareStartPositionMs(
+    decoderFallbackMs: Long?,
+    sessionFallbackMs: Long?,
+    currentPositionMs: Long?,
+    initialPositionMs: Long?,
+): Long? =
+    decoderFallbackMs
+        ?: sessionFallbackMs
+        ?: currentPositionMs?.coerceAtLeast(0L)
+        ?: initialPositionMs?.takeIf { it > 0L }
+
 internal fun useVodCacheForSource(
     vodCacheEnabled: Boolean,
     youtubeChunked: Boolean,
