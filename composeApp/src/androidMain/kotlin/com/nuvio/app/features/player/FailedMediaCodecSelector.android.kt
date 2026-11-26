@@ -85,6 +85,8 @@ internal class FailedMediaCodecSelector(
             requiresSecureDecoder,
             requiresTunnelingDecoder,
         )
+        if (excludedCodecs.isEmpty()) return decoders
+
         val filtered = decoders.filterNot { decoder ->
             decoder.failedMediaCodecIdentity() in excludedCodecs
         }
