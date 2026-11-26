@@ -753,6 +753,9 @@ private fun ExoPlayerSurface(
     val exoPlayer = remember(
         sourceUrl,
         sourceAudioUrl,
+        // The player retains its MediaSourceFactory, which captures this factory. Recreate it
+        // when source-specific subtitle headers or other DataSource configuration changes.
+        dataSourceFactory,
         sanitizedSourceHeaders,
         sanitizedSourceResponseHeaders,
         normalizedStreamType,
