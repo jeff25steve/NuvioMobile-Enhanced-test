@@ -226,35 +226,6 @@ fun NuvioScreenHeader(
         settingsGlassEnabled = settingsGlassEnabled,
         defaultShape = tokens.shapes.compactCard,
     )
-    val headerBackgroundModifier = backgroundBrushOverride?.let { brush ->
-        Modifier.drawBehind {
-            val insetPx = backgroundHorizontalInset.toPx().coerceAtLeast(0f)
-            val drawableWidth = (size.width - insetPx * 2f).coerceAtLeast(0f)
-            val drawableHeight = (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
-            if (drawableWidth > 0f && drawableHeight > 0f) {
-                drawRect(
-                    brush = brush,
-                    topLeft = Offset(insetPx, 0f),
-                    size = Size(drawableWidth, drawableHeight),
-                )
-            }
-        }
-    } ?: Modifier.drawBehind {
-        val insetPx = backgroundHorizontalInset.toPx().coerceAtLeast(0f)
-        val drawableWidth = (size.width - insetPx * 2f).coerceAtLeast(0f)
-        if (drawableWidth > 0f) {
-            val backgroundColor = if (glassSurface != null && settingsGlassEnabled) {
-                Color.Transparent
-            } else {
-                tokens.colors.background
-            }
-            drawRect(
-                color = backgroundColor,
-                topLeft = Offset(insetPx, 0f),
-                size = Size(drawableWidth, size.height),
-            )
-        }
-    }
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
         !LocalNativeNavigationBarHidden.current &&
         onBack != null
@@ -286,11 +257,35 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .nuvioScreenSideBleed()
-            .then(headerBackgroundModifier),
+            .nuvioScreenSideBleed(),
     ) {
-        // The header container owns its background so it is drawn across the expanded
-        // side-bleed bounds while the content remains inset and interactive as before.
+        // Draw the solid/scrim background inside the same padded bounds used by the
+        // Liquid Glass layers. Drawing on the side-bleed modifier itself shifts/clips
+        // the inset against the wrong coordinate space.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .then(backgroundInsetModifier)
+                .drawBehind {
+                    val brush = backgroundBrushOverride
+                    if (brush != null) {
+                        val drawableHeight =
+                            (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
+                        if (size.width > 0f && drawableHeight > 0f) {
+                            drawRect(brush = brush, size = Size(size.width, drawableHeight))
+                        }
+                    } else {
+                        val backgroundColor = if (glassSurface != null && settingsGlassEnabled) {
+                            Color.Transparent
+                        } else {
+                            tokens.colors.background
+                        }
+                        if (size.width > 0f && size.height > 0f) {
+                            drawRect(color = backgroundColor, size = size)
+                        }
+                    }
+                },
+        )
         Row(
             modifier = Modifier
                 .matchParentSize()
