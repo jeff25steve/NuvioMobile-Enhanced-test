@@ -1,6 +1,6 @@
 name: Android Startup Profile Benchmark CI Branch Runner
 
-# The CI branch is kept in sync with main-build-testing; the freshness guard runs before Gradle.
+# Preflight copy of main-build-testing; the freshness guard verifies the exact source head before Gradle.
 # Phone-runner contracts and Android host regression tests run before native/release APK builds.
 # Negative AndroidJUnitRunner status codes retain explicit test-failure diagnostics.
 on:
