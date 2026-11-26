@@ -1352,7 +1352,7 @@ private fun ExoPlayerSurface(
                     Log.w(
                         TAG,
                         "Excluding failed " + trackName + " MediaCodec " + excludedNames +
-                            "; rebuilding with an available alternative",
+                            "; rebuilding with fallback-safe codec filtering",
                     )
                     InAppLogger.warn(
                         "ExoPlayer/Android",
