@@ -83,3 +83,26 @@
 - The test file was added before the interpolation and eligibility implementation, but the test suite was not run; no failing RED result or passing test result is claimed.
 - No Gradle task, compiler, test, build, CI, benchmark, APK/AAB generation or device playback was run. Compile/runtime verification remains outstanding.
 - Current implementation commits include the common frame interpolation, legacy seekbar wiring, seekbar declaration-order correction, interaction/bounds correction, and animation-eligibility policy. See the Git history for individual commit IDs.
+
+
+### Task 4: Bounded codec-specific retry
+
+**Files:**
+- Create: composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/FailedMediaCodecSelector.android.kt
+- Create: composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/FailedMediaCodecSelectorTest.kt
+- Modify: composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/PlayerEngine.android.kt
+- Modify: docs/engineering/codebase-improvement-notes.md
+
+- [x] Extract failed codec identities from Media3 1.8.0 decode and initialization exceptions.
+- [x] Keep per-source audio/video exclusions separate and thread-safe.
+- [x] Cap codec-specific exclusions at two per playback track.
+- [x] Apply exclusions to the active MediaCodecSelector query, preserving original candidates when filtering would leave none.
+- [x] Preserve selected audio/subtitle tracks, playback speed and position before retrying.
+- [x] Preserve Dolby Vision soft-match and Dolby-free audio selection wrapper ordering.
+- [x] Add Robolectric host-test source for identity extraction, filtering, empty-result fallback and bounded exclusions. Tests are authored but unexecuted.
+
+## Additional verification boundary
+
+- AndroidX Media 1.8.0 source was inspected for MediaCodecSelector, MediaCodecInfo, MediaCodecDecoderException, MediaCodecRenderer.DecoderInitializationException and MediaCodecUtil behavior.
+- The implementation intentionally uses only codec MIME/name identity; secure/tunnelling requirements remain properties of the current selector query. It does not mistake MediaCodecInfo capability flags for the original decoder query.
+- No Gradle task, compilation, tests, build, CI, benchmark or device run was performed. Both the common timeline tests and Android host codec tests remain unexecuted.
