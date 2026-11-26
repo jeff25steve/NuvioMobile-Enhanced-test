@@ -424,7 +424,9 @@ internal object MetaDetailsParser {
     private fun JsonObject.stringMap(): Map<String, String> = buildMap {
         for ((key, value) in entries) {
             val primitive = value as? JsonPrimitive ?: continue
-            if (!primitive.isString) continue
+            if (!primitive.toString().let { encoded ->
+                encoded.length >= 2 && encoded.first() == '"' && encoded.last() == '"'
+            }) continue
             val content = primitive.content.takeIf { it.isNotBlank() } ?: continue
             put(key, content)
         }
