@@ -19,6 +19,20 @@ class NuvioAsyncImageDecoderPolicyTest {
     }
 
     @Test
+    fun staticAndAnimatedRequestsDoNotShareTheSameMemoryCacheEntry() {
+        val staticKey = imageMemoryCacheKey(
+            "https://images.example/poster.gif",
+            animateIfPossible = false,
+        )
+        val animatedKey = imageMemoryCacheKey(
+            "https://images.example/poster.gif",
+            animateIfPossible = true,
+        )
+
+        assertFalse(staticKey == animatedKey)
+    }
+
+    @Test
     fun staticFormatsKeepTheDefaultDecoderPipeline() {
         assertFalse(shouldUseStaticImageDecoder("https://images.example/poster.jpg", animateIfPossible = false))
         assertFalse(shouldUseStaticImageDecoder("https://images.example/poster.svg", animateIfPossible = false))
