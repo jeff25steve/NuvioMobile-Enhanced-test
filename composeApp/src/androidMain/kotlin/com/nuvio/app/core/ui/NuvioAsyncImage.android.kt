@@ -28,7 +28,7 @@ internal actual fun NuvioAsyncImage(
     val request: ImageRequest = remember(context, activeUrl) {
         ImageRequest.Builder(context)
             .data(activeUrl)
-            .memoryCacheKey("home-collection:$activeUrl")
+            .memoryCacheKey(imageMemoryCacheKey(activeUrl, animateIfPossible))
             .diskCacheKey(activeUrl)
             .apply {
                 if (shouldUseStaticImageDecoder(activeUrl, animateIfPossible)) {
@@ -53,6 +53,14 @@ internal fun shouldUseStaticImageDecoder(
     imageUrl: String,
     animateIfPossible: Boolean,
 ): Boolean = !animateIfPossible && imageUrl.looksAnimatedImage()
+
+internal fun imageMemoryCacheKey(
+    imageUrl: String,
+    animateIfPossible: Boolean,
+): String {
+    val decoderMode = if (shouldUseStaticImageDecoder(imageUrl, animateIfPossible)) "static" else "default"
+    return "home-collection:$imageUrl:$decoderMode"
+}
 
 private fun String.looksAnimatedImage(): Boolean {
     val cleanUrl = substringBefore('?').substringBefore('#')
