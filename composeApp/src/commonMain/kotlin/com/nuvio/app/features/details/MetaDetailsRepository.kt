@@ -946,7 +946,10 @@ internal fun findEmbeddedStreamsForMeta(
     // Exact video requests must keep their own stream list. A root-meta request instead
     // aggregates all embedded episode streams in the server-provided video order.
     meta.videos.firstOrNull { it.id == videoId }?.let { return it.streams }
-    if (videoId == meta.id) return meta.videos.flatMap { it.streams }
+    if (videoId == meta.id) {
+        if (meta.videos.size == 1) return meta.videos.single().streams
+        return meta.videos.flatMap { it.streams }
+    }
 
     val lastSeparator = videoId.lastIndexOf(':')
     val previousSeparator = if (lastSeparator > 0) videoId.lastIndexOf(':', lastSeparator - 1) else -1
