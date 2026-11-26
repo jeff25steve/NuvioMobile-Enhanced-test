@@ -12,6 +12,7 @@ internal object PlatformPlaybackDataSourceFactory {
         useYoutubeChunkedPlayback: Boolean,
         useLongReadTimeout: Boolean = false,
         externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle> = emptyList(),
+        externalSubtitlesProvider: (() -> List<com.nuvio.app.features.streams.StreamSubtitle>)? = null,
     ): DataSource.Factory {
         val httpFactory = PlayerPlaybackNetworking.createHttpDataSourceFactory(
             defaultRequestHeaders,
@@ -19,7 +20,7 @@ internal object PlatformPlaybackDataSourceFactory {
         )
         val subtitleHeaderFactory = SubtitleRequestHeaderDataSourceFactory(
             upstreamFactory = httpFactory,
-            externalSubtitles = externalSubtitles
+            externalSubtitlesProvider = externalSubtitlesProvider ?: { externalSubtitles },
         )
         val baseFactory: DataSource.Factory = DefaultDataSource.Factory(context, subtitleHeaderFactory)
         return if (defaultResponseHeaders.isEmpty()) {
