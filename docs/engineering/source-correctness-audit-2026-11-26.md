@@ -31,6 +31,12 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 - Ktor 3.4.1's OkHttp engine creates its client with `preconfigured.newBuilder()` and then applies the engine configuration. The shared OkHttp client already installs `NetworkErrorInterceptor`.
 - Removed the second registration from the Ktor engine configuration. The interceptor remains on the shared client for both Ktor and direct OkHttp users, but now runs once per request.
 
+### Profiles: PIN verification recovery and feedback
+
+- The PIN entry coroutine previously reset its verifying state only on a normal result. A propagated cancellation or unexpected exception could leave the keypad stuck in its verifying state.
+- Verification now clears the entered PIN and always releases the verifying state in `finally`; cancellation is still rethrown so structured concurrency remains intact.
+- The entry UI now displays the repository's specific failure message (including offline-verification requirements) before falling back to the generic incorrect-PIN message.
+
 ### Android native build cache
 
 - The custom cacheable Cargo/NDK task now fingerprints Rust/Cargo/cargo-ndk versions, relevant compiler and linker environment overrides, Cargo/Rustup configuration files in the workspace ancestor chain and Cargo home, plus the existing source/lockfile/ABI/minSdk/NDK inputs.
