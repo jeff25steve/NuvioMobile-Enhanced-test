@@ -141,11 +141,12 @@ internal fun InlinePinEntry(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onVerified()
                                 } else {
-                                    error = if (result.retryAfterSeconds > 0) {
-                                        getString(Res.string.pin_locked_try_again, result.retryAfterSeconds)
-                                    } else {
-                                        getString(Res.string.pin_incorrect)
-                                    }
+                                    error = result.message?.takeIf(String::isNotBlank)
+                                        ?: if (result.retryAfterSeconds > 0) {
+                                            getString(Res.string.pin_locked_try_again, result.retryAfterSeconds)
+                                        } else {
+                                            getString(Res.string.pin_incorrect)
+                                        }
                                     pin = ""
                                 }
                             } catch (cancellation: CancellationException) {
