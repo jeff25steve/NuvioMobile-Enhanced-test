@@ -9,20 +9,17 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 
 internal const val MAX_FAILED_MEDIA_CODEC_EXCLUSIONS_PER_TRACK = 2
 
+/**
+ * Identifies the codec implementation, not its capabilities. Secure/tunnelling requirements are
+ * query properties; MediaCodecInfo.secure/tunneling only say what a codec supports.
+ */
 internal data class FailedMediaCodecIdentity(
     val mimeType: String,
     val name: String,
-    val requiresSecureDecoder: Boolean,
-    val requiresTunnelingDecoder: Boolean,
 )
 
 internal fun MediaCodecInfo.failedMediaCodecIdentity(): FailedMediaCodecIdentity =
-    FailedMediaCodecIdentity(
-        mimeType = mimeType,
-        name = name,
-        requiresSecureDecoder = secure,
-        requiresTunnelingDecoder = tunneling,
-    )
+    FailedMediaCodecIdentity(mimeType = mimeType, name = name)
 
 internal fun failedMediaCodecIdentities(error: Throwable): List<FailedMediaCodecIdentity> {
     val identities = LinkedHashSet<FailedMediaCodecIdentity>()
@@ -50,28 +47,18 @@ internal fun failedMediaCodecIdentities(error: Throwable): List<FailedMediaCodec
     return identities.toList()
 }
 
-/**
- * Returns only failed codecs that can be replaced by another decoder satisfying the same
- * MIME/security/tunnelling query. The cap bounds repeated rebuilds for one playback track.
- */
+/** Bounds repeated codec-specific rebuilds to a small number per track and playback source. */
 internal fun newFailedMediaCodecExclusions(
     failedMediaCodecs: List<FailedMediaCodecIdentity>,
     previouslyExcluded: Set<FailedMediaCodecIdentity>,
     maxExcludedCount: Int = MAX_FAILED_MEDIA_CODEC_EXCLUSIONS_PER_TRACK,
-    availableDecoders: (FailedMediaCodecIdentity) -> List<FailedMediaCodecIdentity>,
 ): List<FailedMediaCodecIdentity> {
     if (maxExcludedCount <= previouslyExcluded.size) return emptyList()
 
-    val considered = previouslyExcluded.toMutableSet()
     val additions = ArrayList<FailedMediaCodecIdentity>()
+    val considered = previouslyExcluded.toMutableSet()
     for (failed in failedMediaCodecs) {
         if (failed in considered) continue
-
-        val hasAlternative = availableDecoders(failed).any { candidate ->
-            candidate != failed && candidate !in considered
-        }
-        if (!hasAlternative) continue
-
         considered += failed
         additions += failed
         if (considered.size >= maxExcludedCount) break
@@ -80,8 +67,9 @@ internal fun newFailedMediaCodecExclusions(
 }
 
 /**
- * Applies a playback-session-local codec exclusion list. If filtering would leave no candidates
- * for a query, retain the original list so existing software/renderer fallback remains possible.
+ * Filters only the decoder candidates returned for the current MIME/security/tunnelling query.
+ * If the query has no alternative, it returns the original candidates so the existing renderer
+ * priority/software fallback remains available.
  */
 internal class FailedMediaCodecSelector(
     private val delegate: MediaCodecSelector,
