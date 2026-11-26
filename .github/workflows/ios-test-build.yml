@@ -1,6 +1,18 @@
 name: Build Test IPA
 
 on:
+  push:
+    branches:
+      - main-build-testing
+    paths:
+      - '.github/workflows/ios-test-build.yml'
+      - 'composeApp/**'
+      - 'iosApp/**'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'settings.gradle.kts'
+      - 'build.gradle.kts'
+      - 'scripts/**'
   workflow_dispatch:
     inputs:
       configuration:
@@ -31,14 +43,14 @@ concurrency:
 
 jobs:
   build:
-    name: Build unsigned full ${{ inputs.configuration }} IPA
+    name: Build unsigned full ${{ inputs.configuration || 'Release' }} IPA
     runs-on: xcode-27
-    timeout-minutes: ${{ inputs.configuration == 'Release' && 180 || 30 }}
+    timeout-minutes: ${{ (inputs.configuration || 'Release') == 'Release' && 180 || 30 }}
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       GRADLE_OPTS: -Dfile.encoding=UTF-8
-      IOS_CONFIGURATION: ${{ inputs.configuration }}
-      NUVIO_IOS_PHASE_PROFILE: ${{ inputs.disable_phases }}
+      IOS_CONFIGURATION: ${{ inputs.configuration || 'Release' }}
+      NUVIO_IOS_PHASE_PROFILE: ${{ inputs.disable_phases || 'skip-both' }}
       KOTLIN_DAEMON_JVMARGS: -Xmx1024M
       NUVIO_GRADLE_JVMARGS: -Xmx2048M -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=768M -XX:+UseG1GC
       NUVIO_KOTLIN_NATIVE_JVMARGS: -Xmx9216M -XX:+UseG1GC
@@ -135,7 +147,14 @@ jobs:
       - name: Prepare iOS dependencies
         run: ./scripts/prepare-ios-dependencies.sh
 
-      - name: Build unsigned full ${{ inputs.configuration }} IPA
+      - name: Run iOS simulator regression tests
+        run: |
+          ./gradlew :composeApp:iosSimulatorArm64Test \
+            -Dorg.gradle.jvmargs="${NUVIO_GRADLE_JVMARGS}" \
+            -Pkotlin.daemon.jvmargs="${KOTLIN_DAEMON_JVMARGS}" \
+            -Pkotlin.native.jvmArgs="${NUVIO_KOTLIN_NATIVE_JVMARGS}" \
+            --max-workers=1 --stacktrace
+      - name: Build unsigned full ${{ inputs.configuration || 'Release' }} IPA
         run: |
           (
             while sleep 60; do
