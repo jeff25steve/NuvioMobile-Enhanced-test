@@ -20,6 +20,13 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 - The check now uses the repository's stable `type:id` identity through `MetaPreview.stableKey()`.
 - Regression coverage added in `HomeRepositoryProjectionTest.kt`.
 
+### Android: respect static-versus-animated artwork policy
+
+- The Android `NuvioAsyncImage` implementation accepted `animateIfPossible` but ignored it. With Coil's GIF decoder registered, animated GIF/WebP assets could animate even when callers requested static artwork.
+- For animated file types when animation is not allowed, the request now selects Coil 3.6.3's per-request `BitmapFactoryDecoder.Factory`, which renders a static first frame without replacing the shared ImageLoader's network/cache/SVG components.
+- When animation is explicitly allowed, the default animated decoder pipeline remains active. Static formats continue using the default decoder pipeline.
+- Regression coverage added in `NuvioAsyncImageDecoderPolicyTest.kt`.
+
 ### iOS: animated artwork fallback
 
 - The animated-image unavailable state previously loaded the original URL directly, bypassing the optional static cover fallback.
