@@ -67,7 +67,7 @@ The workflow is intentionally staged. Preserve this order and keep the four APK 
 7. **Validate benchmark scripts and contracts.** Run Bash and POSIX shell syntax checks; run `scripts/tests/test-nuvio-phone-benchmark.sh` with tracing; then run the benchmark-bundle assembly, startup-readiness and startup-metric-contract shell tests.
 8. **Prepare build diagnostics.** Create separate Gradle logs, Gradle profiles, R8 reports, host-test reports, resource snapshots and timing files.
 9. **Run Android host regression tests** using the shared Gradle wrapper function:
-   ` :composeApp:testAndroidHostTest `
+   `:composeApp:testAndroidHostTest`
 10. **Install the Rust Android target** `aarch64-linux-android`, restore/cache the Cargo registry and native target, and restore/cache `cargo-ndk`. Install `cargo-ndk --version 4.1.2 --locked` only on a cache miss.
 11. **Build the full profile-capture APK pair** (app + Baseline Profile test APK).
 12. **Upload a full profile-capture checkpoint** so evidence remains available if a later stage fails.
@@ -92,14 +92,17 @@ The helper:
 - preserves the real Gradle exit code from the pipeline;
 - enables stack traces, Gradle profiling and plain console output.
 
-The Gradle invocation used by the helper is:
+The helper runs this exact Gradle pipeline (including log capture and preservation of Gradle's exit status):
 
 ```bash
+set +e
 ./gradlew "$@" \
   -Dorg.gradle.jvmargs='-Xmx6g -Xms512m -Dfile.encoding=UTF-8 -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
   -Pkotlin.daemon.jvmargs='-Xmx6g -Xms1g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC' \
   --max-workers=2 \
-  --stacktrace --profile --console=plain
+  --stacktrace --profile --console=plain 2>&1 | tee "$log_file"
+gradle_status=${PIPESTATUS[0]}
+set -e
 ```
 
 The workflow prints this CI budget for every group: Gradle heap at most 6 GiB, Kotlin daemon heap at most 6 GiB and Gradle workers at most 2. These are the verified CI settings from the workflow, not a direction to replace repository-wide JVM defaults without review.
