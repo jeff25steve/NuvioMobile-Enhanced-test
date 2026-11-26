@@ -39,6 +39,7 @@ Branch: `main-build-testing`
 - Added a lazy task-input fingerprint for the selected `rustc`, Cargo and `cargo-ndk` versions, plus relevant Rust/Cargo/native compiler environment overrides (toolchain selection, wrappers, target, flags, release profile, NDK target/platform and C/C++ tool overrides).
 - Added absolute-path-sensitive file inputs for Cargo configuration (`.cargo/config` / `.cargo/config.toml`) and Rustup `rust-toolchain` / `rust-toolchain.toml` files throughout the native workspace's parent-directory chain, plus both legacy and TOML Cargo config files under `$CARGO_HOME`. Changes to linker, target, profile, compiler or toolchain configuration now invalidate native outputs even when the environment itself is unchanged.
 - The existing source/Cargo.lock file inputs, ABI list, minimum SDK and NDK version remain explicit. The fingerprint is a task input, so a compiler or flag change invalidates both local up-to-date state and shared build-cache entries.
+- The native Cargo invocation now uses `--locked`, so dependency resolution cannot rewrite `Cargo.lock` while the cacheable task is producing its outputs.
 - `providers.exec` supplies the version strings lazily; the build script does not eagerly execute compiler probes during project configuration.
 
 ## Workflow paths reviewed
