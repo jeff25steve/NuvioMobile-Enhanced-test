@@ -206,6 +206,8 @@ class SettingsPagesTest {
 
     @Test
     fun searchOpensTheMovedControlsAndFiltersUnsupportedBufferOptions() {
+        // The legacy navigation-bar controls are visible only while the native liquid-glass tab bar is off.
+        ThemeSettingsRepository.setTabBarBehavior(NuvioTabBarBehavior.OFF)
         var entries = emptyList<SettingsSearchEntry>()
         compose.setContent {
             NuvioTheme {
