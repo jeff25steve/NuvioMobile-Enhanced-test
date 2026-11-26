@@ -24,3 +24,9 @@ Fatal ExoPlayer renderer failures already expose renderer identity and `renderer
 ## Verification boundary
 
 Added host tests cover timeout boundaries, pause/suppression exclusion, terminal-state clearing, superseding seeks, stale attempts and invalid positions. No build, test task or CI workflow was started, per instruction. Compilation and test execution remain unverified until explicitly authorized.
+
+## Follow-up: frame-metadata callback thread correctness — 26 November 2026
+
+The original Android playback failure found after this watchdog work was not a decoder or seek-stall condition: `FrameMonitoringPlayerView` called `ExoPlayer.currentPosition` from `VideoFrameMetadataListener`, which Media3 invokes on `ExoPlayer:Playback`. The callback now reads a published immutable `AtomicReference` snapshot and does not invoke Player getters. The subsequent mismatched callback function signature was also corrected.
+
+See [ExoPlayer frame-metadata wrong-thread failure and verification](player-frame-metadata-thread-correctness-2026-11-26.md) for the exact Media3 1.8.0 API contract, source commits, regression coverage, dependency review and CI status. The original runtime fix is source-integrated; physical-device playback confirmation is still required.
