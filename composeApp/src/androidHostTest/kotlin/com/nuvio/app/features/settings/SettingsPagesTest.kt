@@ -222,7 +222,7 @@ class SettingsPagesTest {
                     liveTvUiState = com.nuvio.app.features.livetv.LiveTvUiState(),
                     continueWatchingStyle = com.nuvio.app.features.watchprogress.ContinueWatchingSectionStyle.Card,
                     continueWatchingEpisodeThumbnails = true,
-                    trackingTraktConnected = false,
+                    trackingTraktConnected = true,
                     trackingSimklConnected = false,
                     homeHeroSourcesAvailable = false,
                     homeCatalogsAvailable = false,
