@@ -145,8 +145,8 @@ class FailedMediaCodecSelectorTest {
             requiresTunnelingDecoder: Boolean,
         ): List<MediaCodecInfo> = decoders.filter {
             it.mimeType == mimeType &&
-                (!requiresSecureDecoder || it.secure) &&
-                (!requiresTunnelingDecoder || it.tunneling)
+                it.secure == requiresSecureDecoder &&
+                it.tunneling == requiresTunnelingDecoder
         }
     }
 }
