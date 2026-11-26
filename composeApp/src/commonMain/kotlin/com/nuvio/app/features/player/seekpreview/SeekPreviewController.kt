@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
@@ -92,7 +94,7 @@ internal class SeekPreviewController(
     private var consecutiveFailures = 0
     private var hasSucceeded = false
 
-    private val sourceLock = Any()
+    private val sourceLock = SynchronizedObject()
     @Volatile
     private var source: SeekPreviewFrameSource? = null
     private var sourceOpened = false
