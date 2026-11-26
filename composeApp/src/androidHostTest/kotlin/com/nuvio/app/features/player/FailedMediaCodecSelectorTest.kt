@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class FailedMediaCodecSelectorTest {
     @Test
-    fun failedCodecIdentityIncludesMimeNameAndSecurityRequirements() {
+    fun failedCodecIdentityIncludesMimeAndNameNotCapabilityFlags() {
         val codec = codec("codec.avc.hw", secure = true)
         assertEquals(
             FailedMediaCodecIdentity(
