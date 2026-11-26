@@ -77,3 +77,15 @@ Adapt the most useful engineering principles from Reddit's Android video-player 
 - Official Compose Runtime produceState API (producer cancellation on key change/composition removal): https://developer.android.com/reference/kotlin/androidx/compose/runtime/produceState.composable
 - AndroidX Media3 releases and compatibility notes: https://developer.android.com/jetpack/androidx/releases/media3
 - Reddit engineering rewrite reference: https://www.reddit.com/r/RedditEng/comments/1urq7f6/how_we_rewrote_reddits_video_player_on_android/
+
+
+## Additional adopted recovery improvement — 25 November 2026
+
+- Add a source/player-scoped, per-track exclusion set for codec implementations that Media3 explicitly identifies as failing.
+- Extract only Media3 1.8.0's concrete MediaCodecDecoderException.codecInfo and MediaCodecRenderer.DecoderInitializationException.codecInfo values, including initialization fallback chains.
+- Apply the exclusions inside a decorator around the existing MediaCodecSelector. The decorator filters only the candidates returned for the active MIME/security/tunnelling query. It restores the original candidates if filtering would otherwise leave no decoder.
+- Keep audio/video sets separate and cap the remembered failed codec identities at two per track/source. Unknown codec failures retain the existing renderer-priority/software fallback behavior.
+- Preserve selected audio/subtitle tracks, speed and position before rebuilding. The existing renderer-priority fallback reuses the same state-preservation helper.
+- Keep Nuvio's Dolby Vision soft-match renderer, audio Dolby blacklist, FFmpeg extension and software-video renderer ordering unchanged.
+- Do not create a global device blacklist. Do not use MediaCodecInfo.secure or .tunneling as query requirements: those fields describe codec capabilities. The filter operates on the exact candidate list returned for the current decoder query.
+- Add Android host tests using the already-declared Robolectric 4.16 dependency for exception extraction, exact-query filtering, empty-result fallback, bounded/deduplicated exclusions, and secure/nonsecure query alternatives. Tests are authored but not run.
