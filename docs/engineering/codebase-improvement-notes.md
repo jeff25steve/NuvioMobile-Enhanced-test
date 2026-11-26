@@ -3153,3 +3153,26 @@ Reviewed Reddit's Android video-player rewrite and follow-up engineering materia
 - Changed Kotlin files, imports, function signatures, the only legacy seekbar call site, test source, Media3 version alias and the existing custom-AAR compatibility guard were re-fetched from GitHub and statically inspected.
 - The test source was authored before the corresponding interpolation/eligibility implementation, but the focused common test has not been run; a RED result is therefore not claimed.
 - No Gradle task, compilation, test, build, CI, benchmark, APK/AAB or device playback was run. Compilation and runtime behavior remain unverified until separately authorized.
+
+
+### Reddit-inspired decoder recovery improvement — 25 November 2026
+
+Added a codec-specific retry layer to complement the existing per-track renderer-priority fallback, using APIs confirmed in AndroidX Media3 1.8.0 source.
+
+- Extract failed codec identities from Media3's MediaCodecDecoderException.codecInfo and MediaCodecRenderer.DecoderInitializationException.codecInfo, including nested initialization fallback exceptions.
+- Keep exclusions local to the active source/player session and separate for audio and video. The set is thread-safe because Media3 calls the selector from the playback thread while the UI/player callback triggers a replacement.
+- Limit codec-specific exclusions to two distinct codec identities per track/source.
+- Filter only candidates returned by the exact active MediaCodecSelector.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder) query. Do not derive query requirements from MediaCodecInfo.secure or MediaCodecInfo.tunneling, which are capability fields rather than necessarily the original query flags.
+- If filtering would remove all candidates for a query, return the original list. That leaves the existing renderer-priority and software/FFmpeg fallback paths available.
+- Preserve audio track, subtitle track, playback speed and current playback position before rebuilding. The existing priority fallback reuses this same preservation helper.
+- Applied the wrapper to the platform video renderer and audio renderer while retaining Nuvio's Dolby Vision soft-match renderer and Dolby-free audio selector.
+
+**Files**
+- Added composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/FailedMediaCodecSelector.android.kt.
+- Added composeApp/src/androidHostTest/kotlin/com/nuvio/app/features/player/FailedMediaCodecSelectorTest.kt.
+- Updated composeApp/src/androidMain/kotlin/com/nuvio/app/features/player/PlayerEngine.android.kt.
+
+**Verification**
+- Confirmed the exception fields, selector API, decoder-info MIME/name, and exact Media3 1.8.0 API surface against AndroidX Media 1.8.0 source.
+- Added Robolectric host-test source for codec identity, query filtering, empty-result fallback, bounded/deduplicated exclusions, and extraction from initialization/decode failures.
+- The new host tests have not been executed. No compile, Gradle, build, CI, benchmark or device playback was run. This is source-level implementation, not a proven device-level recovery result.
