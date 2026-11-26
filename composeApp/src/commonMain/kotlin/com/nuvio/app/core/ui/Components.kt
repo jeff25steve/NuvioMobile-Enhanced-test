@@ -257,35 +257,36 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .nuvioScreenSideBleed(),
-    ) {
-        // Draw the solid/scrim background inside the same padded bounds used by the
-        // Liquid Glass layers. Drawing on the side-bleed modifier itself shifts/clips
-        // the inset against the wrong coordinate space.
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .then(backgroundInsetModifier)
-                .drawBehind {
-                    val brush = backgroundBrushOverride
+            .nuvioScreenSideBleed()
+            .drawBehind {
+                // The side-bleed layout expands the header back to the screen width.
+                // Draw the background in that expanded coordinate space and inset the
+                // draw bounds directly, rather than padding a matchParentSize child.
+                val horizontalInsetPx = backgroundHorizontalInset.toPx()
+                    .coerceAtMost(size.width / 2f)
+                val drawableWidth = (size.width - horizontalInsetPx * 2f).coerceAtLeast(0f)
+                val brush = backgroundBrushOverride
+                val drawableHeight = if (brush != null) {
+                    (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
+                } else {
+                    size.height
+                }
+                if (drawableWidth > 0f && drawableHeight > 0f) {
+                    val topLeft = Offset(horizontalInsetPx, 0f)
+                    val drawSize = Size(drawableWidth, drawableHeight)
                     if (brush != null) {
-                        val drawableHeight =
-                            (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
-                        if (size.width > 0f && drawableHeight > 0f) {
-                            drawRect(brush = brush, size = Size(size.width, drawableHeight))
-                        }
+                        drawRect(brush = brush, topLeft = topLeft, size = drawSize)
                     } else {
                         val backgroundColor = if (glassSurface != null && settingsGlassEnabled) {
                             Color.Transparent
                         } else {
                             tokens.colors.background
                         }
-                        if (size.width > 0f && size.height > 0f) {
-                            drawRect(color = backgroundColor, size = size)
-                        }
+                        drawRect(color = backgroundColor, topLeft = topLeft, size = drawSize)
                     }
-                },
-        )
+                }
+            },
+    ) {
         Row(
             modifier = Modifier
                 .matchParentSize()

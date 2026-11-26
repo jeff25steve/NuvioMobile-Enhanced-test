@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.pm.ActivityInfo
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.nuvio.app.core.ui.NuvioTheme
+import com.nuvio.app.features.addons.AddonHttpClientProvider
 import com.nuvio.app.features.addons.AddonRepository
 import com.nuvio.app.features.addons.AddonStorage
 import com.nuvio.app.features.details.MetaDetailsRepository
@@ -60,6 +61,9 @@ class StreamOrientationTest {
         // primary profile before storing add-ons and initializing their repository.
         ProfileRepository.clearInMemory()
         val context = RuntimeEnvironment.getApplication()
+        // Match MainActivity startup: initialize the add-on HTTP client before
+        // loading manifests through AddonRepository.
+        AddonHttpClientProvider.initialize(context)
         PlayerSettingsStorage.initialize(context)
         AddonStorage.initialize(context)
         BingeGroupCacheStorage.initialize(context)
