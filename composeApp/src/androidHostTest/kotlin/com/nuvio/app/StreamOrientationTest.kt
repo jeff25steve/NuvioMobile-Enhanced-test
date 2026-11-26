@@ -56,6 +56,9 @@ class StreamOrientationTest {
 
     @BeforeTest
     fun initialize() {
+        // Host tests share ProfileRepository's singleton state; always start on the
+        // primary profile before storing add-ons and initializing their repository.
+        ProfileRepository.clearInMemory()
         val context = RuntimeEnvironment.getApplication()
         PlayerSettingsStorage.initialize(context)
         AddonStorage.initialize(context)
@@ -71,6 +74,7 @@ class StreamOrientationTest {
 
     @AfterTest
     fun clearState() {
+        ProfileRepository.clearInMemory()
         PlayerSettingsRepository.clearLocalState()
         StreamsRepository.clear()
         StreamLaunchStore.clear()
