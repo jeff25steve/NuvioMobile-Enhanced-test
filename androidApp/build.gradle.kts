@@ -208,6 +208,12 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
     @get:Input
     abstract val rustToolchainFingerprint: Property<String>
 
+    // Cargo and rustup also read project/home configuration files that can change the compiler,
+    // target linker, flags or profile without changing any environment variable.
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.ABSOLUTE)
+    abstract val toolchainConfigurationFiles: ConfigurableFileCollection
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sources: ConfigurableFileCollection
@@ -256,16 +262,31 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
 }
 
 val native = rootProject.layout.projectDirectory.dir("native")
+val cargoHomeDirectory = providers.environmentVariable("CARGO_HOME").orNull?.let(::File)
+    ?: File(System.getProperty("user.home"), ".cargo")
 val cargoExecutablePath = run {
-    val home = providers.environmentVariable("CARGO_HOME").orNull?.let(::File)
-        ?: File(System.getProperty("user.home"), ".cargo")
     val name = if (System.getProperty("os.name").startsWith("Windows")) "cargo.exe" else "cargo"
-    File(home, "bin/$name").takeIf { it.exists() }?.path ?: "cargo"
+    File(cargoHomeDirectory, "bin/$name").takeIf { it.exists() }?.path ?: "cargo"
 }
+val cargoToolchainConfigurationFiles = listOf(
+    File(cargoHomeDirectory, "config"),
+    File(cargoHomeDirectory, "config.toml"),
+    rootProject.file(".cargo/config"),
+    rootProject.file(".cargo/config.toml"),
+    File(native.asFile, ".cargo/config"),
+    File(native.asFile, ".cargo/config.toml"),
+    rootProject.file("rust-toolchain"),
+    rootProject.file("rust-toolchain.toml"),
+    File(native.asFile, "rust-toolchain"),
+    File(native.asFile, "rust-toolchain.toml"),
+)
 val rustCompilerExecutable = providers.environmentVariable("CARGO_BUILD_RUSTC")
     .orElse(providers.environmentVariable("RUSTC"))
     .getOrElse("rustc")
 val rustcVersion = providers.exec {
+    // Match the directory used by CargoNdkBuild so rustup sees the same native workspace
+    // rust-toolchain.toml when resolving the compiler version.
+    workingDir = native.asFile
     commandLine(rustCompilerExecutable, "--version", "--verbose")
 }.standardOutput.asText
 val cargoVersion = providers.exec {
@@ -348,6 +369,7 @@ val rust = tasks.register<CargoNdkBuild>("buildRust") {
     workspace = native
     cargoExecutable.set(cargoExecutablePath)
     rustToolchainFingerprint.set(rustToolchainFingerprintProvider)
+    toolchainConfigurationFiles.from(cargoToolchainConfigurationFiles)
     sources.from(fileTree(native) { exclude("target/**", "**/*.md") })
     crate = "aiostreams-native-android"
     abis = if (buildsArm64BenchmarkApks) {
