@@ -37,6 +37,7 @@ Branch: `main-build-testing`
 
 - The Android `CargoNdkBuild` task produces ABI-specific native libraries and is marked `@CacheableTask`. Gradle's cache contract requires every value that can affect those outputs to be represented in the task inputs; omitting one can cause incorrect cache hits.
 - Added a lazy task-input fingerprint for the selected `rustc`, Cargo and `cargo-ndk` versions, plus relevant Rust/Cargo/native compiler environment overrides (toolchain selection, wrappers, target, flags, release profile, NDK target/platform and C/C++ tool overrides).
+- Added absolute-path-sensitive file inputs for Cargo configuration at the native workspace, project root and `$CARGO_HOME`, plus Rustup `rust-toolchain` / `rust-toolchain.toml` files at the native workspace and project root. Changes to linker, target, profile, compiler or toolchain configuration now invalidate native outputs even when the environment itself is unchanged.
 - The existing source/Cargo.lock file inputs, ABI list, minimum SDK and NDK version remain explicit. The fingerprint is a task input, so a compiler or flag change invalidates both local up-to-date state and shared build-cache entries.
 - `providers.exec` supplies the version strings lazily; the build script does not eagerly execute compiler probes during project configuration.
 
