@@ -2,6 +2,8 @@
 
 Branch: `main-build-testing`
 
+> **Build-runbook correction:** The proven Android CI execution on 26 November is documented in [the Android build workflow runbook](android-build-workflow-runbook-2026-11-26.md). That successful run (#138) built `main-build-testing` directly on a `push`, using Gradle 9.9.2, Temurin 17.0.21+9, AGP 9.3.1 and Kotlin 2.4.21. This is the observed CI tuple; it differs from the 9.7.0 compatibility-analysis target recorded below. Do not confuse the proposed compatibility target with the actual successful CI configuration.
+
 ## Findings and fixes
 
 - The previous build toolchain was outside Kotlin's published fully supported compatibility range: Kotlin Gradle Plugin 2.4.10 was paired with Gradle 9.8.2 and AGP 9.4.0. The Kotlin compatibility matrix lists 2.4.0–2.4.10 through Gradle 9.5.0 and AGP 9.1.0.
@@ -10,11 +12,11 @@ Branch: `main-build-testing`
 - Kept the Android compile SDK at API 37.1 and aligned the Baseline Profile test module's compile SDK minor level with the application modules.
 - Pinned cargo-ndk 4.1.2 in the release and fullDebug workflows, matching the existing benchmark workflows.
 
-- Added the official Gradle 9.7.0 binary distribution SHA-256 to `gradle-wrapper.properties`; wrapper downloads are now integrity-checked rather than URL-only validated.
+- This preflight recorded the Gradle 9.7.0 binary checksum as part of its compatibility-analysis plan. However, the exact wrapper at the successful 26 November run #138 points to Gradle 9.9.2 with SHA-256 `971fcd7150ca4ba04852c0b2ca0d2d0ab9468e14b03473eab19528809914c76b`. See the runbook for the actual successful workflow and version record.
 - Bounded the Gradle and Kotlin daemon heaps and Gradle worker count in the fullDebug and release APK jobs. The repository-level 12 GiB / 8 GiB JVM defaults are not appropriate as unbounded CI defaults on hosted runners.
 - Converted the multiline Gradle invocations to YAML block scalars. This was necessary after adding memory flags; keeping continuation lines outside a block scalar would make the workflow invalid YAML.
 
-## Current intended Android toolchain
+## Compatibility-analysis candidate (not the tuple used by successful run #138)
 
 | Component | Version | Reason |
 |---|---:|---|
@@ -29,7 +31,7 @@ Branch: `main-build-testing`
 ## Version freshness and compatibility decision — 26 November 2026
 
 - Kotlin's latest stable release is 2.4.21. Kotlin 2.5.0 is still a release candidate, so the project stays on the stable compiler line.
-- Gradle 9.9.2 and Android Gradle Plugin 9.4.1 are newer stable releases, but Kotlin 2.4.21's published fully supported compatibility range currently tops out at Gradle 9.7.0 and AGP 9.3.1. The wrapper and AGP are therefore intentionally not upgraded independently.
+- This compatibility review recorded Kotlin 2.4.21's published fully supported range as topping out at Gradle 9.7.0 and AGP 9.3.1; it therefore proposed those versions as a compatibility-analysis target. However, the successful run #138 subsequently verified the repository's actual Gradle 9.9.2 wrapper with AGP 9.3.1 and Kotlin 2.4.21. Treat that as empirical project CI evidence, not proof that the tuple is inside every upstream compatibility guarantee. The statement that the wrapper was intentionally kept at 9.7.0 is not an accurate description of the successful branch state. Do not downgrade or upgrade a single component based on this note; re-check current official compatibility documentation before any coordinated toolchain change.
 - Compose Multiplatform 1.13.0-rc01 remains the latest Compose Multiplatform release candidate checked for this review.
 - AndroidX Media3 has a newer stable line (1.11.1), but this project and the upstream Nuvio repository still use Media3 1.8.0 with locally supplied/patched Media3 AARs. A version bump is not a safe catalog-only edit: the patched AAR set and all player integrations must be upgraded and validated together. No unverified Media3 upgrade was made.
 
@@ -65,3 +67,7 @@ Therefore no Gradle configuration, compilation, host test, APK assembly, phone-b
 - AGP 9.3 release notes: https://developer.android.com/build/releases/agp-9-3-0-release-notes
 - Compose Multiplatform 1.13.0-rc01: https://kotlinlang.org/docs/multiplatform/whats-new-compose-113.html
 - Gradle 9.7 compatibility: https://docs.gradle.org/9.7.0/userguide/compatibility.html
+
+## Proven Android build execution
+
+The exact CI run, branch, trigger, verified toolchain, staged Gradle tasks, APK artifacts and future reproduction checklist are recorded in [Android build workflow runbook — 26 November 2026](android-build-workflow-runbook-2026-11-26.md). Use that runbook as the operational reference before starting another Android build.
