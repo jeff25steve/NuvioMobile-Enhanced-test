@@ -255,7 +255,9 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
             commandLine(
                 listOf(cargoExecutable.get(), "ndk", "--platform", minSdk.get().toString()) +
                     abis.get().flatMap { listOf("-t", it) } +
-                    listOf("-o", out.path, "build", "--release", "-p", crate.get()),
+                    // The checked-in Cargo.lock is a declared task input. Do not let Cargo
+                    // rewrite dependency resolution while producing cacheable native outputs.
+                    listOf("-o", out.path, "build", "--release", "-p", crate.get(), "--locked"),
             )
         }
     }
