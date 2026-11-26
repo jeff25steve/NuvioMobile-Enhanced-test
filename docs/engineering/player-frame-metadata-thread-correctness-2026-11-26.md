@@ -107,3 +107,16 @@ The source fix removes the exact forbidden getter call identified by the origina
 - No Media3 upgrade, new dependency or decoder/retry behavior change is part of this correction.
 
 Do not declare the playback problem fully runtime-validated until the current CI run completes and the original stream is exercised on-device with fresh logs.
+
+## 8. Adjacent lifecycle hardening identified during review
+
+A separate, lower-severity callback-ownership race remains a candidate for a follow-up:
+
+- The frame listener currently reads `FrameMonitoringPlayerView.frameMetadataCallback`, a mutable volatile field, each time it is invoked.
+- The AndroidView update block currently calls `updateFrameMetadataCallback(newCallback)` immediately before assigning `playerView.player = exoPlayer`.
+- When the same PlayerView instance is reused while swapping ExoPlayer instances, a frame callback already queued by the old player could run in the interval after the callback field has been replaced but before the old metadata-listener removal has taken effect. In that narrow case it could be routed into the new callback closure and its new attempt snapshot.
+- This does not reintroduce the original wrong-thread Player getter, and it does not itself stop video. It could, however, make the diagnostic frame-gap watchdog attribute a late old-player frame to the replacement player's attempt. The existing comment that says the listener captures `nextPlayer` no longer accurately describes the callback code after the thread fix.
+
+A safe follow-up design is to give each attached listener its own callback holder (backed by `AtomicReference`), update the player binding before updating that holder in AndroidView's update block, and have the listener capture that holder rather than a view-wide mutable callback. That allows same-player recompositions to update the active holder while callbacks from a detached player's listener retain the old holder. Add host tests for both same-player callback updates and old/new holder isolation before changing production code.
+
+**This follow-up is not committed.** The user's current request authorized verification of the player-thread fix, but not an additional source change that would trigger a new Android CI run. The current wrong-thread cause is addressed; this separate diagnostic-attribution race remains a hardening item and should be resolved in a separately authorized code/CI pass.
