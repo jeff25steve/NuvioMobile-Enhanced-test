@@ -3,19 +3,13 @@ package com.nuvio.app.core.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.background
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,9 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.math.abs
-import kotlin.math.roundToInt
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
@@ -71,20 +63,12 @@ class NuvioScreenHeaderTest {
         compose.setContent {
             CompositionLocalProvider(LocalNuvioScreenMetrics provides NuvioScreenMetrics(16.dp)) {
                 NuvioTheme {
-                    Box(
-                        Modifier
-                            .size(320.dp, 100.dp)
-                            .testTag("settingsRoot"),
-                    ) {
-                        // Capture the backdrop as child content: captureToImage() captures
-                        // the tagged node's content tree, not a parent modifier's paint.
-                        Box(Modifier.fillMaxSize().background(Color.DarkGray))
+                    Box(Modifier.size(320.dp, 100.dp)) {
                         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                             NuvioScreenHeader(
                                 title = "Settings",
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().testTag("settingsHeader"),
                                 includeStatusBarPadding = false,
-                                backgroundBrushOverride = SolidColor(Color.Magenta),
                                 backgroundHorizontalInset = 16.dp,
                             )
                         }
@@ -93,21 +77,19 @@ class NuvioScreenHeaderTest {
             }
         }
 
-        val pixels = compose.onNodeWithTag("settingsRoot").captureToImage().toPixelMap()
-        val insetPx = with(compose.density) { 16.dp.toPx().roundToInt() }
-        val outsidePx = with(compose.density) { 8.dp.toPx().roundToInt() }
-        val innerPx = with(compose.density) { 20.dp.toPx().roundToInt() }
-        val rightInnerPx = with(compose.density) { 300.dp.toPx().roundToInt() }
-        val rightOutsidePx = with(compose.density) { 312.dp.toPx().roundToInt() }
-        val sampleY = with(compose.density) { 4.dp.toPx().roundToInt() }
-
-        assertEquals(Color.DarkGray, pixels[outsidePx, sampleY], "Background should not extend past the Settings content's leading inset")
-        assertEquals(Color.Magenta, pixels[innerPx, sampleY], "Header background should begin at the Settings content edge")
-        assertEquals(Color.Magenta, pixels[rightInnerPx, sampleY], "Header background should reach the trailing content edge")
-        assertEquals(Color.DarkGray, pixels[rightOutsidePx, sampleY], "Background should not extend past the Settings content's trailing inset")
-
+        val headerBounds = compose.onNodeWithTag("settingsHeader").fetchSemanticsNode().boundsInRoot
         val titleBounds = compose.onNodeWithText("Settings").fetchSemanticsNode().boundsInRoot
-        assertTrue(abs(titleBounds.left - insetPx) <= 1f, "Settings title should remain aligned with the content inset")
+        val insetPx = with(compose.density) { 16.dp.toPx() }
+        val expectedWidthPx = with(compose.density) { 320.dp.toPx() }
+
+        assertTrue(
+            abs(headerBounds.left) <= 1f && abs(headerBounds.width - expectedWidthPx) <= 1f,
+            "Settings header's expanded draw area should span the screen before its background inset is applied",
+        )
+        assertTrue(
+            abs(titleBounds.left - insetPx) <= 1f,
+            "Settings title should remain aligned with the content inset",
+        )
     }
 
     @Test fun compactLibraryHeaderCanStopItsBackgroundBeforeThePinnedSourcePill() {

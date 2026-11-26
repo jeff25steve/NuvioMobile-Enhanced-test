@@ -62,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -194,6 +195,26 @@ fun NuvioSurfaceCard(
 internal fun settingsHeaderShape(settingsGlassEnabled: Boolean, defaultShape: Shape): Shape =
     if (settingsGlassEnabled) RectangleShape else defaultShape
 
+/**
+ * Returns the exact rectangle used to paint a screen-header background in its expanded side-bleed space.
+ * Insets are clamped to the available dimensions so invalid caller values cannot produce an inverted draw rect.
+ */
+internal fun screenHeaderBackgroundDrawBounds(
+    widthPx: Float,
+    heightPx: Float,
+    horizontalInsetPx: Float,
+    bottomInsetPx: Float,
+): Rect? {
+    val width = widthPx.coerceAtLeast(0f)
+    val height = heightPx.coerceAtLeast(0f)
+    if (width <= 0f || height <= 0f) return null
+
+    val left = horizontalInsetPx.coerceIn(0f, width / 2f)
+    val right = width - left
+    val bottom = (height - bottomInsetPx).coerceIn(0f, height)
+    return Rect(left, 0f, right, bottom).takeIf { right > left && bottom > 0f }
+}
+
 @Composable
 fun NuvioScreenHeader(
     title: String,
@@ -260,20 +281,18 @@ fun NuvioScreenHeader(
             .nuvioScreenSideBleed()
             .drawBehind {
                 // The side-bleed layout expands the header back to the screen width.
-                // Draw the background in that expanded coordinate space and inset the
-                // draw bounds directly, rather than padding a matchParentSize child.
-                val horizontalInsetPx = backgroundHorizontalInset.toPx()
-                    .coerceAtMost(size.width / 2f)
-                val drawableWidth = (size.width - horizontalInsetPx * 2f).coerceAtLeast(0f)
+                // Keep the draw geometry in a pure helper so the inset behavior can be
+                // tested without relying on Robolectric's Window pixel capture.
                 val brush = backgroundBrushOverride
-                val drawableHeight = if (brush != null) {
-                    (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
-                } else {
-                    size.height
-                }
-                if (drawableWidth > 0f && drawableHeight > 0f) {
-                    val topLeft = Offset(horizontalInsetPx, 0f)
-                    val drawSize = Size(drawableWidth, drawableHeight)
+                val bounds = screenHeaderBackgroundDrawBounds(
+                    widthPx = size.width,
+                    heightPx = size.height,
+                    horizontalInsetPx = backgroundHorizontalInset.toPx(),
+                    bottomInsetPx = if (brush != null) backgroundBrushBottomInset.toPx() else 0f,
+                )
+                if (bounds != null) {
+                    val topLeft = Offset(bounds.left, bounds.top)
+                    val drawSize = Size(bounds.width, bounds.height)
                     if (brush != null) {
                         drawRect(brush = brush, topLeft = topLeft, size = drawSize)
                     } else {
