@@ -14,13 +14,14 @@ internal object PlatformPlaybackDataSourceFactory {
         externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle> = emptyList(),
         externalSubtitlesProvider: (() -> List<com.nuvio.app.features.streams.StreamSubtitle>)? = null,
     ): DataSource.Factory {
+        val subtitleProvider = externalSubtitlesProvider ?: { externalSubtitles }
         val httpFactory = PlayerPlaybackNetworking.createHttpDataSourceFactory(
             defaultRequestHeaders,
             useLongReadTimeout,
         )
         val subtitleHeaderFactory = SubtitleRequestHeaderDataSourceFactory(
             upstreamFactory = httpFactory,
-            externalSubtitlesProvider = externalSubtitlesProvider ?: { externalSubtitles },
+            externalSubtitlesProvider = subtitleProvider,
         )
         val baseFactory: DataSource.Factory = DefaultDataSource.Factory(context, subtitleHeaderFactory)
         return if (defaultResponseHeaders.isEmpty()) {
