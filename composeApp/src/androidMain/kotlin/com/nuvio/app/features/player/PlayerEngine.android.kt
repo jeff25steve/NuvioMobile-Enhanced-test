@@ -137,6 +137,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.CopyOnWriteArraySet
 
 private const val TAG = "NuvioPlayer"
 private const val PLAYER_DIAGNOSTIC_TAG = "NuvioPlayerDiag"
@@ -555,6 +556,9 @@ private fun ExoPlayerSurface(
     val subtitleStyleGuard = remember { SubtitleStyleGuard() }
     var decoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
     var audioDecoderPriorityOverride by remember(playerSourceKey) { mutableStateOf<Int?>(null) }
+    val excludedVideoMediaCodecs = remember(playerSourceKey) { CopyOnWriteArraySet<FailedMediaCodecIdentity>() }
+    val excludedAudioMediaCodecs = remember(playerSourceKey) { CopyOnWriteArraySet<FailedMediaCodecIdentity>() }
+    var decoderExclusionGeneration by remember(playerSourceKey) { mutableStateOf(0) }
     var forceSoftwareVideoFallback by remember(playerSourceKey) { mutableStateOf(false) }
     var fallbackStartPositionMs by remember(playerSourceKey) { mutableStateOf<Long?>(null) }
     var pendingPlaybackSpeed by remember(playerSourceKey) { mutableStateOf<Float?>(null) }
@@ -758,6 +762,7 @@ private fun ExoPlayerSurface(
         initialPositionRequestKey,
         videoEffectsNeeded,
         animeRebuildGeneration,
+        decoderExclusionGeneration,
         liveStream,
     ) {
         aiostreamsAss?.reset(
@@ -810,6 +815,8 @@ private fun ExoPlayerSurface(
             shouldStripSdhProvider = { currentSubtitleStyle.stripSdh },
             volumeBoostAudioProcessor = volumeBoostAudioProcessor,
             audioPassthroughEnabled = playerSettings.androidAudioPassthroughEnabled,
+            excludedVideoMediaCodecs = excludedVideoMediaCodecs,
+            excludedAudioMediaCodecs = excludedAudioMediaCodecs,
             presentCues = { cues ->
                 val format = playerViewRef?.player?.currentTracks?.let(::selectedSubtitleFormat)
                 if (sidecarControllerRef?.isSidecarActive() == true) emptyList()
@@ -1295,6 +1302,21 @@ private fun ExoPlayerSurface(
 
         var errorDisplayMessageJob: Job? = null
 
+        fun preservePlaybackForDecoderRetry(reason: String) {
+            preserveAudioSelectionForReload(reason)
+            preservePlaybackSpeedForReload(reason)
+            val currentTracks = exoPlayer.currentTracks
+            subtitleTrackIndexForReload(
+                selectedTrackIndex = currentTracks.selectedTextTrackOrdinal(),
+                hasTextTracks = currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT },
+                textTrackTypeDisabled = C.TRACK_TYPE_TEXT in exoPlayer.trackSelectionParameters.disabledTrackTypes,
+            )?.let { selectedSubtitleIndex ->
+                pendingSubtitleTrackIndex.clear()
+                pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
+            }
+            fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+        }
+
         fun reportPlayerError(error: PlaybackException) {
             val failedRenderer = error as? ExoPlaybackException
             val failedRendererType = failedRenderer
@@ -1308,6 +1330,46 @@ private fun ExoPlayerSurface(
                 isVideoRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_VIDEO
                 isAudioRendererPlaybackFailure(error, failedRendererType) -> C.TRACK_TYPE_AUDIO
                 else -> C.TRACK_TYPE_UNKNOWN
+            }
+            if (error.isDecoderFailure() &&
+                failedRendererTrackType in setOf(C.TRACK_TYPE_VIDEO, C.TRACK_TYPE_AUDIO)
+            ) {
+                val excludedCodecs = when (failedRendererTrackType) {
+                    C.TRACK_TYPE_VIDEO -> excludedVideoMediaCodecs
+                    C.TRACK_TYPE_AUDIO -> excludedAudioMediaCodecs
+                    else -> return
+                }
+                val newExclusions = newFailedMediaCodecExclusions(
+                    failedMediaCodecs = failedMediaCodecIdentities(error),
+                    previouslyExcluded = excludedCodecs.toSet(),
+                    availableDecoders = { failedCodec ->
+                        runCatching {
+                            MediaCodecSelector.DEFAULT.getDecoderInfos(
+                                failedCodec.mimeType,
+                                failedCodec.requiresSecureDecoder,
+                                failedCodec.requiresTunnelingDecoder,
+                            ).map { it.failedMediaCodecIdentity() }
+                        }.getOrDefault(emptyList())
+                    },
+                )
+                if (newExclusions.isNotEmpty()) {
+                    preservePlaybackForDecoderRetry("failed codec exclusion")
+                    excludedCodecs.addAll(newExclusions)
+                    decoderExclusionGeneration += 1
+                    val trackName = if (failedRendererTrackType == C.TRACK_TYPE_VIDEO) "video" else "audio"
+                    val excludedNames = newExclusions.joinToString { it.name + "(" + it.mimeType + ")" }
+                    Log.w(
+                        TAG,
+                        "Excluding failed " + trackName + " MediaCodec " + excludedNames +
+                            "; rebuilding with an available alternative",
+                    )
+                    InAppLogger.warn(
+                        "ExoPlayer/Android",
+                        "Decoder failure " + error.errorCodeName + "; excluded " + trackName + " codec " + excludedNames,
+                    )
+                    latestOnError.value(null)
+                    return
+                }
             }
             val configuredAudioPriority = if (context.isMediaOutputBluetooth()) {
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
@@ -1338,20 +1400,8 @@ private fun ExoPlayerSurface(
                         "${error.errorCodeName}; retrying that renderer at priority=$fallbackPriorityName. " +
                         "cause=${error.cause?.let(::diagnosticThrowableChain) ?: diagnosticThrowableChain(error)}",
                 )
-                // A renderer-priority rebuild creates a fresh track selector. Preserve user choices
-                // before changing the remember key so the replacement player restores them.
-                preserveAudioSelectionForReload("decoder fallback")
-                preservePlaybackSpeedForReload("decoder fallback")
-                val currentTracks = exoPlayer.currentTracks
-                subtitleTrackIndexForReload(
-                    selectedTrackIndex = currentTracks.selectedTextTrackOrdinal(),
-                    hasTextTracks = currentTracks.groups.any { it.type == C.TRACK_TYPE_TEXT },
-                    textTrackTypeDisabled = C.TRACK_TYPE_TEXT in exoPlayer.trackSelectionParameters.disabledTrackTypes,
-                )?.let { selectedSubtitleIndex ->
-                    pendingSubtitleTrackIndex.clear()
-                    pendingSubtitleTrackIndex.add(selectedSubtitleIndex)
-                }
-                fallbackStartPositionMs = exoPlayer.currentPosition.coerceAtLeast(0L)
+                // The same session state must survive codec-specific and priority fallbacks.
+                preservePlaybackForDecoderRetry("decoder fallback")
                 if (fallback.trackType == C.TRACK_TYPE_VIDEO) {
                     if (fallbackDecoderPriority == DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER) {
                         forceSoftwareVideoFallback = true
@@ -5867,6 +5917,8 @@ private class SubtitleOffsetRenderersFactory(
     private val audioPassthroughEnabled: Boolean,
     private val presentCues: (List<Cue>) -> List<Cue>,
     private val videoBoundsFractionProvider: () -> RectF?,
+    private val excludedVideoMediaCodecs: Set<FailedMediaCodecIdentity>,
+    private val excludedAudioMediaCodecs: Set<FailedMediaCodecIdentity>,
 ) : DefaultRenderersFactory(context) {
     override fun buildAudioSink(
         context: Context,
@@ -5894,10 +5946,14 @@ private class SubtitleOffsetRenderersFactory(
         allowedVideoJoiningTimeMs: Long,
         out: ArrayList<Renderer>,
     ) {
+        val failureAwareCodecSelector = FailedMediaCodecSelector(
+            delegate = mediaCodecSelector,
+            excludedCodecs = excludedVideoMediaCodecs,
+        )
         super.buildVideoRenderers(
             context,
             extensionRendererMode,
-            mediaCodecSelector,
+            failureAwareCodecSelector,
             enableDecoderFallback,
             eventHandler,
             eventListener,
@@ -5912,7 +5968,7 @@ private class SubtitleOffsetRenderersFactory(
         if (platformRendererIndex >= 0) {
             val videoRendererBuilder = MediaCodecVideoRenderer.Builder(context)
                 .setCodecAdapterFactory(getCodecAdapterFactory())
-                .setMediaCodecSelector(mediaCodecSelector)
+                .setMediaCodecSelector(failureAwareCodecSelector)
                 .setAllowedJoiningTimeMs(allowedVideoJoiningTimeMs)
                 .setEnableDecoderFallback(enableDecoderFallback)
                 .setEventHandler(eventHandler)
@@ -5948,10 +6004,14 @@ private class SubtitleOffsetRenderersFactory(
         out: ArrayList<Renderer>,
     ) {
         val startIndex = out.size
+        val failureAwareCodecSelector = FailedMediaCodecSelector(
+            delegate = mediaCodecSelector,
+            excludedCodecs = excludedAudioMediaCodecs,
+        )
         super.buildAudioRenderers(
             context,
             audioExtensionRendererMode,
-            DolbyFreeMediaCodecSelector(mediaCodecSelector),
+            DolbyFreeMediaCodecSelector(failureAwareCodecSelector),
             enableDecoderFallback,
             audioSink,
             eventHandler,
