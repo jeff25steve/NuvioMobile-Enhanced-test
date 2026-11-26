@@ -24,7 +24,7 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 
 - The Android `NuvioAsyncImage` implementation accepted `animateIfPossible` but ignored it. With Coil's GIF decoder registered, animated GIF/WebP assets could animate even when callers requested static artwork.
 - For animated file types when animation is not allowed, the request now selects Coil 3.6.3's per-request `BitmapFactoryDecoder.Factory`, which renders a static first frame without replacing the shared ImageLoader's network/cache/SVG components.
-- When animation is explicitly allowed, the default animated decoder pipeline remains active. Static formats continue using the default decoder pipeline.
+- When animation is explicitly allowed, the default animated decoder pipeline remains active. Static formats continue using the default decoder pipeline. Static and animated requests use distinct memory-cache keys so a cached first-frame bitmap cannot suppress a later animation opt-in; the encoded disk-cache key remains shared.
 - Regression coverage added in `NuvioAsyncImageDecoderPolicyTest.kt`.
 
 ### iOS: animated artwork fallback
