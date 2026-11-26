@@ -26,6 +26,13 @@ Branch: `main-build-testing`
 | NDK | 28.2.13676358 | Existing pinned native toolchain |
 | cargo-ndk | 4.1.2 | Same pinned version across Android build workflows |
 
+## Version freshness and compatibility decision — 26 November 2026
+
+- Kotlin's latest stable release is 2.4.21. Kotlin 2.5.0 is still a release candidate, so the project stays on the stable compiler line.
+- Gradle 9.9.2 and Android Gradle Plugin 9.4.1 are newer stable releases, but Kotlin 2.4.21's published fully supported compatibility range currently tops out at Gradle 9.7.0 and AGP 9.3.1. The wrapper and AGP are therefore intentionally not upgraded independently.
+- Compose Multiplatform 1.13.0-rc01 remains the latest Compose Multiplatform release candidate checked for this review.
+- AndroidX Media3 has a newer stable line (1.11.1), but this project and the upstream Nuvio repository still use Media3 1.8.0 with locally supplied/patched Media3 AARs. A version bump is not a safe catalog-only edit: the patched AAR set and all player integrations must be upgraded and validated together. No unverified Media3 upgrade was made.
+
 ## Native Rust task cache correctness
 
 - The Android `CargoNdkBuild` task produces ABI-specific native libraries and is marked `@CacheableTask`. Gradle's cache contract requires every value that can affect those outputs to be represented in the task inputs; omitting one can cause incorrect cache hits.
