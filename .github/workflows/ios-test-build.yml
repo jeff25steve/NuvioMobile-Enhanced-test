@@ -192,6 +192,16 @@ jobs:
           trap 'kill "${monitor_pid}" 2>/dev/null || true' EXIT
           ./scripts/build-ios-ipa.sh
 
+      - name: Upload iOS simulator regression reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuvio-ios-test-reports-${{ github.sha }}
+          path: |
+            composeApp/build/test-results/
+            composeApp/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Summarize IPA
         run: |
           configuration_slug="$(printf '%s' "${IOS_CONFIGURATION}" | tr '[:upper:]' '[:lower:]')"
