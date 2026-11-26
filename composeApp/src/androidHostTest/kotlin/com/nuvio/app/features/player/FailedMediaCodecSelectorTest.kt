@@ -7,6 +7,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.exoplayer.mediacodec.MediaCodecDecoderException
 import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.video.MediaCodecVideoDecoderException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -48,6 +49,11 @@ class FailedMediaCodecSelectorTest {
             .getDecoderInfos(MimeTypes.VIDEO_H264, requiresSecureDecoder = false, requiresTunnelingDecoder = false)
 
         assertEquals(listOf(alternate), result)
+        assertEquals(
+            listOf(sameNameOtherMime),
+            FailedMediaCodecSelector(delegate, excluded)
+                .getDecoderInfos(MimeTypes.VIDEO_H265, requiresSecureDecoder = false, requiresTunnelingDecoder = false),
+        )
     }
 
     @Test
@@ -123,11 +129,24 @@ class FailedMediaCodecSelectorTest {
     }
 
     @Test
-    fun decoderExceptionReportsTheExactCodecThatFailed() {
-        val failed = codec("codec.avc.hw")
-        val error = MediaCodecDecoderException(IllegalStateException("codec failed"), failed)
+    fun genericDecoderExceptionReportsTheExactCodecThatFailed() {
+        val failed = codec("codec.aac.hw", mimeType = MimeTypes.AUDIO_AAC)
+        val error = MediaCodecDecoderException(IllegalStateException("audio codec failed"), failed)
 
         assertEquals(listOf(failed.failedMediaCodecIdentity()), failedMediaCodecIdentities(error))
+    }
+
+    @Test
+    fun videoDecoderExceptionSubclassIsRecognizedThroughItsCauseChain() {
+        val failed = codec("codec.avc.hw")
+        val decoderError = MediaCodecVideoDecoderException(
+            IllegalStateException("video codec failed"),
+            failed,
+            null,
+        )
+        val wrappedError = IllegalStateException("renderer failure", decoderError)
+
+        assertEquals(listOf(failed.failedMediaCodecIdentity()), failedMediaCodecIdentities(wrappedError))
     }
 
     @Test
