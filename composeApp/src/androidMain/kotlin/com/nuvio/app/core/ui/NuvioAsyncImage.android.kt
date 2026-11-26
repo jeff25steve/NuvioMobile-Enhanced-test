@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import coil3.compose.AsyncImage
+import coil3.decode.BitmapFactoryDecoder
 import coil3.request.ImageRequest
 
 @Composable
@@ -29,6 +30,13 @@ internal actual fun NuvioAsyncImage(
             .data(activeUrl)
             .memoryCacheKey("home-collection:$activeUrl")
             .diskCacheKey(activeUrl)
+            .apply {
+                if (shouldUseStaticImageDecoder(activeUrl, animateIfPossible)) {
+                    // Coil's default animated decoders animate GIF/WebP even when the caller
+                    // requests a static image. Force BitmapFactory to decode only the first frame.
+                    decoderFactory(BitmapFactoryDecoder.Factory())
+                }
+            }
             .build()
     }
 
@@ -39,4 +47,15 @@ internal actual fun NuvioAsyncImage(
         contentScale = contentScale,
         onError = { if (fallback != null) useFallback = true },
     )
+}
+
+internal fun shouldUseStaticImageDecoder(
+    imageUrl: String,
+    animateIfPossible: Boolean,
+): Boolean = !animateIfPossible && imageUrl.looksAnimatedImage()
+
+private fun String.looksAnimatedImage(): Boolean {
+    val cleanUrl = substringBefore('?').substringBefore('#')
+    return cleanUrl.endsWith(".gif", ignoreCase = true) ||
+        cleanUrl.endsWith(".webp", ignoreCase = true)
 }
