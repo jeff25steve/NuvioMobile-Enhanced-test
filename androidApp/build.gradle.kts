@@ -308,10 +308,35 @@ val rustBuildEnvironmentNames = listOf(
 val rustBuildEnvironmentProviders = rustBuildEnvironmentNames.associateWith { name ->
     providers.environmentVariable(name).orElse("")
 }
+val rustBuildEnvironmentPrefixProviders = listOf(
+    "CARGO_BUILD_",
+    "CARGO_NDK_",
+    "CARGO_PROFILE_RELEASE_",
+    "CARGO_TARGET_",
+    "RUSTC_",
+    "RUSTUP_",
+    "CC_",
+    "CXX_",
+    "AR_",
+    "CFLAGS_",
+    "CXXFLAGS_",
+    "CPPFLAGS_",
+    "BINDGEN_",
+    "LIBCLANG_",
+).map { prefix ->
+    providers.environmentVariablesPrefixedBy(prefix)
+}
 val rustToolchainFingerprintProvider = providers.provider {
-    val environment = rustBuildEnvironmentProviders.entries
-        .sortedBy { it.key }
-        .joinToString("\n") { (name, value) -> "$name=${value.get()}" }
+    val environmentValues = linkedMapOf<String, String>()
+    rustBuildEnvironmentProviders.forEach { (name, value) ->
+        environmentValues[name] = value.get()
+    }
+    rustBuildEnvironmentPrefixProviders.forEach { environmentProvider ->
+        environmentValues.putAll(environmentProvider.get())
+    }
+    val environment = environmentValues.toSortedMap()
+        .entries
+        .joinToString("\n") { (name, value) -> "$name=$value" }
     listOf(
         "rustc=${rustcVersion.get().trim()}",
         "cargo=${cargoVersion.get().trim()}",
