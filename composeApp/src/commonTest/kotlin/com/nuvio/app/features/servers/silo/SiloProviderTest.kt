@@ -1,5 +1,6 @@
 package com.nuvio.app.features.servers.silo
 
+import com.nuvio.app.isIos
 import com.nuvio.app.features.tracking.TrackingExternalIds
 import com.nuvio.app.features.servers.ServerConnection
 import com.nuvio.app.features.servers.ServerException
@@ -499,7 +500,7 @@ class SiloProviderTest {
         val start = Json.parseToJsonElement(http.requests("/api/v2/playback/start").single().text).jsonObject
         val context = start["client_playback_context"]!!.jsonObject
         assertEquals("mobile", context["form_factor"]?.jsonPrimitive?.content)
-        assertEquals("android", context["device"]!!.jsonObject["platform"]?.jsonPrimitive?.content)
+        assertEquals(if (isIos) "ios" else "android", context["device"]!!.jsonObject["platform"]?.jsonPrimitive?.content)
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.nuvio.app.core.ui
 import android.app.Application
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
@@ -73,9 +74,11 @@ class NuvioScreenHeaderTest {
                     Box(
                         Modifier
                             .size(320.dp, 100.dp)
-                            .background(Color.DarkGray)
                             .testTag("settingsRoot"),
                     ) {
+                        // Capture the backdrop as child content: captureToImage() captures
+                        // the tagged node's content tree, not a parent modifier's paint.
+                        Box(Modifier.fillMaxSize().background(Color.DarkGray))
                         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                             NuvioScreenHeader(
                                 title = "Settings",
