@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.getString
@@ -134,19 +135,28 @@ internal fun InlinePinEntry(
                     if (pin.length == 4) {
                         isVerifying = true
                         scope.launch {
-                            val result = verifyPin(pin)
-                            if (result.unlocked) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onVerified()
-                            } else {
-                                error = if (result.retryAfterSeconds > 0) {
-                                    getString(Res.string.pin_locked_try_again, result.retryAfterSeconds)
+                            try {
+                                val result = verifyPin(pin)
+                                if (result.unlocked) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onVerified()
                                 } else {
-                                    getString(Res.string.pin_incorrect)
+                                    error = if (result.retryAfterSeconds > 0) {
+                                        getString(Res.string.pin_locked_try_again, result.retryAfterSeconds)
+                                    } else {
+                                        getString(Res.string.pin_incorrect)
+                                    }
+                                    pin = ""
                                 }
+                            } catch (cancellation: CancellationException) {
                                 pin = ""
+                                throw cancellation
+                            } catch (_: Exception) {
+                                error = getString(Res.string.profile_pin_offline_verification_requires_online)
+                                pin = ""
+                            } finally {
+                                isVerifying = false
                             }
-                            isVerifying = false
                         }
                     }
                 }
