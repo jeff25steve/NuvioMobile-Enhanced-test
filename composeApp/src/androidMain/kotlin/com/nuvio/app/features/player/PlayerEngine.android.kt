@@ -1112,7 +1112,9 @@ private fun ExoPlayerSurface(
         val requestedStartPositionMs = reprepareStartPositionMs(
             decoderFallbackMs = fallbackStartPositionMs,
             sessionFallbackMs = stallSession.fallbackStartPositionMs,
-            currentPositionMs = exoPlayer.currentMediaItem?.let { exoPlayer.currentPosition },
+            currentPositionMs = exoPlayer.currentMediaItem
+                ?.takeIf { exoPlayer.playbackState != Player.STATE_IDLE }
+                ?.let { exoPlayer.currentPosition },
             initialPositionMs = initialPositionMs,
         )
         val mediaMimeType = mediaItem.localConfiguration?.mimeType
