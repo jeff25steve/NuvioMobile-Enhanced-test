@@ -2,33 +2,57 @@
 
 **Purpose:** Preserve the exact known-good Android CI procedure so a future build request can be carried out from the correct branch, with the correct workflow, without rediscovering the process or guessing at toolchain changes.
 
-**Read this document before starting an Android CI build.** It records one proven build and the workflow that produced it. It is not permission to start a build: only start CI when the user explicitly asks to start/build/test. Before every future run, re-check the current branch HEAD, workflow contents, wrapper, version catalog and existing Actions runs. If any of those have changed, record the difference rather than blindly replaying this historical snapshot.
+**Read this document before starting an Android CI build.** It records the two proven successful runs (#139 on the CI/preflight branch and #138 on `main-build-testing`) and the workflow that produced them. It is not permission to start a build: only start CI when the user explicitly asks to start/build/test. Before every future run, re-check the current branch HEAD, workflow contents, wrapper, version catalog and existing Actions runs. If any of those have changed, record the difference rather than blindly replaying this historical snapshot.
 
-## 1. Proven successful reference run
+## 1. Proven successful reference runs
+
+There are **two independently verified successful runs** of this workflow on 26 November. They used different branches and commits. Do not collapse them into one branch history.
+
+### Run #139 — successful preflight/CI branch build (the screenshot-confirmed run)
 
 | Field | Verified value |
 |---|---|
 | Repository | `jeff25steve/NuvioMobile-Enhanced-test` |
-| Branch that actually built | `main-build-testing` |
+| Branch that actually built | `ci/main-build-testing-preflight-20261126` |
 | Workflow | `Android Startup Profile Benchmark CI Branch Runner` |
 | Workflow file | `.github/workflows/android-startup-profile-benchmark-ci.yml` |
+| GitHub Actions run | [#139 — successful, 3 artifacts](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45880055076) |
+| Run ID | `45880055076` |
+| Trigger | `push` |
+| Commit built | `9b21046fa28036b16aa710c8ccc51a71a9788ab5` |
+| Commit message | `ci: sync Gradle cache and checkout updates to preflight branch` |
+| Run time | 26 November 2026, 18:58:18–19:29:33 UTC |
+| Total duration | 31 minutes 15 seconds |
+| Job | `Build phone-ready R8 and profile-capture APKs` |
+| Result | Job and every listed step completed successfully |
+| Artifacts | 3 |
+
+The screenshot supplied by the user confirms the run title, successful status, branch prefix `ci/main-build-testing-pre...`, pushed commit short SHA `9b21046`, duration 31m 15s and three artifacts. The GitHub Actions API confirms the full branch name, full commit SHA, push event, success conclusion and every job step passing. The full log also confirms Temurin 17.0.21+9, Gradle 9.9.2, the 6 GiB/6 GiB/two-worker CI memory budget, and successful completion of the host-test task and all four APK build groups.
+
+### Run #138 — successful direct build on main-build-testing
+
+| Field | Verified value |
+|---|---|
+| Branch that actually built | `main-build-testing` |
 | GitHub Actions run | [#138 — successful](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45879964256) |
 | Run ID | `45879964256` |
 | Trigger | `push` |
 | Commit built | `487076e34e7064926dde182ac4279fab69c4cc80` |
-| Commit date | 26 November 2026, 18:57 UTC |
 | Job | `Build phone-ready R8 and profile-capture APKs` |
 | Result | Job and all listed steps completed successfully |
 
-**Branch clarification:** Run #138 built directly from `main-build-testing`. It did **not** check out or build from a separate `ci/*` branch. The workflow file also lists `ci/main-build-testing-20261124` and `ci/main-build-testing-preflight-20261126` as push-trigger branches, and supports `workflow_dispatch`, but those options are not the trigger used by the successful reference run.
+### Branch-selection lesson
 
-The workflow's manual dispatch option can be used when the user explicitly asks for a manually started run: in GitHub Actions select **Android Startup Profile Benchmark CI Branch Runner**, select branch **main-build-testing**, and start the workflow. Do not describe that as the trigger for historical run #138; it was a `push` run. Do not choose a `ci/*` branch unless the user specifically asks to test that isolated branch.
-
-The repository default branch is `enhanced`, not `main-build-testing`. Always specify and verify the intended branch; never assume the default branch is the build target.
+- Run #139 is the successful **separate CI/preflight-branch** example: `ci/main-build-testing-preflight-20261126`.
+- Run #138 is the successful **direct main-build-testing** example.
+- The workflow supports pushes to `ci/main-build-testing-20261124`, `ci/main-build-testing-preflight-20261126` and `main-build-testing`, and also supports `workflow_dispatch`.
+- The CI/preflight branch is not the same branch as `main-build-testing`. Before building from it, verify the workflow's stale-source guard proves it is current with `main-build-testing`.
+- For a manual dispatch, select **Android Startup Profile Benchmark CI Branch Runner** and explicitly choose the intended branch. Both historical reference runs above were triggered by `push`, not manual dispatch.
+- The repository default branch is `enhanced`, not `main-build-testing`. Always specify and verify the intended branch; never assume the default branch is the build target.
 
 ## 2. Exact toolchain observed in the successful run
 
-These values are grounded in the wrapper/version catalog at commit `487076e`, the workflow's explicit checks and the successful job log.
+These values are grounded in the wrapper/version catalog at commit `487076e`, the workflow's explicit checks and the successful job logs for both #138 and #139.
 
 | Component | Successful-run value |
 |---|---:|
@@ -50,9 +74,9 @@ The successful workflow explicitly checks Java specification version 17, Eclipse
 
 ### Important Gradle documentation discrepancy
 
-The companion document `gradle-build-preflight-2026-11-26.md` records a Gradle 9.7.0 compatibility-analysis target and contains wording that says Gradle 9.9.2 was not adopted. That wording does not match the actual wrapper and CI workflow at the successful commit: `gradle-wrapper.properties` points to Gradle 9.9.2, has SHA-256 `971fcd7150ca4ba04852c0b2ca0d2d0ab9468e14b03473eab19528809914c76b`, and run #138 explicitly verified and successfully used Gradle 9.9.2 with AGP 9.3.1 and Kotlin 2.4.21.
+The companion document `gradle-build-preflight-2026-11-26.md` records a Gradle 9.7.0 compatibility-analysis target and contains wording that says Gradle 9.9.2 was not adopted. That wording does not match the actual wrapper and CI workflow at the successful commit: `gradle-wrapper.properties` points to Gradle 9.9.2, has SHA-256 `971fcd7150ca4ba04852c0b2ca0d2d0ab9468e14b03473eab19528809914c76b`, and runs #138 and #139 explicitly verified and successfully used Gradle 9.9.2 with AGP 9.3.1 and Kotlin 2.4.21.
 
-Treat run #138 as evidence that this repository's Android CI workflow completed with that exact combination. This empirical result is **not** a claim that the combination is within every upstream vendor's officially supported compatibility matrix. Do not silently downgrade to 9.7.0 or upgrade any toolchain component independently. Reconcile the compatibility analysis against current official documentation before proposing a toolchain change.
+Treat runs #138 and #139 as evidence that this repository's Android CI workflow completed with that exact combination. This empirical result is **not** a claim that the combination is within every upstream vendor's officially supported compatibility matrix. Do not silently downgrade to 9.7.0 or upgrade any toolchain component independently. Reconcile the compatibility analysis against current official documentation before proposing a toolchain change.
 
 ## 3. What the successful workflow does, in order
 
@@ -79,7 +103,7 @@ The workflow is intentionally staged. Preserve this order and keep the four APK 
 18. **Assemble and validate the phone-ready bundle.** The script checks the expected APKs, package IDs, non-debuggable benchmark builds, profileability, R8 mapping files, arm64-only native libraries and packaged Baseline Profile requirements. It writes `START-HERE.txt` and `SHA256SUMS.txt`, checks the checksums, and requires exactly eight APKs plus two runner scripts and the two support files.
 19. **Upload the phone-ready APK bundle.**
 
-The successful reference run's Android host-test Gradle step completed successfully. Each of the four APK-pair build groups also reported `BUILD SUCCESSFUL`, and the final job completed with success.
+Both successful reference runs' Android host-test Gradle steps completed successfully. Each of the four APK-pair build groups also reported `BUILD SUCCESSFUL`, and the final job completed with success.
 
 ## 4. Exact Gradle execution envelope
 
