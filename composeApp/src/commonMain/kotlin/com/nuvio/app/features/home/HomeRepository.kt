@@ -442,7 +442,7 @@ object HomeRepository {
                 keepVisibleHeroWhilePending &&
                 visibleHeroItems.isNotEmpty() &&
                 isHeroResolutionPending(isLoading) &&
-                (catalogHeroItems.isEmpty() || visibleHeroItems.all { item -> item in heroSourceItems })
+                (catalogHeroItems.isEmpty() || visibleHeroItems.allComeFrom(heroSourceItems))
             ) {
                 visibleHeroItems
             } else {
@@ -761,4 +761,9 @@ internal fun collectDistinctHomeHeroItems(
             if (seenKeys.add(item.stableKey())) add(item)
         }
     }
+}
+
+internal fun List<MetaPreview>.allComeFrom(sourceItems: List<MetaPreview>): Boolean {
+    val sourceKeys = sourceItems.mapTo(HashSet()) { it.stableKey() }
+    return all { item -> item.stableKey() in sourceKeys }
 }
