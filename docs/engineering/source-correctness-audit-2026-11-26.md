@@ -41,7 +41,7 @@ This review extends beyond Gradle/CI configuration into playback, shared home/ca
 ### Profiles: PIN verification recovery and feedback
 
 - The PIN entry coroutine previously reset its verifying state only on a normal result. A propagated cancellation or unexpected exception could leave the keypad stuck in its verifying state.
-- Verification now clears the entered PIN and always releases the verifying state in `finally`; cancellation is still rethrown so structured concurrency remains intact.
+- Verification now clears the entered PIN and always releases the verifying state in `finally`; cancellation is still rethrown so structured concurrency remains intact. The offline fallback is scoped to verifier failures only, so an exception in the post-verification UI callback is not mislabeled as a network failure.
 - The entry UI now displays the repository's specific failure message (including offline-verification requirements) before falling back to the generic incorrect-PIN message.
 
 ### Android native build cache
