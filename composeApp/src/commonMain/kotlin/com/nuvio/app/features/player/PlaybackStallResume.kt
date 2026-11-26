@@ -73,7 +73,7 @@ internal fun reprepareStartPositionMs(
 ): Long? =
     decoderFallbackMs
         ?: sessionFallbackMs
-        ?: currentPositionMs?.coerceAtLeast(0L)
+        ?: currentPositionMs?.takeIf { it >= 0L }
         ?: initialPositionMs?.takeIf { it > 0L }
 
 internal fun useVodCacheForSource(
