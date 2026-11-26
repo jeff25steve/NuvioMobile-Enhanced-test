@@ -225,31 +225,33 @@ fun NuvioScreenHeader(
         settingsGlassEnabled = settingsGlassEnabled,
         defaultShape = tokens.shapes.compactCard,
     )
-    val headerBackgroundModifier = Modifier.drawBehind {
-        val insetPx = backgroundHorizontalInset.toPx().coerceAtLeast(0f)
-        val drawableWidth = (size.width - insetPx * 2f).coerceAtLeast(0f)
-        val drawableHeight = (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
-        if (drawableWidth > 0f && drawableHeight > 0f) {
-            val topLeft = Offset(insetPx, 0f)
-            val backgroundBrush = backgroundBrushOverride
-            if (backgroundBrush != null) {
+    val headerBackgroundModifier = backgroundBrushOverride?.let { brush ->
+        Modifier.drawBehind {
+            val insetPx = backgroundHorizontalInset.toPx().coerceAtLeast(0f)
+            val drawableWidth = (size.width - insetPx * 2f).coerceAtLeast(0f)
+            val drawableHeight = (size.height - backgroundBrushBottomInset.toPx()).coerceAtLeast(0f)
+            if (drawableWidth > 0f && drawableHeight > 0f) {
                 drawRect(
-                    brush = backgroundBrush,
-                    topLeft = topLeft,
-                    size = Size(drawableWidth, drawableHeight),
-                )
-            } else {
-                val backgroundColor = if (glassSurface != null && settingsGlassEnabled) {
-                    Color.Transparent
-                } else {
-                    tokens.colors.background
-                }
-                drawRect(
-                    color = backgroundColor,
-                    topLeft = topLeft,
+                    brush = brush,
+                    topLeft = Offset(insetPx, 0f),
                     size = Size(drawableWidth, drawableHeight),
                 )
             }
+        }
+    } ?: Modifier.drawBehind {
+        val insetPx = backgroundHorizontalInset.toPx().coerceAtLeast(0f)
+        val drawableWidth = (size.width - insetPx * 2f).coerceAtLeast(0f)
+        if (drawableWidth > 0f) {
+            val backgroundColor = if (glassSurface != null && settingsGlassEnabled) {
+                Color.Transparent
+            } else {
+                tokens.colors.background
+            }
+            drawRect(
+                color = backgroundColor,
+                topLeft = Offset(insetPx, 0f),
+                size = Size(drawableWidth, size.height),
+            )
         }
     }
     val nativeDetailNavigation = LocalUseNativeNavigation.current &&
