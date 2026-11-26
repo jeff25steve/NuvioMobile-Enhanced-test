@@ -1606,9 +1606,6 @@ private fun AddonEpisodeRatingBadge(
 ) {
     val color = MaterialTheme.nuvio.colors.textMuted
     Row(
-        modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "Addon rating $rating"
-        },
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
