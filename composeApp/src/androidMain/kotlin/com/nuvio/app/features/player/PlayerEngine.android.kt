@@ -1342,15 +1342,6 @@ private fun ExoPlayerSurface(
                 val newExclusions = newFailedMediaCodecExclusions(
                     failedMediaCodecs = failedMediaCodecIdentities(error),
                     previouslyExcluded = excludedCodecs.toSet(),
-                    availableDecoders = { failedCodec ->
-                        runCatching {
-                            MediaCodecSelector.DEFAULT.getDecoderInfos(
-                                failedCodec.mimeType,
-                                failedCodec.requiresSecureDecoder,
-                                failedCodec.requiresTunnelingDecoder,
-                            ).map { it.failedMediaCodecIdentity() }
-                        }.getOrDefault(emptyList())
-                    },
                 )
                 if (newExclusions.isNotEmpty()) {
                     preservePlaybackForDecoderRetry("failed codec exclusion")
