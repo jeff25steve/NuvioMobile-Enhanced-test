@@ -84,13 +84,15 @@ jobs:
         run: |
           set -euo pipefail
           java_properties="$(java -XshowSettings:properties -version 2>&1)"
-          printf '%s\\n' "$java_properties"
+          printf '%s\n' "$java_properties"
           grep -Fq 'java.specification.version = 17' <<< "$java_properties"
           grep -Fq 'java.vendor = Eclipse Adoptium' <<< "$java_properties"
 
           gradle_output="$(./gradlew --version)"
-          printf '%s\\n' "$gradle_output"
-          grep -Eq '^Gradle 9\\.9\\.2
+          printf '%s\n' "$gradle_output"
+          grep -Fq 'Gradle 9.9.2' <<< "$gradle_output"
+          echo 'Java 17 (Temurin) and Gradle 9.9.2 verified.'
+
       - name: Cache Kotlin Native
         uses: actions/cache@v6
         with:
@@ -221,7 +223,7 @@ jobs:
           grep -Eq '^(Launcher JVM|JVM): 17([.]|[[:space:]])' <<< "$gradle_output"
 
       - name: Cache Kotlin Native
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.konan
           key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
