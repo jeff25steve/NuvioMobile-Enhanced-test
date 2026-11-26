@@ -9,6 +9,8 @@ Branch: `main-build-testing`
 - Advanced Compose Multiplatform and its Material3 artifact from 1.13.0-beta01 to 1.13.0-rc01. The RC is the latest Compose Multiplatform prerelease available on this review date; it requires Android compileSdk 37.1 and uses the matching Compose compiler plugin version from Kotlin.
 - Kept the Android compile SDK at API 37.1 and aligned the Baseline Profile test module's compile SDK minor level with the application modules.
 - Pinned cargo-ndk 4.1.2 in the release and fullDebug workflows, matching the existing benchmark workflows.
+
+- Added the official Gradle 9.7.0 binary distribution SHA-256 to `gradle-wrapper.properties`; wrapper downloads are now integrity-checked rather than URL-only validated.
 - Bounded the Gradle and Kotlin daemon heaps and Gradle worker count in the fullDebug and release APK jobs. The repository-level 12 GiB / 8 GiB JVM defaults are not appropriate as unbounded CI defaults on hosted runners.
 - Converted the multiline Gradle invocations to YAML block scalars. This was necessary after adding memory flags; keeping continuation lines outside a block scalar would make the workflow invalid YAML.
 
