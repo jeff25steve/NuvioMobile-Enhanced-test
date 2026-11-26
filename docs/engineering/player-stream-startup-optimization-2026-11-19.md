@@ -1,5 +1,16 @@
 # Player stream startup optimization — 19 November 2026
 
+## Final Media3 baseline correction — 26 November 2026
+
+This report contains dated cycles from a temporary Media3 upgrade experiment. Those sections are historical and must not be read as the current dependency/API baseline.
+
+- Cycle 157 temporarily moved the catalog from Media3 1.8.0 to 1.11.1 on 22 November. A subsequent 1.12.0-beta01 experiment was also committed.
+- The project restored Media3 1.8.0 on 24 November to retain compatibility with Nuvio's custom Media3 AAR family. See [the 1.8.0 compatibility restoration](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/be5015f6fb62d4b2104875b4767cd73a3b4d7ed3) and [the follow-up custom-AAR restoration](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/commit/c0258df9d67a8cb97bd51adf4e60431f1ca04f95).
+- The live `main-build-testing` catalog pins `androidx-media3 = "1.8.0"`. The custom binaries are in `composeApp/libs/lib-*.aar`; `scripts/tests/test-media3-custom-aar-compatibility.sh` enforces the shared 1.8.0 catalog version, minSdk 24, local AAR wiring/fingerprints, required runtime dependencies and absence of post-1.8.0 APIs.
+- Therefore, any later paragraphs in this dated report that call 1.11.1 or 1.12.0-beta01 the *current* version describe the temporary 22–23 November experiment, not the current branch. Do not use those later-version API references to implement a current change without first changing and validating the complete custom AAR family.
+
+For current API decisions, use the live version catalog, the custom-AAR compatibility guard, and the newer [source-correctness audit](source-correctness-audit-2026-11-26.md).
+
 ## Finding
 
 The Android ExoPlayer HLS VOD path had an avoidable serial preflight. Before the player surface could be created, the Compose runtime performed its own HTTP GET for an HLS master playlist, parsed the variants, generated a sanitized single-variant playlist for each quality and only then passed a URL to the native player. Media3 then prepared the stream from that derived URL. This put application-owned quality discovery ahead of the first player request and made the master-playlist request part of the player-entry critical path.
@@ -114,7 +125,7 @@ The proposed idea of downloading the first few minutes after a stream is selecte
 - The current ExoPlayer builder uses app-specific `DefaultTrackSelector`, `LoadControl` (including live-specific wrapping), renderer customization, and a custom `DataSource.Factory`. That factory can include request/response headers, the HLS SPS/PPS compatibility wrapper, optional progressive-source buffering/cache, byte counting, and special handling for YouTube chunked, loopback, live, and external subtitle paths.
 - The current player may also build merged video/audio sources, Blu-ray sources, and libass-enabled players. A preload manager must create the playback player through the same builder and share compatible components; a preloaded `MediaSource` must be handed to that linked player on the shared playback looper. Bypassing those paths risks losing headers, custom HLS handling, subtitles, track-selection consistency, or decoder/render configuration.
 - The AndroidX Media3 guidance explicitly requires the same `DefaultPreloadManager.Builder` to build the preload manager and player, and calls out shared LoadControl, TrackSelector implementation, MediaSourceFactory, RenderersFactory and playback looper. It also warns that unmanaged preload queues retain sample queues and can exhaust memory unless a bounded sliding window removes distant items.
-- Historical version note: this preload audit was written when the repository used Media3 1.8.0. The current gradle/libs.versions.toml on main-build-testing pins Media3 1.11.1 (verified 22 November 2026); do not reuse the old version statement for current API decisions. Re-check the exact pinned version before implementing any preload integration.
+- Historical note: this paragraph was written during the temporary 1.11.1 upgrade on 22 November. On 24 November, the branch restored Media3 1.8.0 because its custom AAR family must remain API-aligned. The current catalog is 1.8.0; do not interpret the temporary upgrade as the live baseline. Re-check the custom-AAR compatibility guard before implementing any preload integration.
 
 **Decision:** Do not add speculative multi-minute preloading to the current player. First establish a real pre-selection opportunity in the stream chooser (a stable, bounded list of likely next sources) and prove that its source metadata, headers, selected quality, and player lifecycle can be handed off without bypassing current custom factories. Only then prototype a small configurable preload target and compare first-frame latency, network bytes, memory, and cancellation/waste against the existing path.
 
@@ -207,7 +218,7 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 - Added a host test proving the HLS wrapper creates segment probes from the dedicated inspection factory.
 
 **Evidence and verification boundary**
-- Historical version note: this cycle's source audit targeted Media3 1.8.0 and its then-resolved OkHttp dependency. The current branch pins Media3 1.11.1. The current 1.11.1 `OkHttpDataSource` source still implements `read()` through the response-body stream and uses the whole-call `Call` timeout configured on the client; `newBuilder()` preserves the shared client configuration. Re-check the dependency graph before making future version-specific claims.
+- Historical note: the source audit for this cycle was initially performed during the temporary Media3 1.11.1 migration. That migration was reverted on 24 November to retain compatibility with the custom Media3 1.8.0 AAR family. The OkHttpDataSource analysis below describes the 1.11.1 experiment only; verify against the actual resolved client and Media3 1.8.0 baseline before reusing it.
 - Context7 documentation for AndroidX Media3 and OkHttp was consulted; Context7 did not expose an exact Media3 1.8.0 or OkHttp 4.12.0 versioned library entry, so the pinned dependency and upstream source/POM evidence were used for version-specific checks.
 - Source and host regression fixtures were updated on the feature branch. Tests and Kotlin compilation have not been run. No Gradle task, build, CI, network fault injection, device playback or benchmark was started. No measured playback speedup is claimed.
 
@@ -244,10 +255,12 @@ Cycle 139 confirmed that the process-wide PlaybackDiskCache retained the initial
 - Added host regression coverage for both known-length bypass and unknown-length prefix replay/continuation. The tests were not executed in this environment. No Gradle task, Kotlin compilation, APK build, CI, network fault injection, device playback or benchmark was run. No playback-speed improvement is claimed; this bounds optional manifest buffering and preserves playback bytes.
 
 
-## Media3 1.11.1 playback and local-buffer policy (Cycles 157–158, 22 November 2026)
+## Temporary Media3 1.11.1 playback and local-buffer experiment (Cycles 157–158, 22 November 2026; reverted 24 November)
 
 - Cycle 157 upgrades the single androidx-media3 version-catalog entry from 1.8.0 to 1.11.1. All Media3 artifacts in the catalog share that version reference, so HLS, DASH, SmoothStreaming, RTSP, common, extractor, decoder, datasource, session and UI dependencies remain aligned.
-- The upstream 1.9.0 release adds a maximum to automatic DefaultLoadControl memory calculation for excessive track selections and corrects custom sample MIME type track classification. It also enables improved seeking for eligible videos and a 15 ms late-decoder-input drop threshold for more efficient frame dropping. Media3 1.11.0 further reduces OOM risk when time thresholds are prioritized and heap is tight. Media3 1.11.1 includes fixes for Matroska seekability when Tracks occur after Clusters, HLS EOF retry behavior, and stale video frames during eligible scrubbing.
+- **Historical implementation note:** The 1.11.1 dependency and API changes described in this section were subsequently rolled back on 24 November when the project restored its custom 1.8.0 AAR baseline. Treat the implementation below as a record of that temporary experiment, not as the active branch implementation. The current compatibility authority is `scripts/tests/test-media3-custom-aar-compatibility.sh`.
+
+The upstream 1.9.0 release adds a maximum to automatic DefaultLoadControl memory calculation for excessive track selections and corrects custom sample MIME type track classification. It also enables improved seeking for eligible videos and a 15 ms late-decoder-input drop threshold for more efficient frame dropping. Media3 1.11.0 further reduces OOM risk when time thresholds are prioritized and heap is tight. Media3 1.11.1 includes fixes for Matroska seekability when Tracks occur after Clusters, HLS EOF retry behavior, and stale video frames during eligible scrubbing.
 - The app's LiveStartLoadControl wrapper was updated for the player-scoped Media3 1.11.1 LoadControl contract: allocator lookup and preload decisions now forward the supplied PlayerId to the delegate. Host tests cover both delegations.
 - Cycle 158 separates local and streaming buffer duration policies using the corresponding Media3 1.11.1 builder methods. Custom and native-memory buffer settings explicitly configure both policies; the standard network branch configures streaming thresholds; the existing short local-file policy now uses local-only APIs.
 - Media3 classifies content: URIs as local playback. The app previously excluded authorities containing downloads from its local-file policy, causing those URIs to receive the network-style buffer policy despite Media3's own local classification. The local-source check now treats both file: and content: as local; host tests cover file, DownloadsProvider content and HTTP URIs.
