@@ -5876,7 +5876,7 @@ private class FrameMonitoringPlayerView(
     private var monitoredPlayer: ExoPlayer? = null
     private var attachedFrameMetadataListener: VideoFrameMetadataListener? = null
 
-    fun updateFrameMetadataCallback(callback: (ExoPlayer, Long, Long, Long, Float) -> Unit) {
+    fun updateFrameMetadataCallback(callback: (Long, Long, Float) -> Unit) {
         frameMetadataCallback = callback
     }
 
