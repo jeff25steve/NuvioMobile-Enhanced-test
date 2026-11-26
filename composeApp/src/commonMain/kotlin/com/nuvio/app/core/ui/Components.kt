@@ -286,15 +286,15 @@ fun NuvioScreenHeader(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .nuvioScreenSideBleed(),
+            .nuvioScreenSideBleed()
+            .then(headerBackgroundModifier),
     ) {
-        // Keep a deliberate underlay beneath the header: normal surfaces use the solid
-        // screen background, while artwork-backed callers can supply a fading contrast scrim.
+        // The header container owns its background so it is drawn across the expanded
+        // side-bleed bounds while the content remains inset and interactive as before.
         Row(
             modifier = Modifier
                 .matchParentSize()
-                .nuvioConsumePointerEvents()
-                .then(headerBackgroundModifier),
+                .nuvioConsumePointerEvents(),
         ) {}
         if (settingsGlassEnabled) {
             Box(
