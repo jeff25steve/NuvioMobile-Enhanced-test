@@ -200,6 +200,14 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
     @get:Internal
     abstract val workspace: DirectoryProperty
 
+    @get:Internal
+    abstract val cargoExecutable: Property<String>
+
+    // A native library's bytes depend on the compiler/tool wrappers and build flags as well as
+    // source files and the NDK. Keep their identities in the Gradle up-to-date/build-cache key.
+    @get:Input
+    abstract val rustToolchainFingerprint: Property<String>
+
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val sources: ConfigurableFileCollection
@@ -239,23 +247,82 @@ abstract class CargoNdkBuild @Inject constructor(private val exec: ExecOperation
             environment("ANDROID_NDK_HOME", selectedNdkPath)
             environment("ANDROID_NDK_ROOT", selectedNdkPath)
             commandLine(
-                listOf(cargo(), "ndk", "--platform", minSdk.get().toString()) +
+                listOf(cargoExecutable.get(), "ndk", "--platform", minSdk.get().toString()) +
                     abis.get().flatMap { listOf("-t", it) } +
                     listOf("-o", out.path, "build", "--release", "-p", crate.get()),
             )
         }
     }
-
-    private fun cargo(): String {
-        val home = System.getenv("CARGO_HOME")?.let(::File) ?: File(System.getProperty("user.home"), ".cargo")
-        val name = if (System.getProperty("os.name").startsWith("Windows")) "cargo.exe" else "cargo"
-        return File(home, "bin/$name").takeIf { it.exists() }?.path ?: "cargo"
-    }
 }
 
 val native = rootProject.layout.projectDirectory.dir("native")
+val cargoExecutablePath = run {
+    val home = providers.environmentVariable("CARGO_HOME").orNull?.let(::File)
+        ?: File(System.getProperty("user.home"), ".cargo")
+    val name = if (System.getProperty("os.name").startsWith("Windows")) "cargo.exe" else "cargo"
+    File(home, "bin/$name").takeIf { it.exists() }?.path ?: "cargo"
+}
+val rustCompilerExecutable = providers.environmentVariable("CARGO_BUILD_RUSTC")
+    .orElse(providers.environmentVariable("RUSTC"))
+    .getOrElse("rustc")
+val rustcVersion = providers.exec {
+    commandLine(rustCompilerExecutable, "--version", "--verbose")
+}.standardOutput.asText
+val cargoVersion = providers.exec {
+    commandLine(cargoExecutablePath, "--version")
+}.standardOutput.asText
+val cargoNdkVersion = providers.exec {
+    commandLine(cargoExecutablePath, "ndk", "--version")
+}.standardOutput.asText
+val rustBuildEnvironmentNames = listOf(
+    "CARGO_HOME",
+    "CARGO_BUILD_RUSTC",
+    "CARGO_BUILD_RUSTC_WRAPPER",
+    "CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER",
+    "CARGO_BUILD_TARGET",
+    "CARGO_BUILD_RUSTFLAGS",
+    "CARGO_ENCODED_RUSTFLAGS",
+    "CARGO_INCREMENTAL",
+    "CARGO_NDK_TARGET",
+    "CARGO_NDK_PLATFORM",
+    "CARGO_PROFILE_RELEASE_OPT_LEVEL",
+    "CARGO_PROFILE_RELEASE_LTO",
+    "CARGO_PROFILE_RELEASE_CODEGEN_UNITS",
+    "CARGO_PROFILE_RELEASE_DEBUG",
+    "CARGO_PROFILE_RELEASE_PANIC",
+    "CARGO_PROFILE_RELEASE_STRIP",
+    "RUSTUP_TOOLCHAIN",
+    "RUSTC",
+    "RUSTC_WRAPPER",
+    "RUSTC_WORKSPACE_WRAPPER",
+    "RUSTFLAGS",
+    "CC",
+    "CXX",
+    "AR",
+    "CFLAGS",
+    "CXXFLAGS",
+    "CPPFLAGS",
+    "BINDGEN_EXTRA_CLANG_ARGS",
+    "LIBCLANG_PATH",
+)
+val rustBuildEnvironmentProviders = rustBuildEnvironmentNames.associateWith { name ->
+    providers.environmentVariable(name).orElse("")
+}
+val rustToolchainFingerprint = providers.provider {
+    val environment = rustBuildEnvironmentProviders.entries
+        .sortedBy { it.key }
+        .joinToString("\n") { (name, value) -> "$name=${value.get()}" }
+    listOf(
+        "rustc=${rustcVersion.get().trim()}",
+        "cargo=${cargoVersion.get().trim()}",
+        "cargo-ndk=${cargoNdkVersion.get().trim()}",
+        "environment:\n$environment",
+    ).joinToString("\n")
+}
 val rust = tasks.register<CargoNdkBuild>("buildRust") {
     workspace = native
+    cargoExecutable.set(cargoExecutablePath)
+    rustToolchainFingerprint.set(rustToolchainFingerprint)
     sources.from(fileTree(native) { exclude("target/**", "**/*.md") })
     crate = "aiostreams-native-android"
     abis = if (buildsArm64BenchmarkApks) {
