@@ -268,18 +268,18 @@ val cargoExecutablePath = run {
     val name = if (System.getProperty("os.name").startsWith("Windows")) "cargo.exe" else "cargo"
     File(cargoHomeDirectory, "bin/$name").takeIf { it.exists() }?.path ?: "cargo"
 }
-val cargoToolchainConfigurationFiles = listOf(
-    File(cargoHomeDirectory, "config"),
-    File(cargoHomeDirectory, "config.toml"),
-    rootProject.file(".cargo/config"),
-    rootProject.file(".cargo/config.toml"),
-    File(native.asFile, ".cargo/config"),
-    File(native.asFile, ".cargo/config.toml"),
-    rootProject.file("rust-toolchain"),
-    rootProject.file("rust-toolchain.toml"),
-    File(native.asFile, "rust-toolchain"),
-    File(native.asFile, "rust-toolchain.toml"),
-)
+// Cargo and rustup walk from the native workspace through every parent directory.
+val cargoProjectDirectories = generateSequence(native.asFile) { it.parentFile }.toList()
+val cargoToolchainConfigurationFiles = buildList {
+    add(File(cargoHomeDirectory, "config"))
+    add(File(cargoHomeDirectory, "config.toml"))
+    cargoProjectDirectories.forEach { directory ->
+        add(File(directory, ".cargo/config"))
+        add(File(directory, ".cargo/config.toml"))
+        add(File(directory, "rust-toolchain"))
+        add(File(directory, "rust-toolchain.toml"))
+    }
+}
 val rustCompilerExecutable = providers.environmentVariable("CARGO_BUILD_RUSTC")
     .orElse(providers.environmentVariable("RUSTC"))
     .getOrElse("rustc")
