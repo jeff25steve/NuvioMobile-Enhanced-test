@@ -308,7 +308,7 @@ val rustBuildEnvironmentNames = listOf(
 val rustBuildEnvironmentProviders = rustBuildEnvironmentNames.associateWith { name ->
     providers.environmentVariable(name).orElse("")
 }
-val rustToolchainFingerprint = providers.provider {
+val rustToolchainFingerprintProvider = providers.provider {
     val environment = rustBuildEnvironmentProviders.entries
         .sortedBy { it.key }
         .joinToString("\n") { (name, value) -> "$name=${value.get()}" }
@@ -322,7 +322,7 @@ val rustToolchainFingerprint = providers.provider {
 val rust = tasks.register<CargoNdkBuild>("buildRust") {
     workspace = native
     cargoExecutable.set(cargoExecutablePath)
-    rustToolchainFingerprint.set(rustToolchainFingerprint)
+    rustToolchainFingerprint.set(rustToolchainFingerprintProvider)
     sources.from(fileTree(native) { exclude("target/**", "**/*.md") })
     crate = "aiostreams-native-android"
     abis = if (buildsArm64BenchmarkApks) {
