@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -517,6 +518,7 @@ fun NuvioInputField(
     containerColor: Color = MaterialTheme.nuvio.colors.surfaceCard,
     showOutline: Boolean = true,
     leadingContent: (@Composable (() -> Unit))? = null,
+    textDirection: TextDirection = TextDirection.Unspecified,
 ) {
     val tokens = MaterialTheme.nuvio
     val borderColor = if (showOutline) tokens.colors.borderDefault else Color.Transparent
@@ -535,6 +537,7 @@ fun NuvioInputField(
         },
         textStyle = MaterialTheme.typography.bodyLarge.copy(
             color = tokens.colors.textPrimary,
+            textDirection = textDirection,
         ),
         leadingIcon = leadingContent,
         trailingIcon = trailingContent,
