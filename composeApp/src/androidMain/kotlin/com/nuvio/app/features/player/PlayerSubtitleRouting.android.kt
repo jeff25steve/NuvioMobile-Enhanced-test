@@ -59,7 +59,7 @@ internal fun subtitleDataSourceFactory(
     context,
     SubtitleRequestHeaderDataSourceFactory(
         upstreamFactory = PlayerPlaybackNetworking.createHttpDataSourceFactory(),
-        externalSubtitles = externalSubtitles,
+        externalSubtitlesProvider = { externalSubtitles },
     ),
 )
 
