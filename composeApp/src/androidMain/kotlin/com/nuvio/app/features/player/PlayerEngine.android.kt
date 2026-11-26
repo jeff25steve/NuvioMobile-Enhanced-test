@@ -627,10 +627,13 @@ private fun ExoPlayerSurface(
     }
     val networkBytesRead = remember(playerSourceKey) { AtomicLong(0L) }
     val networkSpeedSampler = remember(playerSourceKey) { ByteRateSampler() }
+    val externalSubtitlesRef = remember(playerSourceKey) { AtomicReference(externalSubtitles) }
+    SideEffect {
+        externalSubtitlesRef.set(externalSubtitles)
+    }
     val dataSourceFactory = remember(
         context,
         playerSourceKey,
-        externalSubtitles,
         liveStream,
         networkBytesRead,
     ) {
@@ -641,7 +644,7 @@ private fun ExoPlayerSurface(
             defaultResponseHeaders = sanitizedSourceResponseHeaders,
             useYoutubeChunkedPlayback = useYoutubeChunkedPlayback,
             useLongReadTimeout = loopbackSource,
-            externalSubtitles = externalSubtitles,
+            externalSubtitlesProvider = { externalSubtitlesRef.get() },
         ).let { factory ->
             val hls = playbackMediaItemFromUrl(
                 url = sourceUrl,
@@ -753,9 +756,6 @@ private fun ExoPlayerSurface(
     val exoPlayer = remember(
         sourceUrl,
         sourceAudioUrl,
-        // The player retains its MediaSourceFactory, which captures this factory. Recreate it
-        // when source-specific subtitle headers or other DataSource configuration changes.
-        dataSourceFactory,
         sanitizedSourceHeaders,
         sanitizedSourceResponseHeaders,
         normalizedStreamType,
@@ -1109,7 +1109,10 @@ private fun ExoPlayerSurface(
             "load mediaItem uri=${InAppLogger.redactUrl(mediaItem.localConfiguration?.uri?.toString() ?: sourceUrl)} " +
                 "mime=${mediaItem.localConfiguration?.mimeType ?: "unknown"} startPositionMs=${fallbackStartPositionMs ?: 0L}",
         )
-        val requestedStartPositionMs = stallSession.prepareStartPositionMs(fallbackStartPositionMs)
+        val requestedStartPositionMs = fallbackStartPositionMs
+            ?: stallSession.fallbackStartPositionMs
+            ?: exoPlayer.currentMediaItem?.let { exoPlayer.currentPosition.coerceAtLeast(0L) }
+            ?: stallSession.prepareStartPositionMs()
         val mediaMimeType = mediaItem.localConfiguration?.mimeType
         if (bluraySession != null && mediaMimeType != MimeTypes.APPLICATION_M3U8 &&
             mediaMimeType != MimeTypes.APPLICATION_MPD && mediaMimeType != MimeTypes.APPLICATION_SS
@@ -6347,18 +6350,18 @@ internal fun PlaybackException.playbackFailureDiagnosticContext(): String {
 
 internal class SubtitleRequestHeaderDataSourceFactory(
     private val upstreamFactory: DataSource.Factory,
-    private val externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle>,
+    private val externalSubtitlesProvider: () -> List<com.nuvio.app.features.streams.StreamSubtitle>,
 ) : DataSource.Factory {
     override fun createDataSource(): DataSource =
         SubtitleRequestHeaderDataSource(
             upstream = upstreamFactory.createDataSource(),
-            externalSubtitles = externalSubtitles,
+            externalSubtitlesProvider = externalSubtitlesProvider,
         )
 }
 
 internal class SubtitleRequestHeaderDataSource(
     private val upstream: DataSource,
-    private val externalSubtitles: List<com.nuvio.app.features.streams.StreamSubtitle>,
+    private val externalSubtitlesProvider: () -> List<com.nuvio.app.features.streams.StreamSubtitle>,
 ) : DataSource {
     override fun addTransferListener(transferListener: TransferListener) {
         upstream.addTransferListener(transferListener)
@@ -6366,7 +6369,9 @@ internal class SubtitleRequestHeaderDataSource(
 
     override fun open(dataSpec: DataSpec): Long {
         val url = dataSpec.uri.toString()
-        val subtitle = externalSubtitles.find { it.url == url }
+        // The player and its MediaSourceFactory can outlive a stream's refreshed subtitle
+        // metadata. Read the current list for each request instead of capturing a stale snapshot.
+        val subtitle = externalSubtitlesProvider().find { it.url == url }
         val headers = subtitle?.headers
         
         return if (headers.isNullOrEmpty()) {
