@@ -26,6 +26,13 @@ Branch: `main-build-testing`
 | NDK | 28.2.13676358 | Existing pinned native toolchain |
 | cargo-ndk | 4.1.2 | Same pinned version across Android build workflows |
 
+## Native Rust task cache correctness
+
+- The Android `CargoNdkBuild` task produces ABI-specific native libraries and is marked `@CacheableTask`. Gradle's cache contract requires every value that can affect those outputs to be represented in the task inputs; omitting one can cause incorrect cache hits.
+- Added a lazy task-input fingerprint for the selected `rustc`, Cargo and `cargo-ndk` versions, plus relevant Rust/Cargo/native compiler environment overrides (toolchain selection, wrappers, target, flags, release profile, NDK target/platform and C/C++ tool overrides).
+- The existing source/Cargo.lock file inputs, ABI list, minimum SDK and NDK version remain explicit. The fingerprint is a task input, so a compiler or flag change invalidates both local up-to-date state and shared build-cache entries.
+- `providers.exec` supplies the version strings lazily; the build script does not eagerly execute compiler probes during project configuration.
+
 ## Workflow paths reviewed
 
 - `.github/workflows/mobile-release.yml` — release APK build and upload.
