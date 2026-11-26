@@ -54,7 +54,7 @@ jobs:
           gradle_output="$(./gradlew --version)"
           printf '%s\n' "$gradle_output"
           grep -Fxq 'Gradle 9.9.2' <<< "$gradle_output"
-          grep -Fq 'Launcher JVM: 17' <<< "$gradle_output"
+          grep -Eq '^Launcher JVM:[[:space:]]+17([.]|[[:space:]])' <<< "$gradle_output"
           echo 'Temurin 17 and Gradle 9.9.2 verified.'
 
       - name: Prepare runtime properties
