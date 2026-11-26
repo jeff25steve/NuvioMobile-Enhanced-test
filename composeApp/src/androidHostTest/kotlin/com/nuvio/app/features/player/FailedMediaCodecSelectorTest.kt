@@ -55,7 +55,8 @@ class FailedMediaCodecSelectorTest {
         val failedSecure = codec("codec.avc.hw", secure = true)
         val alternateSecure = codec("codec.avc.alt", secure = true)
         val nonSecureVariant = codec("codec.avc.hw", secure = false)
-        val delegate = FixedMediaCodecSelector(listOf(failedSecure, alternateSecure, nonSecureVariant))
+        val alternateNonSecure = codec("codec.avc.alt", secure = false)
+        val delegate = FixedMediaCodecSelector(listOf(failedSecure, alternateSecure, nonSecureVariant, alternateNonSecure))
         val selector = FailedMediaCodecSelector(delegate, setOf(failedSecure.failedMediaCodecIdentity()))
 
         assertEquals(
@@ -67,7 +68,7 @@ class FailedMediaCodecSelectorTest {
             ),
         )
         assertEquals(
-            listOf(nonSecureVariant),
+            listOf(alternateNonSecure),
             selector.getDecoderInfos(
                 MimeTypes.VIDEO_H264,
                 requiresSecureDecoder = false,
