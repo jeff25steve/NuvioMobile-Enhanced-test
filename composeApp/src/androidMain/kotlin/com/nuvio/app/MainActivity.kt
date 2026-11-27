@@ -24,7 +24,6 @@ import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.nuvio.app.core.auth.AuthStorage
-import com.nuvio.app.core.auth.AndroidSupabaseSessionStorage
 import com.nuvio.app.core.network.ServerConfigurationStorage
 import com.nuvio.app.core.diagnostics.SentryInitializer
 import com.nuvio.app.core.deeplink.handleAppUrl
@@ -151,7 +150,6 @@ open class MainActivity : AppCompatActivity() {
             AddonHttpClientProvider.initialize(applicationContext)
             AddonStorage.initialize(applicationContext)
             AuthStorage.initialize(applicationContext)
-            AndroidSupabaseSessionStorage.initialize(applicationContext)
             ServerConfigurationStorage.initialize(applicationContext)
         }
         traceStartupSection("Nuvio.Startup.coreStorage") {
