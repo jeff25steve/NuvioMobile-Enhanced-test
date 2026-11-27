@@ -12,8 +12,6 @@ internal interface SupabaseSessionStorage {
 
     suspend fun writeEncrypted(key: String, value: String)
 
-    suspend fun deleteEncrypted(key: String)
-
     suspend fun readLegacy(key: String): String?
 
     suspend fun deleteLegacy(key: String)
