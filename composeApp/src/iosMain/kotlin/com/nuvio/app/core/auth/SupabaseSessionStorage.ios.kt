@@ -67,7 +67,7 @@ internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
                 result.value = null
                 val status = SecItemCopyMatching(query, result.ptr)
                 if (status == errSecItemNotFound) {
-                    result.value?.let(::CFRelease)
+                    result.value?.let { CFRelease(it) }
                     return@memScoped null
                 }
                 check(status == errSecSuccess) {
