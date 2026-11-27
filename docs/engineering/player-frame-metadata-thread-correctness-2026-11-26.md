@@ -100,13 +100,13 @@ An Exa search did not surface a credible, more authoritative Reddit/X implementa
 
 The source fix removes the exact forbidden getter call identified by the original stack trace, and the later callback-signature mismatch has been corrected. However:
 
-- The Android run #141 must finish successfully before the full APK/profile-bundle workflow can be called green.
+- Android run #141 has now completed successfully for source commit `761995c639b643a923e7b23a34b2250feafcefda`; see the CI verification update in section 9.
 - Real playback on a physical Android device must still confirm that the original runtime exception no longer occurs with the affected stream and decoder path.
 - The host test verifies snapshot state/identity policy; it does not instantiate Media3's renderer callback or assert the runtime thread itself.
 - The AndroidView listener is also updated during player replacement. A detached player may have an already-queued frame callback; any future change to callback ownership must preserve per-player/attempt isolation without reintroducing Player getters on the playback thread.
 - No Media3 upgrade, new dependency or decoder/retry behavior change is part of this correction.
 
-Do not declare the playback problem fully runtime-validated until the current CI run completes and the original stream is exercised on-device with fresh logs.
+The Android CI build is green for the source commit above, but do not declare the playback problem fully runtime-validated until the original stream is exercised on a physical device with fresh logs.
 
 ## 8. Adjacent lifecycle hardening identified during review
 
@@ -120,3 +120,16 @@ A separate, lower-severity callback-ownership race remains a candidate for a fol
 A safe follow-up design is to give each attached listener its own callback holder (backed by `AtomicReference`), update the player binding before updating that holder in AndroidView's update block, and have the listener capture that holder rather than a view-wide mutable callback. That allows same-player recompositions to update the active holder while callbacks from a detached player's listener retain the old holder. Add host tests for both same-player callback updates and old/new holder isolation before changing production code.
 
 **This follow-up is not committed.** The user's current request authorized verification of the player-thread fix, but not an additional source change that would trigger a new Android CI run. The current wrong-thread cause is addressed; this separate diagnostic-attribution race remains a hardening item and should be resolved in a separately authorized code/CI pass.
+
+
+## 9. CI completion update — 26 November 2026
+
+The previously pending Android CI run completed successfully:
+
+- [GitHub Actions run #141](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45892214232) built branch `main-build-testing` at source commit `761995c639b643a923e7b23a34b2250feafcefda`.
+- The Android host regression tests passed.
+- All four APK-pair build groups passed: full profile-capture, Play Store profile-capture, full R8 benchmark and Play Store R8 benchmark.
+- Phone-ready bundle assembly/validation and all three artifact uploads passed.
+- The complete workflow job concluded `success`; the runbook records the exact artifact names and sizes.
+
+This closes the CI verification item in section 7. It does **not** close the physical-device runtime validation item: the affected stream still needs to be exercised on a device with fresh playback logs. The separate callback-ownership race described in section 8 also remains a documented hardening candidate and was not changed by this build.
