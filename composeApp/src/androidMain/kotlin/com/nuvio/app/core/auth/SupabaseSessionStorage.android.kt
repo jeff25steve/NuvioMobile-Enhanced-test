@@ -73,12 +73,6 @@ internal object AndroidSupabaseSessionStorage : SupabaseSessionStorage {
         }
     }
 
-    override suspend fun deleteEncrypted(key: String) = withContext(Dispatchers.IO) {
-        check(securePreferences().edit().remove(key).commit()) {
-            "Unable to delete encrypted Supabase session"
-        }
-    }
-
     override suspend fun readLegacy(key: String): String? = withContext(Dispatchers.IO) {
         legacyPreferences().getString(key, null)
     }
