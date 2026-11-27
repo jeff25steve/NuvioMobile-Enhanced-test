@@ -14,6 +14,7 @@ import coil3.request.CachePolicy
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
 import com.nuvio.app.core.network.DnsPlatform
+import com.nuvio.app.core.auth.AndroidSupabaseSessionStorage
 import com.nuvio.app.core.network.SharedOkHttpClient
 import com.nuvio.app.core.network.NetworkErrorInterceptor
 import com.nuvio.app.core.poster.CustomPosterFallbackInterceptor
@@ -32,6 +33,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        AndroidSupabaseSessionStorage.initialize(this)
         DnsPlatform.initialize(this)
     }
 
