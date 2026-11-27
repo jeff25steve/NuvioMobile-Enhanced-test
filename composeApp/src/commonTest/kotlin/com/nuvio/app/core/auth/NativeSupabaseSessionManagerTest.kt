@@ -87,6 +87,7 @@ class NativeSupabaseSessionManagerTest {
         assertFailsWith<IllegalStateException> { manager.deleteSession() }
         assertEquals(NativeSupabaseSessionManager.DELETED_SESSION_MARKER, storage.encryptedValue)
         assertNotNull(storage.legacyValue)
+        storage.failLegacyDelete = false
         assertFailsWith<NoSessionFoundException> { manager.loadSession() }
     }
 
