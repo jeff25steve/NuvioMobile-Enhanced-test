@@ -580,6 +580,7 @@ fun SettingsScreen(
                         homescreenHeroTrailerStartUnmuted = homescreenSettingsUiState.heroTrailerStartUnmuted,
                         homescreenShowCatalogType = homescreenSettingsUiState.showCatalogType,
                         homescreenHideUnreleasedContent = homescreenSettingsUiState.hideUnreleasedContent,
+                        homescreenShuffleCatalogPosters = homescreenSettingsUiState.shuffleCatalogPosters,
                         homescreenItems = homescreenSettingsUiState.items,
                         homescreenCatalogLoading = addonManifestsLoading,
                         homescreenCatalogErrorMessage = addonManifestErrorMessage,
@@ -638,6 +639,7 @@ fun SettingsScreen(
                         homescreenHeroTrailerStartUnmuted = homescreenSettingsUiState.heroTrailerStartUnmuted,
                         homescreenShowCatalogType = homescreenSettingsUiState.showCatalogType,
                         homescreenHideUnreleasedContent = homescreenSettingsUiState.hideUnreleasedContent,
+                        homescreenShuffleCatalogPosters = homescreenSettingsUiState.shuffleCatalogPosters,
                         homescreenItems = homescreenSettingsUiState.items,
                         homescreenCatalogLoading = addonManifestsLoading,
                         homescreenCatalogErrorMessage = addonManifestErrorMessage,
@@ -707,6 +709,7 @@ private fun MobileSettingsScreen(
     homescreenHeroTrailerStartUnmuted: Boolean,
     homescreenShowCatalogType: Boolean,
     homescreenHideUnreleasedContent: Boolean,
+    homescreenShuffleCatalogPosters: Boolean,
     homescreenItems: List<HomeCatalogSettingsItem>,
     homescreenCatalogLoading: Boolean,
     homescreenCatalogErrorMessage: String?,
@@ -885,6 +888,7 @@ private fun MobileSettingsScreen(
                                 homeHeroSourcesAvailable = homescreenHeroEnabled &&
                                     homescreenItems.any { !it.isCollection },
                                 homeCatalogsAvailable = homescreenItems.isNotEmpty(),
+                                homeCatalogShuffleAvailable = homescreenItems.any { !it.isCollection },
                                 homeHeroEnabled = homescreenHeroEnabled,
                                 homeHeroTrailerPlaybackSettingAvailable =
                                     AppFeaturePolicy.heroTrailerPlaybackSupported &&
@@ -1048,6 +1052,7 @@ private fun MobileSettingsScreen(
                     heroTrailerStartUnmuted = homescreenHeroTrailerStartUnmuted,
                     showCatalogType = homescreenShowCatalogType,
                     hideUnreleasedContent = homescreenHideUnreleasedContent,
+                    shuffleCatalogPosters = homescreenShuffleCatalogPosters,
                     items = homescreenItems,
                     isCatalogLoading = homescreenCatalogLoading,
                     catalogErrorMessage = homescreenCatalogErrorMessage,
@@ -1194,6 +1199,7 @@ private fun TabletSettingsScreen(
     homescreenHeroTrailerStartUnmuted: Boolean,
     homescreenShowCatalogType: Boolean,
     homescreenHideUnreleasedContent: Boolean,
+    homescreenShuffleCatalogPosters: Boolean,
     homescreenItems: List<HomeCatalogSettingsItem>,
     homescreenCatalogLoading: Boolean,
     homescreenCatalogErrorMessage: String?,
@@ -1417,6 +1423,7 @@ private fun TabletSettingsScreen(
                                     homeHeroSourcesAvailable = homescreenHeroEnabled &&
                                         homescreenItems.any { !it.isCollection },
                                     homeCatalogsAvailable = homescreenItems.isNotEmpty(),
+                                     homeCatalogShuffleAvailable = homescreenItems.any { !it.isCollection },
                                     homeHeroEnabled = homescreenHeroEnabled,
                                     homeHeroTrailerPlaybackSettingAvailable =
                                         AppFeaturePolicy.heroTrailerPlaybackSupported &&
@@ -1580,6 +1587,7 @@ private fun TabletSettingsScreen(
                         heroTrailerStartUnmuted = homescreenHeroTrailerStartUnmuted,
                         showCatalogType = homescreenShowCatalogType,
                         hideUnreleasedContent = homescreenHideUnreleasedContent,
+                        shuffleCatalogPosters = homescreenShuffleCatalogPosters,
                         items = homescreenItems,
                         isCatalogLoading = homescreenCatalogLoading,
                         catalogErrorMessage = homescreenCatalogErrorMessage,

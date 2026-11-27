@@ -1242,10 +1242,14 @@ fun HomeScreen(
                                 val section = sectionsMap[settingsItem.key]
                                 if (section != null && section.items.isNotEmpty()) {
                                     item(key = keyedSettingsItem.lazyKey, contentType = HOME_CATALOG_ROW_CONTENT_TYPE) {
+                                        val previewEntries = remember(section.items) {
+                                            section.items.take(HOME_CATALOG_PREVIEW_LIMIT)
+                                        }
                                         HomeCatalogRowSection(
                                             section = section,
-                                            entries = section.items.take(HOME_CATALOG_PREVIEW_LIMIT),
+                                            entries = previewEntries,
                                             modifier = Modifier.padding(bottom = 12.dp),
+                                            shufflePosters = homeSettingsUiState.shuffleCatalogPosters,
                                             sectionPadding = homeSectionPadding,
                                             onViewAllClick = if (section.canOpenCatalog(HOME_CATALOG_PREVIEW_LIMIT)) {
                                                 onCatalogClick?.let { { it(section) } }

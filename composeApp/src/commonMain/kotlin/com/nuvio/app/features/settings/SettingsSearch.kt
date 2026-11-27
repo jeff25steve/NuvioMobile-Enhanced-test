@@ -145,7 +145,7 @@ internal fun settingsSearchAnchor(
             "home-hero-trailer-playback", "home-hero-trailer-start-unmuted",
             "home-hero-trailer-start-delay" -> 1
             "home-hero-sources" -> 2
-            "home-catalogs" -> 3
+            "home-catalogs", "home-shuffle-catalog-posters" -> 3
             else -> return null
         }
         SettingsPage.PosterCustomization -> when (key) {
@@ -507,6 +507,7 @@ internal fun settingsSearchEntries(
     trackingSimklConnected: Boolean,
     homeHeroSourcesAvailable: Boolean,
     homeCatalogsAvailable: Boolean,
+    homeCatalogShuffleAvailable: Boolean,
     homeHeroEnabled: Boolean,
     homeHeroTrailerPlaybackSettingAvailable: Boolean,
     homeHeroTrailerPlaybackEnabled: Boolean,
@@ -1972,6 +1973,22 @@ internal fun settingsSearchEntries(
             title = stringResource(Res.string.settings_homescreen_section_hero_sources),
             pageLabel = homeLayoutPage,
             section = stringResource(Res.string.settings_homescreen_section_hero_sources),
+        )
+    }
+    if (homeCatalogShuffleAvailable) {
+        addRow(
+            page = SettingsPage.Homescreen,
+            key = "home-shuffle-catalog-posters",
+            title = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters),
+            description = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters_description),
+            pageLabel = homeLayoutPage,
+            section = stringResource(Res.string.settings_homescreen_section_catalogs),
+            searchTerms = listOf(
+                "shuffle posters", "random posters", "random poster order", "poster order",
+                "mix up posters", "new poster order", "different poster order",
+                "shuffle", "reshuffle posters", "poster shuffle", "random order",
+                "randomize posters", "randomise posters",
+            ),
         )
     }
     if (homeCatalogsAvailable) {

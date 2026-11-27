@@ -57,6 +57,7 @@ internal data class HomeCatalogSettingsUiState(
     val showCatalogType: Boolean = true,
     val hideUnreleasedContent: Boolean = false,
     val items: List<HomeCatalogSettingsItem> = emptyList(),
+    val shuffleCatalogPosters: Boolean = false,
 ) {
     val signature: String
         get() = buildString {
@@ -73,6 +74,8 @@ internal data class HomeCatalogSettingsUiState(
             append(showCatalogType)
             append('|')
             append(hideUnreleasedContent)
+            append('|')
+            append(shuffleCatalogPosters)
             append('|')
             append(
                 items.joinToString(separator = "|") { item ->
@@ -131,6 +134,7 @@ internal data class HomeCatalogSettingsSnapshot(
     val showCatalogType: Boolean,
     val hideUnreleasedContent: Boolean,
     val preferences: Map<String, HomeCatalogPreference>,
+    val shuffleCatalogPosters: Boolean = false,
 )
 
 @Serializable
@@ -155,6 +159,7 @@ private data class StoredHomeCatalogSettingsPayload(
     val hideUnreleasedContent: Boolean = false,
     val items: List<StoredHomeCatalogPreference> = emptyList(),
     val heroSourcesChosen: Boolean? = null,
+    val shuffleCatalogPosters: Boolean = false,
 )
 
 object HomeCatalogSettingsRepository {
@@ -193,6 +198,7 @@ object HomeCatalogSettingsRepository {
     private var heroTrailerStartUnmuted = false
     private var showCatalogType = true
     private var hideUnreleasedContent = false
+    private var shuffleCatalogPosters = false
     private var heroSourcesChosen = false
 
     fun onProfileChanged() {
@@ -206,6 +212,7 @@ object HomeCatalogSettingsRepository {
         heroTrailerStartUnmuted = false
         showCatalogType = true
         hideUnreleasedContent = false
+        shuffleCatalogPosters = false
         heroSourcesChosen = false
         definitions = emptyList()
         collectionDefinitions = emptyList()
@@ -229,6 +236,7 @@ object HomeCatalogSettingsRepository {
         heroTrailerStartUnmuted = false
         showCatalogType = true
         hideUnreleasedContent = false
+        shuffleCatalogPosters = false
         heroSourcesChosen = false
         _uiState.value = HomeCatalogSettingsUiState()
     }
@@ -300,6 +308,7 @@ object HomeCatalogSettingsRepository {
             heroStyle = heroStyle,
             showCatalogType = showCatalogType,
             hideUnreleasedContent = hideUnreleasedContent,
+            shuffleCatalogPosters = shuffleCatalogPosters,
             preferences = preferences.mapValues { (_, value) ->
                 HomeCatalogPreference(
                     customTitle = value.customTitle,
@@ -383,6 +392,17 @@ object HomeCatalogSettingsRepository {
         HomeCatalogSettingsSyncService.triggerPush()
     }
 
+    fun setShuffleCatalogPosters(enabled: Boolean) {
+        ensureLoaded()
+        if (shuffleCatalogPosters == enabled) return
+        // HomeScreen observes this settings flow directly; no catalog refresh or HomeRepository
+        // republish is required to reorder the already-loaded preview list.
+        shuffleCatalogPosters = enabled
+        publish()
+        persist()
+        HomeCatalogSettingsSyncService.triggerPush()
+    }
+
     fun setHeroSourceEnabled(key: String, enabled: Boolean) {
         ensureLoaded()
         if (!heroSourcesChosen) {
@@ -439,6 +459,7 @@ object HomeCatalogSettingsRepository {
         showCatalogType = true
         hideUnreleasedContent = false
         heroSourcesChosen = false
+        shuffleCatalogPosters = false
         preferences = emptyMap()
         normalizePreferences()
         publish()
@@ -544,6 +565,7 @@ object HomeCatalogSettingsRepository {
             heroTrailerStartUnmuted = parsedPayload.heroTrailerStartUnmuted
             showCatalogType = parsedPayload.showCatalogType
             hideUnreleasedContent = parsedPayload.hideUnreleasedContent
+            shuffleCatalogPosters = parsedPayload.shuffleCatalogPosters
             preferences = parsedPayload.items.associateBy { it.key }
             heroSourcesChosen = parsedPayload.heroSourcesChosen ?: hasStoredHeroChoice(parsedPayload.items)
             publish()
@@ -674,6 +696,7 @@ object HomeCatalogSettingsRepository {
             heroTrailerStartUnmuted = heroTrailerStartUnmuted,
             showCatalogType = showCatalogType,
             hideUnreleasedContent = hideUnreleasedContent,
+            shuffleCatalogPosters = shuffleCatalogPosters,
             items = items,
         )
     }
@@ -689,6 +712,7 @@ object HomeCatalogSettingsRepository {
                     heroTrailerStartUnmuted = heroTrailerStartUnmuted,
                     showCatalogType = showCatalogType,
                     hideUnreleasedContent = hideUnreleasedContent,
+                    shuffleCatalogPosters = shuffleCatalogPosters,
                     items = preferences.values.sortedBy { it.order },
                     heroSourcesChosen = heroSourcesChosen,
                 ),
@@ -791,6 +815,7 @@ object HomeCatalogSettingsRepository {
         return SyncHomeCatalogPayload(
             showCatalogType = showCatalogType,
             hideUnreleasedContent = hideUnreleasedContent,
+            shuffleCatalogPosters = shuffleCatalogPosters,
             items = items,
         )
     }
@@ -799,6 +824,7 @@ object HomeCatalogSettingsRepository {
         ensureLoaded()
         showCatalogType = payload.showCatalogType
         hideUnreleasedContent = payload.hideUnreleasedContent
+        payload.shuffleCatalogPosters?.let { shuffleCatalogPosters = it }
         if (payload.items.isNotEmpty()) {
             val existingHeroState = preferences.mapValues { it.value.heroSourceEnabled }
             val hasHeroChoice = existingHeroState.any { (key, enabled) -> enabled && !key.startsWith("collection_") }

@@ -390,6 +390,7 @@ class SettingsSearchAnchorTest {
             Triple(SettingsPage.Homescreen, "home-hero", 1),
             Triple(SettingsPage.Homescreen, "home-catalog-type", 1),
             Triple(SettingsPage.Homescreen, "home-hide-unreleased", 1),
+            Triple(SettingsPage.Homescreen, "home-shuffle-catalog-posters", 3),
             Triple(SettingsPage.DebugLogs, "debug-copy-logs", 0),
             Triple(SettingsPage.DebugLogs, "debug-clear-logs", 0),
             Triple(SettingsPage.DebugLogs, "debug-log-viewer", 0),

@@ -804,6 +804,8 @@
     <string name="settings_appearance_section_theme">THEME</string>
     <string name="settings_homescreen_collection_with_addon">Collection • %1$s</string>
     <string name="settings_homescreen_display_name">Display Name</string>
+    <string name="settings_homescreen_shuffle_catalog_posters">Shuffle catalog posters</string>
+    <string name="settings_homescreen_shuffle_catalog_posters_description">Mix up posters within each catalog. Their order changes when Nuvio restarts, while the catalog shelves stay put.</string>
     <string name="settings_homescreen_catalog_title_appearance">Catalog title appearance</string>
     <string name="settings_homescreen_catalog_title_appearance_description">Change the font, size and colour of catalog headings on your home screen.</string>
     <string name="settings_homescreen_customize_title">Customize title</string>

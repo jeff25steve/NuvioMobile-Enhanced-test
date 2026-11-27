@@ -36,6 +36,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], application = Application::class)
@@ -197,6 +198,61 @@ class HomeCatalogSettingsRepositoryTest {
             HomeCatalogTitleStyle.DEFAULT,
             HomeCatalogSettingsRepository.uiState.value.items.single { it.key == key }.titleStyle,
         )
+    }
+
+    @Test
+    fun shuffleCatalogPostersDefaultsOffPersistsAndAppliesLegacySyncSafely() = runTest {
+        val addons = listOf(addon())
+        val key = "test:movie:popular"
+        HomeCatalogSettingsRepository.syncCatalogs(addons)
+
+        assertFalse(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+        assertEquals(false, HomeCatalogSettingsRepository.exportToSyncPayload().shuffleCatalogPosters)
+
+        HomeCatalogSettingsRepository.setShuffleCatalogPosters(true)
+        assertTrue(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+        assertEquals(true, HomeCatalogSettingsRepository.exportToSyncPayload().shuffleCatalogPosters)
+
+        // Simulate a settings screen recreation/reload from the same local profile store.
+        HomeCatalogSettingsRepository.clearLocalState()
+        HomeCatalogSettingsRepository.syncCatalogs(addons)
+        assertTrue(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+
+        // Old clients omit the field; they must not reset the local choice.
+        HomeCatalogSettingsRepository.applyFromRemote(
+            SyncHomeCatalogPayload(
+                items = listOf(
+                    SyncCatalogItem(
+                        addonId = "test",
+                        type = "movie",
+                        catalogId = "popular",
+                        key = key,
+                    ),
+                ),
+            ),
+        )
+        assertTrue(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+
+        // An explicit false from a new client is an intentional change.
+        HomeCatalogSettingsRepository.applyFromRemote(
+            SyncHomeCatalogPayload(
+                shuffleCatalogPosters = false,
+                items = listOf(
+                    SyncCatalogItem(
+                        addonId = "test",
+                        type = "movie",
+                        catalogId = "popular",
+                        key = key,
+                    ),
+                ),
+            ),
+        )
+        assertFalse(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+
+        HomeCatalogSettingsRepository.setShuffleCatalogPosters(true)
+        HomeCatalogSettingsRepository.resetToDefaults()
+        assertFalse(HomeCatalogSettingsRepository.uiState.value.shuffleCatalogPosters)
+        assertEquals(false, HomeCatalogSettingsRepository.exportToSyncPayload().shuffleCatalogPosters)
     }
 
     @Test

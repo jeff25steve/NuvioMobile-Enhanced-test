@@ -19,8 +19,10 @@ import com.nuvio.app.core.ui.NuvioViewAllPillSize
 import com.nuvio.app.core.ui.PosterRowImagePrefetchEffect
 import com.nuvio.app.core.ui.rememberPosterCardStyleUiState
 import com.nuvio.app.core.ui.nuvio
+import com.nuvio.app.features.home.HomeCatalogPosterShuffleSession
 import com.nuvio.app.features.home.HomeCatalogSection
 import com.nuvio.app.features.home.homeCatalogTitleColorArgb
+import com.nuvio.app.features.home.orderCatalogPosters
 import com.nuvio.app.features.home.MetaPreview
 import com.nuvio.app.features.player.rememberSubtitleFontFamily
 import com.nuvio.app.features.home.stableKey
@@ -37,6 +39,7 @@ fun HomeCatalogRowSection(
     onViewAllClick: (() -> Unit)? = null,
     onPosterClick: ((MetaPreview) -> Unit)? = null,
     onPosterLongClick: ((MetaPreview) -> Unit)? = null,
+    shufflePosters: Boolean = false,
 ) {
     if (sectionPadding != null) {
         HomeCatalogRowSectionContent(
@@ -49,6 +52,7 @@ fun HomeCatalogRowSection(
             onViewAllClick = onViewAllClick,
             onPosterClick = onPosterClick,
             onPosterLongClick = onPosterLongClick,
+            shufflePosters = shufflePosters,
         )
     } else {
         BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -62,6 +66,7 @@ fun HomeCatalogRowSection(
                 onViewAllClick = onViewAllClick,
                 onPosterClick = onPosterClick,
                 onPosterLongClick = onPosterLongClick,
+                shufflePosters = shufflePosters,
             )
         }
     }
@@ -78,9 +83,20 @@ private fun HomeCatalogRowSectionContent(
     onViewAllClick: (() -> Unit)?,
     onPosterClick: ((MetaPreview) -> Unit)?,
     onPosterLongClick: ((MetaPreview) -> Unit)?,
+    shufflePosters: Boolean,
 ) {
     val posterCardStyle = rememberPosterCardStyleUiState()
     val rowState = rememberLazyListState()
+    val sessionSeed = if (shufflePosters) HomeCatalogPosterShuffleSession.seed else 0L
+    val displayEntries = remember(entries, section.key, shufflePosters, sessionSeed) {
+        orderCatalogPosters(
+            items = entries,
+            catalogKey = section.key,
+            sessionSeed = sessionSeed,
+            enabled = shufflePosters,
+            stableKey = { item -> item.stableKey() },
+        )
+    }
     val titleStyle = section.titleStyle.normalized()
     val titleTokens = MaterialTheme.nuvio.colors
     val darkBackground = titleTokens.textPrimary.luminance() > 0.5f
@@ -99,8 +115,8 @@ private fun HomeCatalogRowSectionContent(
             fontWeight = if (titleStyle.bold) FontWeight.Bold else FontWeight.SemiBold,
         )
     }
-    val prefetchTargets = remember(entries, posterCardStyle) {
-        entries.map { item ->
+    val prefetchTargets = remember(displayEntries, posterCardStyle) {
+        displayEntries.map { item ->
             item.homePosterImages(posterCardStyle, useLandscapeBackdropMode = posterCardStyle.catalogLandscapeModeEnabled)
                 .toPrefetchTarget()
         }
@@ -111,7 +127,7 @@ private fun HomeCatalogRowSectionContent(
         title = section.title,
         titleTextStyle = titleTextStyle,
         titleColor = titleColor,
-        entries = entries,
+        entries = displayEntries,
         modifier = modifier,
         headerHorizontalPadding = sectionPadding,
         rowContentPadding = PaddingValues(horizontal = sectionPadding),

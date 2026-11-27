@@ -107,6 +107,7 @@ internal fun LazyListScope.homescreenSettingsContent(
     heroTrailerStartUnmuted: Boolean,
     showCatalogType: Boolean,
     hideUnreleasedContent: Boolean,
+    shuffleCatalogPosters: Boolean,
     items: List<HomeCatalogSettingsItem>,
     isCatalogLoading: Boolean,
     catalogErrorMessage: String?,
@@ -291,6 +292,19 @@ internal fun LazyListScope.homescreenSettingsContent(
                         )
                     },
                 ) {
+                    if (items.any { !it.isCollection }) {
+                        SettingsGroup(isTablet = isTablet) {
+                            SettingsSwitchRow(
+                                title = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters),
+                                description = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters_description),
+                                checked = shuffleCatalogPosters,
+                                isTablet = isTablet,
+                                searchAnchorKey = "home-shuffle-catalog-posters",
+                                highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                                onCheckedChange = HomeCatalogSettingsRepository::setShuffleCatalogPosters,
+                            )
+                        }
+                    }
                     val hapticFeedback = LocalHapticFeedback.current
                     val pinToMoveToast = stringResource(Res.string.settings_homescreen_pin_to_move_toast)
                     HomescreenCatalogList(
@@ -304,6 +318,19 @@ internal fun LazyListScope.homescreenSettingsContent(
                     )
                 }
             } else if (hiddenItems.isNotEmpty()) {
+                if (items.any { !it.isCollection }) {
+                    SettingsGroup(isTablet = isTablet) {
+                        SettingsSwitchRow(
+                            title = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters),
+                            description = stringResource(Res.string.settings_homescreen_shuffle_catalog_posters_description),
+                            checked = shuffleCatalogPosters,
+                            isTablet = isTablet,
+                            searchAnchorKey = "home-shuffle-catalog-posters",
+                            highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                            onCheckedChange = HomeCatalogSettingsRepository::setShuffleCatalogPosters,
+                        )
+                    }
+                }
                 HomeEmptyStateCard(
                     modifier = Modifier.fillMaxWidth(),
                     title = stringResource(Res.string.settings_homescreen_no_visible_rows_title),

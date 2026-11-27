@@ -8,8 +8,29 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class HomeCatalogSettingsSyncServiceTest {
+    @Test
+    fun `shuffle preference sync round trips and old payloads remain nullable`() {
+        val enabled = SyncHomeCatalogPayload(shuffleCatalogPosters = true)
+        val disabled = SyncHomeCatalogPayload(shuffleCatalogPosters = false)
+
+        assertEquals(
+            true,
+            Json.decodeFromString<SyncHomeCatalogPayload>(Json.encodeToString(enabled)).shuffleCatalogPosters,
+        )
+        assertEquals(
+            false,
+            Json.decodeFromString<SyncHomeCatalogPayload>(Json.encodeToString(disabled)).shuffleCatalogPosters,
+        )
+
+        val legacy = Json.decodeFromString<SyncHomeCatalogPayload>(
+            """{"show_catalog_type":true,"hide_unreleased_content":false,"items":[]}""",
+        )
+        assertNull(legacy.shuffleCatalogPosters)
+    }
+
     @Test
     fun `catalog title style sync round trips and old records remain readable`() {
         val style = HomeCatalogTitleStyle(

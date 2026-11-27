@@ -202,6 +202,41 @@ class SettingsSearchTest {
             }
     }
 
+    @Test
+    fun catalogPosterShuffleIsSearchableByPlainLanguageTerms() {
+        val shuffle = entry(
+            key = "home-shuffle-catalog-posters",
+            title = "Shuffle catalog posters",
+            description = "Mix up posters within each catalog. Their order changes when Nuvio restarts, while the catalog shelves stay put.",
+            page = "Home screen",
+            section = "Catalogs",
+            searchTerms = listOf(
+                "shuffle posters", "random posters", "random poster order",
+                "poster order", "mix up posters", "new poster order",
+                "different poster order", "reshuffle posters", "poster shuffle", "random order",
+                "randomize posters", "randomise posters",
+            ),
+        )
+        val index = SettingsSearchIndex(listOf(shuffle))
+        listOf(
+            "shuffle catalog posters",
+            "shuffle posters",
+            "random posters",
+            "random poster order",
+            "poster order",
+            "mix up posters",
+            "new poster order",
+            "different poster order",
+            "reshuffle posters",
+            "poster shuffle",
+            "random order",
+            "randomize posters",
+            "randomise posters",
+        ).forEach { query ->
+            assertEquals(listOf("home-shuffle-catalog-posters"), index.search(query).map { it.key }, "query='$query'")
+        }
+    }
+
     private fun allBinaryWords(maxLength: Int): List<String> = buildList {
         add("")
         var level = listOf("")

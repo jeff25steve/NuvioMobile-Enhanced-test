@@ -43,6 +43,7 @@ data class SyncHomeCatalogPayload(
     @SerialName("show_catalog_type") val showCatalogType: Boolean = true,
     @SerialName("hide_unreleased_content") val hideUnreleasedContent: Boolean = false,
     val items: List<SyncCatalogItem> = emptyList(),
+    @SerialName("shuffle_catalog_posters") val shuffleCatalogPosters: Boolean? = null,
 )
 
 @Serializable
@@ -79,6 +80,7 @@ object HomeCatalogSettingsSyncService {
 
     private const val HIDE_UNRELEASED_CONTENT_KEY = "hide_unreleased_content"
     private const val SHOW_CATALOG_TYPE_KEY = "show_catalog_type"
+    private const val SHUFFLE_CATALOG_POSTERS_KEY = "shuffle_catalog_posters"
 
     @Volatile
     var isSyncingFromRemote: Boolean = false
@@ -219,6 +221,11 @@ object HomeCatalogSettingsSyncService {
                 decoded.hideUnreleasedContent
             } else {
                 localPayload.hideUnreleasedContent
+            },
+            shuffleCatalogPosters = if (settingsJson.containsKey(SHUFFLE_CATALOG_POSTERS_KEY)) {
+                decoded.shuffleCatalogPosters ?: localPayload.shuffleCatalogPosters
+            } else {
+                localPayload.shuffleCatalogPosters
             },
         )
     }.getOrNull()
