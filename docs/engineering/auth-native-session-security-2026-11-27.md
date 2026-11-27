@@ -32,7 +32,7 @@ These versions match the Supabase Kotlin 3.9.0 version catalog. Kotlin remains 2
 
 - Session JSON is stored as a Keychain generic-password item.
 - The service is `com.nuvio.media.supabase.sessions`; the account is the backend-specific Supabase session key.
-- Accessibility is `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`: available while the device is unlocked and not migrated to another device through backup restore.
+- Accessibility is `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`: available after the first unlock following reboot, supporting background sync while remaining device-bound and excluded from migration to another device.
 - No biometric access-control flag is used. Normal token refresh does not prompt the user.
 
 ## Migration and sign-out safety
