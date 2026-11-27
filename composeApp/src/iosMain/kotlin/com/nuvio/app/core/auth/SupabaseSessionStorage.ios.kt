@@ -34,7 +34,7 @@ import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccount
 import platform.Security.kSecAttrAccessible
-import platform.Security.kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+import platform.Security.kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
 import platform.Security.kSecAttrService
 import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
@@ -49,9 +49,8 @@ internal actual fun createNativeSupabaseSessionStorage(): SupabaseSessionStorage
 /**
  * Stores session JSON as a Keychain generic-password item.
  *
- * WhenUnlockedThisDeviceOnly is intentional: Nuvio refreshes sessions while the app is active
- * and does not need to expose refresh tokens to background processes or migrate them to another
- * device through a backup restore.
+ * AfterFirstUnlockThisDeviceOnly allows Nuvio's background sync work to access the session after
+ * the user has unlocked the device once since boot, while preventing migration to another device.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
@@ -102,7 +101,7 @@ internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
             val updateStatus = SecItemUpdate(query, attributes)
             if (updateStatus == errSecItemNotFound) {
                 CFDictionarySetValue(query, kSecValueData, data)
-                CFDictionarySetValue(query, kSecAttrAccessible, kSecAttrAccessibleWhenUnlockedThisDeviceOnly)
+                CFDictionarySetValue(query, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly)
                 val addStatus = SecItemAdd(query, null)
                 if (addStatus == errSecDuplicateItem) {
                     // A concurrent writer inserted this account after our update lookup.
