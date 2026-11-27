@@ -2,6 +2,7 @@ package com.nuvio.app.core.auth
 
 import io.github.jan.supabase.auth.exception.NoSessionFoundException
 import io.github.jan.supabase.auth.user.UserSession
+import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -32,7 +33,7 @@ class NativeSupabaseSessionManagerTest {
         val restored = manager.loadSession()
 
         assertEquals(expected, restored)
-        assertEquals(storage.legacyValue, null)
+        assertNull(storage.legacyValue)
         assertNotNull(storage.encryptedValue)
     }
 
@@ -76,6 +77,20 @@ class NativeSupabaseSessionManagerTest {
     }
 
     @Test
+    fun interruptedLegacyDeletionCannotResurrectSignedOutSession() = kotlinx.coroutines.test.runTest {
+        val storage = FakeSupabaseSessionStorage().apply {
+            legacyValue = NativeSupabaseSessionManager.sessionJson.encodeToString(testSession())
+            failLegacyDelete = true
+        }
+        val manager = NativeSupabaseSessionManager("https://project.example", storage)
+
+        assertFailsWith<IllegalStateException> { manager.deleteSession() }
+        assertEquals(NativeSupabaseSessionManager.DELETED_SESSION_MARKER, storage.encryptedValue)
+        assertNotNull(storage.legacyValue)
+        assertFailsWith<NoSessionFoundException> { manager.loadSession() }
+    }
+
+    @Test
     fun backendUrlsUseSeparateStorageKeys() {
         val first = NativeSupabaseSessionManager.storageKeyFor("https://one.example/")
         val second = NativeSupabaseSessionManager.storageKeyFor("https://two.example/")
@@ -88,12 +103,14 @@ class NativeSupabaseSessionManagerTest {
         refreshToken = "test-refresh-token",
         expiresIn = 3600,
         tokenType = "bearer",
+        expiresAt = Instant.fromEpochMilliseconds(1_900_000_000_000),
     )
 
     private class FakeSupabaseSessionStorage : SupabaseSessionStorage {
         var encryptedValue: String? = null
         var legacyValue: String? = null
         var failWrites = false
+        var failLegacyDelete = false
 
         override suspend fun readEncrypted(key: String): String? = encryptedValue
 
@@ -109,6 +126,7 @@ class NativeSupabaseSessionManagerTest {
         override suspend fun readLegacy(key: String): String? = legacyValue
 
         override suspend fun deleteLegacy(key: String) {
+            check(!failLegacyDelete) { "simulated legacy cleanup failure" }
             legacyValue = null
         }
     }
