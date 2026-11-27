@@ -21,7 +21,7 @@ data class HomeCatalogTitleStyle(
 ) {
     fun normalized(): HomeCatalogTitleStyle = copy(
         fontId = fontId.takeIf {
-            it in BUILT_IN_FONT_IDS || it.matches(Regex("custom-[a-f0-9-]{36}"))
+            it in BUILT_IN_FONT_IDS || CUSTOM_FONT_ID_PATTERN.matches(it)
         } ?: "default",
         fontSizeSp = fontSizeSp.coerceIn(HOME_CATALOG_TITLE_MIN_SIZE_SP, HOME_CATALOG_TITLE_MAX_SIZE_SP),
         colorId = colorId?.takeIf { it in HOME_CATALOG_TITLE_COLOR_IDS },
@@ -35,6 +35,7 @@ data class HomeCatalogTitleStyle(
     }
 }
 
+private val CUSTOM_FONT_ID_PATTERN = Regex("custom-[a-f0-9-]{36}")
 internal val BUILT_IN_FONT_IDS = setOf("default", "sans", "serif", "mono")
 
 internal val HOME_CATALOG_TITLE_COLOR_IDS = listOf(

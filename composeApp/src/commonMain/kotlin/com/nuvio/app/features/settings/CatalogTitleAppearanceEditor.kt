@@ -61,6 +61,10 @@ internal fun CatalogTitleAppearanceEditor(
 ) {
     var showFonts by remember { mutableStateOf(false) }
     val normalized = style.normalized()
+    var pendingFontSize by remember(normalized.fontSizeSp) {
+        mutableStateOf(normalized.fontSizeSp.toFloat())
+    }
+    val previewStyle = normalized.copy(fontSizeSp = pendingFontSize.roundToInt()).normalized()
     val tokens = MaterialTheme.nuvio
     val darkBackground = tokens.colors.textPrimary.luminance() > 0.5f
     val selectedArgb = homeCatalogTitleColorArgb(normalized.colorId, darkBackground)
@@ -72,7 +76,7 @@ internal fun CatalogTitleAppearanceEditor(
     }
     val previewTextStyle = MaterialTheme.typography.titleLarge.copy(
         fontFamily = fontFamily,
-        fontSize = normalized.fontSizeSp.sp,
+        fontSize = previewStyle.fontSizeSp.sp,
         fontWeight = if (normalized.bold) FontWeight.Bold else FontWeight.SemiBold,
     )
     val fontSizeAccessibilityLabel = stringResource(Res.string.settings_homescreen_title_size)
@@ -123,9 +127,10 @@ internal fun CatalogTitleAppearanceEditor(
                 )
             }
             Slider(
-                value = normalized.fontSizeSp.toFloat(),
-                onValueChange = { value ->
-                    onStyleChanged(normalized.copy(fontSizeSp = value.roundToInt()).normalized())
+                value = pendingFontSize,
+                onValueChange = { value -> pendingFontSize = value },
+                onValueChangeFinished = {
+                    onStyleChanged(normalized.copy(fontSizeSp = pendingFontSize.roundToInt()).normalized())
                 },
                 valueRange = HOME_CATALOG_TITLE_MIN_SIZE_SP.toFloat()..HOME_CATALOG_TITLE_MAX_SIZE_SP.toFloat(),
                 steps = HOME_CATALOG_TITLE_MAX_SIZE_SP - HOME_CATALOG_TITLE_MIN_SIZE_SP - 1,
