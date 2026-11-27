@@ -56,7 +56,7 @@ Migration is lazy, on the first session load:
 6. Compare the restored session with the legacy session.
 7. Delete the legacy plaintext value only after verification succeeds.
 
-A failed write, decrypt, decode or verification never deletes the only legacy copy. An unreadable native item is not treated as missing and never falls back to an older plaintext copy.
+A failed write, decrypt, decode or verification never deletes the only legacy copy. An unreadable native item is not treated as missing by the Nuvio SessionManager and never falls back to an older plaintext copy. One SDK limitation remains: Supabase Kotlin 3.9.0's `AuthImpl.loadFromStorage` catches any thrown `Throwable`, logs it, and returns `false`; it does not expose the storage failure as a distinct session status. The encrypted/legacy data is preserved, but the SDK may temporarily behave as if no session was restored until a later load succeeds. A follow-up SDK-level change is needed to expose storage failures distinctly to the app.
 
 Sign-out writes an encrypted tombstone before removing the legacy value. This prevents an interrupted legacy deletion from resurrecting an old refresh token on the next launch. A later successful sign-in overwrites the tombstone with the new session.
 
