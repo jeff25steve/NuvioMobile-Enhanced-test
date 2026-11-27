@@ -26,7 +26,7 @@ These versions match the Supabase Kotlin 3.9.0 version catalog. Kotlin remains 2
 - Ciphertext is stored in the app-private `nuvio_secure_supabase_sessions` SharedPreferences file.
 - The storage key (which includes the normalized Supabase backend URL) is authenticated as GCM additional authenticated data, preventing ciphertext from being moved between backend entries.
 - Preference writes use synchronous `commit()` inside `Dispatchers.IO` so the SessionManager does not report a successful save before persistence completes.
-- The application context is initialized in `MainActivity` before the app runtime creates the Supabase client.
+- The application context is initialized in `NuvioApplication.onCreate`, before activities or background workers can create the Supabase client.
 
 ### iOS
 
