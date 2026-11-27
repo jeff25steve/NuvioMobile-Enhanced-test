@@ -66,12 +66,10 @@ internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
                 val result = alloc<CFTypeRefVar>()
                 result.value = null
                 val status = SecItemCopyMatching(query, result.ptr)
-                if (status == errSecItemNotFound) {
+                if (status != errSecSuccess) {
                     result.value?.let { CFRelease(it) }
-                    return@memScoped null
-                }
-                check(status == errSecSuccess) {
-                    "Unable to read protected Supabase session (OSStatus $status)"
+                    if (status == errSecItemNotFound) return@memScoped null
+                    error("Unable to read protected Supabase session (OSStatus $status)")
                 }
 
                 val data: CFDataRef = result.value?.reinterpret()
@@ -145,7 +143,10 @@ internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
         NSUserDefaults.standardUserDefaults.stringForKey(key)
 
     override suspend fun deleteLegacy(key: String) {
-        NSUserDefaults.standardUserDefaults.removeObjectForKey(key)
+        val defaults = NSUserDefaults.standardUserDefaults
+        if (defaults.objectForKey(key) != null) {
+            defaults.removeObjectForKey(key)
+        }
     }
 
     private fun createQuery(key: String): CFMutableDictionaryRef =
