@@ -6,7 +6,7 @@
 
 ## 1. Proven successful reference runs
 
-There are **two independently verified successful runs** of this workflow on 26 November. They used different branches and commits. Do not collapse them into one branch history.
+There are **three independently verified successful runs** of this workflow on 26 November. Runs #138 and #141 built `main-build-testing` directly; run #139 built the separate CI/preflight branch. They used different branches and commits. Do not collapse them into one branch history.
 
 ### Run #139 — successful preflight/CI branch build (the screenshot-confirmed run)
 
@@ -40,6 +40,30 @@ The screenshot supplied by the user confirms the run title, successful status, b
 | Commit built | `487076e34e7064926dde182ac4279fab69c4cc80` |
 | Job | `Build phone-ready R8 and profile-capture APKs` |
 | Result | Job and all listed steps completed successfully |
+
+### Run #141 — latest successful direct build on main-build-testing
+
+| Field | Verified value |
+|---|---|
+| Branch that actually built | `main-build-testing` |
+| GitHub Actions run | [#141 — successful, 3 artifacts](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45892214232) |
+| Run ID | `45892214232` |
+| Trigger | `push` |
+| Commit built | `761995c639b643a923e7b23a34b2250feafcefda` |
+| Commit message | `fix(player): align frame metadata callback signature` |
+| Run time | 26 November 2026, 20:36:01–21:16:52 UTC |
+| Job | `Build phone-ready R8 and profile-capture APKs` |
+| Result | Job and every listed step completed successfully |
+| Artifacts | 3; all present and not expired at verification time |
+
+The GitHub Actions API confirms the exact branch, push event, commit SHA and successful conclusion. The stale-source guard, Java/Gradle checks, script validation, Android host regression tests, Rust target/cache setup, all four APK-pair build groups, diagnostics collection, phone-ready bundle assembly/validation and artifact uploads all passed. `cargo-ndk` installation was correctly skipped because its cache was available.
+
+Uploaded artifacts:
+- `nuvio-android-startup-profile-761995c639b643a923e7b23a34b2250feafcefda` — phone-ready bundle (380,273,191 bytes).
+- `nuvio-android-startup-build-diagnostics-761995c639b643a923e7b23a34b2250feafcefda` — build diagnostics (5,166,617 bytes).
+- `nuvio-android-startup-full-profile-checkpoint-761995c639b643a923e7b23a34b2250feafcefda` — early full-profile checkpoint (9,933 bytes).
+
+This run verifies the Android CI workflow and phone-ready APK bundle for commit `761995c`. It does not establish physical-device playback correctness or an iOS build result. The current branch subsequently advanced with a documentation-only commit; the successful run above built the exact source commit shown in the table.
 
 ### Branch-selection lesson
 
@@ -238,6 +262,7 @@ The workflow should be run as a single, ordered evidence-gathering pipeline, not
 
 ## 8. Source links
 
+- [Latest successful GitHub Actions run #141](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45892214232)
 - [Successful GitHub Actions run #138](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45879964256)
 - [Exact workflow file at the successful commit](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/487076e34e7064926dde182ac4279fab69c4cc80/.github/workflows/android-startup-profile-benchmark-ci.yml)
 - [Gradle wrapper at the successful commit](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/blob/487076e34e7064926dde182ac4279fab69c4cc80/gradle/wrapper/gradle-wrapper.properties)
