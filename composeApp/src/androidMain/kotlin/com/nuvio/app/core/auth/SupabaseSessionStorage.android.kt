@@ -84,8 +84,11 @@ internal object AndroidSupabaseSessionStorage : SupabaseSessionStorage {
     }
 
     override suspend fun deleteLegacy(key: String) = withContext(Dispatchers.IO) {
-        check(legacyPreferences().edit().remove(key).commit()) {
-            "Unable to remove legacy Supabase session"
+        val preferences = legacyPreferences()
+        if (preferences.contains(key)) {
+            check(preferences.edit().remove(key).commit()) {
+                "Unable to remove legacy Supabase session"
+            }
         }
     }
 
