@@ -182,6 +182,26 @@ class SettingsSearchTest {
         )
     }
 
+    @Test
+    fun catalogTitleAppearanceIsSearchableByCommonCustomizationTerms() {
+        val catalogAppearance = entry(
+            key = "home-catalogs",
+            title = "Catalog title appearance",
+            description = "Change catalog heading font, size and colour",
+            page = "Home screen",
+            searchTerms = listOf(
+                "catalog titles", "shelf title", "heading font", "font size",
+                "title colour", "title color", "typeface",
+            ),
+        )
+        val index = SettingsSearchIndex(listOf(catalogAppearance))
+
+        listOf("catalog titles", "shelf title", "heading font", "font size", "title colour", "title color", "typeface")
+            .forEach { query ->
+                assertEquals(listOf("home-catalogs"), index.search(query).map { it.key }, "query='$query'")
+            }
+    }
+
     private fun allBinaryWords(maxLength: Int): List<String> = buildList {
         add("")
         var level = listOf("")

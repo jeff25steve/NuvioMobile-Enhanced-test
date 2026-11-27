@@ -34,6 +34,7 @@ data class HomeCatalogSettingsItem(
     val collectionId: String? = null,
     val isPinnedToTop: Boolean = false,
     val rowPlacement: HomeCatalogRowPlacement = HomeCatalogRowPlacement.NORMAL,
+    val titleStyle: HomeCatalogTitleStyle = HomeCatalogTitleStyle.DEFAULT,
 ) {
     val displayTitle: String
         get() = customTitle.ifBlank { defaultTitle }
@@ -75,7 +76,7 @@ internal data class HomeCatalogSettingsUiState(
             append('|')
             append(
                 items.joinToString(separator = "|") { item ->
-                    "${item.key}:${item.order}:${item.enabled}:${item.heroSourceEnabled}:${item.customTitle}:${item.rowPlacement}"
+                    "${item.key}:${item.order}:${item.enabled}:${item.heroSourceEnabled}:${item.customTitle}:${item.rowPlacement}:${item.titleStyle}"
                 }
             )
         }
@@ -121,6 +122,7 @@ internal data class HomeCatalogPreference(
     val heroSourceEnabled: Boolean,
     val order: Int,
     val rowPlacement: HomeCatalogRowPlacement = HomeCatalogRowPlacement.NORMAL,
+    val titleStyle: HomeCatalogTitleStyle = HomeCatalogTitleStyle.DEFAULT,
 )
 
 internal data class HomeCatalogSettingsSnapshot(
@@ -139,6 +141,7 @@ private data class StoredHomeCatalogPreference(
     val heroSourceEnabled: Boolean = true,
     val order: Int = 0,
     val rowPlacement: String = HomeCatalogRowPlacement.NORMAL.storageValue,
+    val titleStyle: HomeCatalogTitleStyle? = null,
 )
 
 @Serializable
@@ -304,6 +307,7 @@ object HomeCatalogSettingsRepository {
                     heroSourceEnabled = value.heroSourceEnabled,
                     order = value.order,
                     rowPlacement = HomeCatalogRowPlacement.fromStorage(value.rowPlacement),
+                    titleStyle = value.titleStyle?.normalized() ?: HomeCatalogTitleStyle.DEFAULT,
                 )
             },
         )
@@ -413,6 +417,15 @@ object HomeCatalogSettingsRepository {
     fun setCustomTitle(key: String, title: String) {
         updatePreference(key) { preference ->
             preference.copy(customTitle = title)
+        }
+    }
+
+    fun setTitleStyle(key: String, style: HomeCatalogTitleStyle) {
+        ensureLoaded()
+        if (definitions.none { it.key == key }) return
+        val normalized = style.normalized()
+        updatePreference(key) { preference ->
+            preference.copy(titleStyle = normalized.takeUnless { it.isDefault })
         }
     }
 
@@ -608,6 +621,7 @@ object HomeCatalogSettingsRepository {
                 heroSourceEnabled = heroSourceEnabled,
                 order = stored?.order ?: nextOrder++,
                 rowPlacement = stored?.rowPlacement ?: HomeCatalogRowPlacement.NORMAL.storageValue,
+                titleStyle = stored?.titleStyle?.normalized()?.takeUnless { it.isDefault },
             )
         }
         preferences = normalized.toMap()
@@ -628,6 +642,7 @@ object HomeCatalogSettingsRepository {
                     heroSourceEnabled = preference?.heroSourceEnabled ?: true,
                     order = preference?.order ?: 0,
                     rowPlacement = HomeCatalogRowPlacement.fromStorage(preference?.rowPlacement),
+                    titleStyle = preference?.titleStyle?.normalized() ?: HomeCatalogTitleStyle.DEFAULT,
                 )
             }
 
@@ -645,6 +660,7 @@ object HomeCatalogSettingsRepository {
                 collectionId = colDef.collectionId,
                 isPinnedToTop = colDef.isPinnedToTop,
                 rowPlacement = HomeCatalogRowPlacement.fromStorage(preference?.rowPlacement),
+                titleStyle = HomeCatalogTitleStyle.DEFAULT,
             )
         }
 
@@ -768,6 +784,7 @@ object HomeCatalogSettingsRepository {
                     customTitle = pref.customTitle,
                     isCollection = false,
                     key = pref.key,
+                    titleStyle = pref.titleStyle?.normalized() ?: HomeCatalogTitleStyle.DEFAULT,
                 )
             }
         }
@@ -795,6 +812,11 @@ object HomeCatalogSettingsRepository {
                     order = item.order,
                     rowPlacement = preferences[key]?.rowPlacement
                         ?: HomeCatalogRowPlacement.NORMAL.storageValue,
+                    titleStyle = when {
+                        item.isCollection -> null
+                        item.titleStyle != null -> item.titleStyle.normalized().takeUnless { it.isDefault }
+                        else -> preferences[key]?.titleStyle
+                    },
                 )
             }
             val remoteKeys = remotePreferences.keys

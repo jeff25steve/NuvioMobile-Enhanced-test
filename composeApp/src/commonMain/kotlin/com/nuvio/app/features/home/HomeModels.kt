@@ -51,6 +51,7 @@ data class HomeCatalogSection(
     val items: List<MetaPreview>,
     val availableItemCount: Int = items.size,
     val hasMore: Boolean = false,
+    val titleStyle: HomeCatalogTitleStyle = HomeCatalogTitleStyle.DEFAULT,
 )
 
 fun HomeCatalogSection.canOpenCatalog(previewLimit: Int): Boolean =

@@ -149,6 +149,57 @@ class HomeCatalogSettingsRepositoryTest {
     }
 
     @Test
+    fun catalogTitleStylePersistsAndIsIncludedInTheSharedPayload() = runTest {
+        val addons = listOf(addon())
+        HomeCatalogSettingsRepository.syncCatalogs(addons)
+        val key = "test:movie:popular"
+        val style = HomeCatalogTitleStyle(
+            fontId = "serif",
+            fontSizeSp = 27,
+            bold = true,
+            colorId = "cyan",
+        )
+
+        HomeCatalogSettingsRepository.setTitleStyle(key, style)
+        assertEquals(style, HomeCatalogSettingsRepository.uiState.value.items.single { it.key == key }.titleStyle)
+        assertEquals(style, HomeCatalogSettingsRepository.exportToSyncPayload().items.single { it.key == key }.titleStyle)
+
+        HomeCatalogSettingsRepository.clearLocalState()
+        HomeCatalogSettingsRepository.syncCatalogs(addons)
+        assertEquals(style, HomeCatalogSettingsRepository.uiState.value.items.single { it.key == key }.titleStyle)
+
+        // Old clients omit title_style; preserve the style already stored on this device.
+        HomeCatalogSettingsRepository.applyFromRemote(
+            SyncHomeCatalogPayload(items = listOf(
+                SyncCatalogItem(
+                    addonId = "test",
+                    type = "movie",
+                    catalogId = "popular",
+                    key = key,
+                ),
+            )),
+        )
+        assertEquals(style, HomeCatalogSettingsRepository.uiState.value.items.single { it.key == key }.titleStyle)
+
+        // New clients send an explicit default style when the user resets the heading.
+        HomeCatalogSettingsRepository.applyFromRemote(
+            SyncHomeCatalogPayload(items = listOf(
+                SyncCatalogItem(
+                    addonId = "test",
+                    type = "movie",
+                    catalogId = "popular",
+                    key = key,
+                    titleStyle = HomeCatalogTitleStyle.DEFAULT,
+                ),
+            )),
+        )
+        assertEquals(
+            HomeCatalogTitleStyle.DEFAULT,
+            HomeCatalogSettingsRepository.uiState.value.items.single { it.key == key }.titleStyle,
+        )
+    }
+
+    @Test
     fun unchangedCatalogsDoNotRewriteSettings() = runTest {
         val addons = listOf(addon())
         HomeCatalogSettingsRepository.syncCatalogs(addons)

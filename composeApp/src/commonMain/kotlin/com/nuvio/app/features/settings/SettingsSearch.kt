@@ -1978,9 +1978,15 @@ internal fun settingsSearchEntries(
         addRow(
             page = SettingsPage.Homescreen,
             key = "home-catalogs",
-            title = stringResource(Res.string.settings_homescreen_section_catalogs),
+            title = stringResource(Res.string.settings_homescreen_catalog_title_appearance),
+            description = stringResource(Res.string.settings_homescreen_catalog_title_appearance_description),
             pageLabel = homeLayoutPage,
             section = stringResource(Res.string.settings_homescreen_section_catalogs),
+            searchTerms = listOf(
+                "catalog titles", "catalog name", "shelf title", "section heading",
+                "heading font", "font size", "typeface", "title colour", "title color",
+                "homepage headings", "custom catalog name",
+            ),
         )
     }
 

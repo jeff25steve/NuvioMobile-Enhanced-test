@@ -403,6 +403,7 @@ object HomeRepository {
                 val customTitle = preference?.customTitle.orEmpty()
                 definition.cacheKey to section.copy(
                     title = customTitle.ifBlank { definition.titleFor(snapshot.showCatalogType) },
+                    titleStyle = preference?.titleStyle ?: HomeCatalogTitleStyle.DEFAULT,
                 )
             }
         if (entries.isNotEmpty() || definitions.isNotEmpty()) {

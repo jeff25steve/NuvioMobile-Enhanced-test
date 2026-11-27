@@ -35,6 +35,7 @@ data class SyncCatalogItem(
     @SerialName("is_collection") val isCollection: Boolean = false,
     @SerialName("collection_id") val collectionId: String = "",
     val key: String = "",
+    @SerialName("title_style") val titleStyle: HomeCatalogTitleStyle? = null,
 )
 
 @Serializable

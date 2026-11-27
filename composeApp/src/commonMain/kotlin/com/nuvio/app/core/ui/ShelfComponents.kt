@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +74,8 @@ fun <T> NuvioShelfSection(
     key: ((T) -> Any)? = null,
     animatePlacement: Boolean = false,
     state: LazyListState = rememberLazyListState(),
+    titleTextStyle: TextStyle? = null,
+    titleColor: Color? = null,
     itemContent: @Composable (T) -> Unit,
 ) {
     val tokens = MaterialTheme.nuvio
@@ -94,6 +97,8 @@ fun <T> NuvioShelfSection(
                 modifier = Modifier.padding(horizontal = headerHorizontalPadding),
                 onViewAllClick = onViewAllClick,
                 viewAllPillSize = viewAllPillSize,
+                titleTextStyle = titleTextStyle,
+                titleColor = titleColor,
             )
         }
         LazyRow(
@@ -280,6 +285,8 @@ private fun NuvioShelfSectionHeader(
     modifier: Modifier = Modifier,
     onViewAllClick: (() -> Unit)? = null,
     viewAllPillSize: NuvioViewAllPillSize = NuvioViewAllPillSize.Default,
+    titleTextStyle: TextStyle? = null,
+    titleColor: Color? = null,
 ) {
     val tokens = MaterialTheme.nuvio
     val showAccent = rememberShowCatalogAccentEnabled()
@@ -294,8 +301,8 @@ private fun NuvioShelfSectionHeader(
             Text(
                 text = title,
                 modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-                color = tokens.colors.textPrimary,
+                style = titleTextStyle ?: MaterialTheme.typography.titleLarge,
+                color = titleColor ?: tokens.colors.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

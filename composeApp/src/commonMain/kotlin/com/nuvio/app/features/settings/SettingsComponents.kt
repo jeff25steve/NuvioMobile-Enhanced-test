@@ -91,6 +91,7 @@ import com.nuvio.app.core.ui.glass.liquidGlassForSurface
 import com.nuvio.app.core.ui.glass.liquidGlassIconTint
 import com.nuvio.app.core.ui.glass.liquidGlassShape
 import com.nuvio.app.features.home.HomeCatalogSettingsItem
+import com.nuvio.app.features.home.HomeCatalogSettingsRepository
 import com.nuvio.app.features.home.HomeCatalogRowPlacement
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.settings_homescreen_collection_with_addon
@@ -837,6 +838,10 @@ internal fun HomescreenCatalogRow(
     val horizontalPadding = if (isTablet) 20.dp else 16.dp
     val verticalPadding = if (isTablet) 18.dp else 16.dp
     val hapticFeedback = LocalHapticFeedback.current
+    var titleAppearanceExpanded by remember(item.key) { mutableStateOf(false) }
+    LaunchedEffect(expanded) {
+        if (!expanded) titleAppearanceExpanded = false
+    }
 
     Column(
         modifier = Modifier
@@ -971,6 +976,25 @@ internal fun HomescreenCatalogRow(
                             disabledContainerColor = tokens.colors.surface,
                         ),
                     )
+                    TextButton(
+                        onClick = { titleAppearanceExpanded = !titleAppearanceExpanded },
+                        modifier = Modifier.align(Alignment.Start),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (titleAppearanceExpanded) Res.string.settings_homescreen_hide_title_options
+                                else Res.string.settings_homescreen_customize_title,
+                            ),
+                        )
+                    }
+                    AnimatedVisibility(visible = titleAppearanceExpanded) {
+                        CatalogTitleAppearanceEditor(
+                            title = item.displayTitle,
+                            style = item.titleStyle,
+                            isTablet = isTablet,
+                            onStyleChanged = { HomeCatalogSettingsRepository.setTitleStyle(item.key, it) },
+                        )
+                    }
                 }
                 Text(
                     stringResource(Res.string.settings_homescreen_home_placement),
