@@ -92,10 +92,23 @@ class NativeSupabaseSessionManagerTest {
     }
 
     @Test
+    fun newSessionReplacesSignOutTombstone() = kotlinx.coroutines.test.runTest {
+        val storage = FakeSupabaseSessionStorage()
+        val manager = NativeSupabaseSessionManager("https://project.example", storage)
+        val expected = testSession()
+
+        manager.deleteSession()
+        manager.saveSession(expected)
+
+        assertEquals(expected, manager.loadSession())
+    }
+
+    @Test
     fun backendUrlsUseSeparateStorageKeys() {
         val first = NativeSupabaseSessionManager.storageKeyFor("https://one.example/")
         val second = NativeSupabaseSessionManager.storageKeyFor("https://two.example/")
 
+        assertEquals("sb-https:--one-example-session", first)
         kotlin.test.assertNotEquals(first, second)
     }
 
