@@ -120,10 +120,6 @@ class NativeSupabaseSessionManagerTest {
             encryptedValue = value
         }
 
-        override suspend fun deleteEncrypted(key: String) {
-            encryptedValue = null
-        }
-
         override suspend fun readLegacy(key: String): String? = legacyValue
 
         override suspend fun deleteLegacy(key: String) {
