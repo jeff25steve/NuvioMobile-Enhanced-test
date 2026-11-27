@@ -127,18 +127,6 @@ internal object IosSupabaseSessionStorage : SupabaseSessionStorage {
         }
     }
 
-    override suspend fun deleteEncrypted(key: String) {
-        val query = createQuery(key)
-        try {
-            val status = SecItemDelete(query)
-            check(status == errSecSuccess || status == errSecItemNotFound) {
-                "Unable to delete protected Supabase session (OSStatus $status)"
-            }
-        } finally {
-            CFRelease(query)
-        }
-    }
-
     override suspend fun readLegacy(key: String): String? =
         NSUserDefaults.standardUserDefaults.stringForKey(key)
 
