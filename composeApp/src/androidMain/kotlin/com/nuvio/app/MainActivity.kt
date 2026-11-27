@@ -150,6 +150,7 @@ open class MainActivity : AppCompatActivity() {
             AddonHttpClientProvider.initialize(applicationContext)
             AddonStorage.initialize(applicationContext)
             AuthStorage.initialize(applicationContext)
+            AndroidSupabaseSessionStorage.initialize(applicationContext)
             ServerConfigurationStorage.initialize(applicationContext)
         }
         traceStartupSection("Nuvio.Startup.coreStorage") {
