@@ -53,11 +53,23 @@ Branch: `main-build-testing`
 - `androidApp/build.gradle.kts`, `composeApp/build.gradle.kts`, `baselineProfile/build.gradle.kts`.
 - `gradle/libs.versions.toml`, `gradle/wrapper/gradle-wrapper.properties`, `gradle.properties`.
 
-## Verification boundary
+## Verification boundary — updated after successful run #141
 
-The repository files and workflow commands were inspected through GitHub. Workflow YAML structure and changed command indentation were re-fetched and statically checked. The connected GitHub actions capability available in this session is read-only for workflow dispatch; it cannot start a new run on the current commit. The local container also could not resolve github.com, so a local checkout could not be obtained.
+GitHub Actions run [#141](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45892214232) completed successfully for `main-build-testing` at source commit `761995c639b643a923e7b23a34b2250feafcefda` on 26 November 2026.
 
-Therefore no Gradle configuration, compilation, host test, APK assembly, phone-bundle assembly, or current-commit CI run is claimed as passing. A successful historical benchmark run on a different CI-branch commit is not treated as verification of this branch. Run the manual Android Startup Profile Benchmark workflow and the Mobile Release workflow in `test-build` / `android-only` mode against this exact branch head before declaring the build green.
+The Actions job record confirms success for:
+- Java and Gradle toolchain verification (Temurin Java 17 / Gradle 9.9.2).
+- Android host regression tests.
+- Full profile-capture APK pair.
+- Play Store profile-capture APK pair.
+- Full R8 benchmark APK pair.
+- Play Store R8 benchmark APK pair.
+- Phone-ready bundle assembly and validation.
+- Upload of the full-profile checkpoint, diagnostics and phone-ready APK bundle.
+
+All listed job steps completed successfully. The three artifacts were present and unexpired when checked. This supersedes the earlier statement in this preflight that no current-branch CI run was proven successful.
+
+This is CI/build evidence for the exact source commit above. It is not evidence of physical-device playback validation, a handset startup benchmark execution, or an iOS build. The `main-build-testing` branch has since received documentation-only updates; those documentation commits were not part of run #141's build.
 
 ## Primary compatibility references
 
@@ -70,4 +82,4 @@ Therefore no Gradle configuration, compilation, host test, APK assembly, phone-b
 
 ## Proven Android build execution
 
-The exact CI run, branch, trigger, verified toolchain, staged Gradle tasks, APK artifacts and future reproduction checklist are recorded in [Android build workflow runbook — 26 November 2026](android-build-workflow-runbook-2026-11-26.md). Use that runbook as the operational reference before starting another Android build.
+The latest successful direct `main-build-testing` run is #141 on source commit `761995c639b643a923e7b23a34b2250feafcefda` (26 November 2026). Its Java/Gradle verification, Android host regression tests, all four APK-pair build groups, phone-ready bundle validation and three artifact uploads passed. See [run #141](https://github.com/jeff25steve/NuvioMobile-Enhanced-test/actions/runs/45892214232) and the [Android build workflow runbook](android-build-workflow-runbook-2026-11-26.md) for the exact evidence and reproduction checklist.
