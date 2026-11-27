@@ -1,6 +1,7 @@
 package com.nuvio.app.core.network
 
 import com.nuvio.app.core.build.AppVersionConfig
+import com.nuvio.app.core.auth.NativeSupabaseSessionManager
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.auth.Auth
@@ -118,7 +119,9 @@ object SupabaseProvider {
                     contentConverter = KotlinxWebsocketSerializationConverter(supabaseJson)
                 }
             }
-            install(Auth)
+            install(Auth) {
+                sessionManager = NativeSupabaseSessionManager(configuration.backendUrl)
+            }
             install(Postgrest)
             install(Functions)
             install(Storage)
