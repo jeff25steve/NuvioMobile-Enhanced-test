@@ -98,9 +98,9 @@ internal fun parseTraktAuthCallback(
     if (states.size != 1 || states.single().isBlank() || errors.size > 1 || descriptions.size > 1) {
         return TraktAuthCallback.Invalid
     }
-    val error = errors.singleOrNull()?.trim()
-    if (!error.isNullOrBlank()) {
-        if (codes.isNotEmpty()) return TraktAuthCallback.Invalid
+    if (errors.size == 1) {
+        val error = errors.single().trim()
+        if (error.isBlank() || codes.isNotEmpty()) return TraktAuthCallback.Invalid
         return TraktAuthCallback.AuthorizationDenied(
             description = descriptions.singleOrNull()?.takeIf { it.isNotBlank() },
             state = states.single(),

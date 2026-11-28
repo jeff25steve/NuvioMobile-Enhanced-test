@@ -83,6 +83,12 @@ class TraktAuthParsingTest {
         assertIs<TraktAuthCallback.Invalid>(
             parseTraktAuthCallback("nuvio://auth/trakt?error=access_denied", "nuvio://auth/trakt"),
         )
+        assertIs<TraktAuthCallback.Invalid>(
+            parseTraktAuthCallback(
+                "nuvio://auth/trakt?error=&code=auth-code&state=expected",
+                "nuvio://auth/trakt",
+            ),
+        )
     }
 
     @Test

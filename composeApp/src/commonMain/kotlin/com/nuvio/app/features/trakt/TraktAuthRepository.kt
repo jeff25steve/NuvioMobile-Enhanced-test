@@ -519,24 +519,18 @@ object TraktAuthRepository : TrackingAuthProvider {
     ) = authorizationMutex.withLock {
         if (!authOperationGeneration.isCurrent(generation) || currentProfileId != profileId) return@withLock
 
+        // With no active browser transaction, unsolicited and duplicate deep links are no-ops.
+        val expectedState = authState.pendingAuthorizationState
+            ?.takeIf { it.isNotBlank() && !it.startsWith(DEVICE_CODE_PREFIX) }
+            ?: return@withLock
+
         val callback = parseTraktAuthCallback(callbackUrl, TraktConfig.REDIRECT_URI)
-        if (callback == TraktAuthCallback.NotTrakt) return@withLock
-        if (callback == TraktAuthCallback.Invalid) {
-            authOperationGeneration.commitIfCurrent(generation) {
-                if (currentProfileId == profileId) {
-                    publish(
-                        isLoading = false,
-                        errorMessage = localizedString(Res.string.trakt_invalid_callback),
-                    )
-                }
-            }
+        if (callback == TraktAuthCallback.NotTrakt || callback == TraktAuthCallback.Invalid) {
             return@withLock
         }
 
-        val expectedState = authState.pendingAuthorizationState
-            ?.takeIf { it.isNotBlank() && !it.startsWith(DEVICE_CODE_PREFIX) }
         val verifier = authState.pendingCodeVerifier?.takeIf { it.isNotBlank() }
-        if (expectedState == null || verifier == null ||
+        if (verifier == null ||
             isTraktAuthorizationExpired(
                 authState.pendingAuthorizationStartedAtMillis,
                 TraktPlatformClock.nowEpochMs(),
@@ -824,11 +818,13 @@ object TraktAuthRepository : TrackingAuthProvider {
                     }
             }
             pendingDeviceCodeToResume = pendingDeviceCode()
-            val hasPendingBrowserTransaction =
-                !authState.pendingAuthorizationState.isNullOrBlank() &&
-                    pendingDeviceCodeToResume == null
-            if (hasPendingBrowserTransaction &&
-                (authState.pendingCodeVerifier.isNullOrBlank() ||
+            val hasAnyBrowserTransactionData = pendingDeviceCodeToResume == null &&
+                (authState.pendingAuthorizationState != null ||
+                    authState.pendingAuthorizationStartedAtMillis != null ||
+                    authState.pendingCodeVerifier != null)
+            if (hasAnyBrowserTransactionData &&
+                (authState.pendingAuthorizationState.isNullOrBlank() ||
+                    authState.pendingCodeVerifier.isNullOrBlank() ||
                     isTraktAuthorizationExpired(
                         authState.pendingAuthorizationStartedAtMillis,
                         TraktPlatformClock.nowEpochMs(),
