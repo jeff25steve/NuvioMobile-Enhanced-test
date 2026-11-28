@@ -52,7 +52,8 @@ internal fun shouldWaitForStartupLogoAnimation(
     platformPrefersReducedMotion = platformPrefersReducedMotion,
 ) && !animationFinished
 
-internal expect fun platformPrefersReducedMotion(): Boolean
+@Composable
+internal expect fun rememberPlatformPrefersReducedMotion(): Boolean
 
 @Composable
 internal fun AppIntroContent(

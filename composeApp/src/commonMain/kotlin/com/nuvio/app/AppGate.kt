@@ -178,7 +178,7 @@ internal fun AppGate(
         ThemeSettingsRepository.ensureLoaded()
         ThemeSettingsRepository.skipStartupAnimation
     }.collectAsStateWithLifecycle()
-    val platformReducedMotion = remember { platformPrefersReducedMotion() }
+    val platformReducedMotion = rememberPlatformPrefersReducedMotion()
     val skipStartupLogoAnimation = shouldSkipStartupLogoAnimation(
         skipStartupAnimation = skipStartupAnimationPreference,
         platformPrefersReducedMotion = platformReducedMotion,

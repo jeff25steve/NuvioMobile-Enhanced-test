@@ -2,11 +2,30 @@ package com.nuvio.app
 
 import android.animation.ValueAnimator
 import android.os.Build
+import android.provider.Settings
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 /**
- * Android exposes the system-wide animator state from API 26.
- * On older supported versions, keep the app's existing motion rather than
- * reading hidden/system settings.
+ * Prefer the platform's complete animator state on API 26+ (including Battery Saver).
+ * API 24–25 use the public, read-only animator scale setting. If it cannot be read,
+ * preserve the app's normal animation rather than guessing or changing a system setting.
  */
-internal actual fun platformPrefersReducedMotion(): Boolean =
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !ValueAnimator.areAnimatorsEnabled()
+@Composable
+internal actual fun rememberPlatformPrefersReducedMotion(): Boolean {
+    val applicationContext = LocalContext.current.applicationContext
+    return remember(applicationContext) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            !ValueAnimator.areAnimatorsEnabled()
+        } else {
+            runCatching {
+                Settings.Global.getFloat(
+                    applicationContext.contentResolver,
+                    Settings.Global.ANIMATOR_DURATION_SCALE,
+                    1f,
+                ) <= 0f
+            }.getOrDefault(false)
+        }
+    }
+}
