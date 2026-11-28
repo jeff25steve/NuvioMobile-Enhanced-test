@@ -3178,16 +3178,13 @@ Added a codec-specific retry layer to complement the existing per-track renderer
 - The new host tests have not been executed. No compile, Gradle, build, CI, benchmark or device playback was run. This is source-level implementation, not a proven device-level recovery result.
 
 
-### Android Bluetooth DVC feasibility review — 28 November 2026
+### Bluetooth DVC feasibility — 28 November 2026
 
-Reviewed the requested Poweramp-style Direct Volume Control toggle against Android public audio APIs, Poweramp's official DVC/Absolute Volume guidance, current Android 17 Poweramp release notes and user-reported Bluetooth regressions, Apple's Settings guidance, AOSP settings guidance and Nuvio's current ExoPlayer/libmpv architecture.
+Reviewed Poweramp DVC against Android public audio APIs, Poweramp guidance and current user reports, Apple Settings guidance, and Nuvio playback code.
 
-- **Decision: do not add a generic DVC toggle.** Android exposes direct-playback capability queries, not a universal API for forcing a direct hardware volume path on arbitrary Bluetooth outputs. The active path remains subject to AudioFlinger, audio policy, vendor HAL and Bluetooth stack negotiation. A normal Media3 AudioTrack, PCM gain, audio offload, tunneling or encoded passthrough option is not equivalent to Poweramp DVC.
-- Poweramp documents output/firmware-specific support and warns that Bluetooth Absolute Volume can cause low or fluctuating volume/distortion. Its current Android 17 feature notes describe experimental per-device Shizuku control; build 1036 notes a workaround for DVC + AAC/SBC Bluetooth silence on some Android 17 firmware. This is not a safe general dependency for Nuvio.
-- The current Nuvio ExoPlayer path already uses Media3's native DefaultAudioSink/Android audio output. When it detects Bluetooth, it prefers FFmpeg audio rendering and requests a stereo 2.0 downmix, which is a more directly relevant movie-playback behavior. This Bluetooth-specific policy is in ExoPlayer construction; equivalent libmpv behavior is not claimed.
-- The existing Audio passthrough switch is separate, already searchable with key playback-audio-passthrough, and must not be repurposed or automatically enabled for Bluetooth. Tunneling also remains separate.
-- Do not add Shizuku, root/hidden APIs, system setting mutation, or a dependency to imitate DVC. Keep standard Android volume and Bluetooth Absolute Volume under user/system control.
-- Apple HIG recommends good defaults, fewer settings and respect for system-wide preferences; AOSP asks for brief meaningful labels and easy discovery. An inaccurate “DVC” switch would violate both the technical contract and the UX guidance.
-- Full evidence and future-validation requirements are recorded in docs/engineering/android-bluetooth-dvc-feasibility-2026-11-28.md.
+- **Do not add a generic DVC toggle.** Android has no universal public API to force a direct hardware volume path for arbitrary Bluetooth outputs. Poweramp documents device/firmware dependencies and Absolute Volume conflicts, including Android 17 Bluetooth silence regressions.
+- Nuvio ExoPlayer already detects Bluetooth output and prefers FFmpeg with stereo 2.0 downmix. This is more directly relevant to movie dialogue on stereo headphones/speakers; this review does not claim the same policy for libmpv.
+- Keep Audio passthrough and tunneled playback separate; neither is DVC. Do not add Shizuku, root/hidden APIs, system-setting mutation or a dependency to imitate it. Leave Android media volume and Bluetooth Absolute Volume under system/user control.
+- Revisit only if a public Android API can safely expose and control the active route, followed by measured A/V-sync and real-device compatibility testing.
 
-Documentation only. No Kotlin code, settings values, dependencies, tests, build, CI, benchmark or device playback were changed or run.
+Documentation-only decision. No Kotlin, settings, dependencies, tests, builds, CI or device playback were changed or run.
