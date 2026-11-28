@@ -1,6 +1,6 @@
 # Startup Logo Animation Preference Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add an off-by-default, searchable setting to skip Nuvio's decorative startup logo animation without skipping authentication or profile selection.
 
@@ -42,8 +42,8 @@
 - shouldWaitForStartupLogoAnimation(skipStartupAnimation: Boolean, platformPrefersReducedMotion: Boolean, animationFinished: Boolean): Boolean
 - expect fun platformPrefersReducedMotion(): Boolean
 
-- [ ] Add tests for default-off, explicit opt-in, platform Reduce Motion, and immediate gate release.
-- [ ] Implement pure policy; keep platform state behind the expect/actual function.
+- [x] Add tests for default-off, explicit opt-in, platform Reduce Motion, and immediate gate release.
+- [x] Implement pure policy; keep platform state behind the expect/actual function.
 
 ### Task 2: Add platform accessibility adapters and device-local persistence
 
@@ -52,10 +52,10 @@
 - Create: composeApp/src/iosMain/kotlin/com/nuvio/app/AppStartupMotion.ios.kt
 - Modify: ThemeSettingsRepository.kt, ThemeSettingsStorage.kt, ThemeSettingsStorage.android.kt, ThemeSettingsStorage.ios.kt.
 
-- [ ] Android API 26+ reads ValueAnimator.areAnimatorsEnabled(); API 24–25 keeps existing motion. Do not use hidden settings APIs.
-- [ ] iOS reads UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.
-- [ ] Persist raw, installation-local boolean without ProfileScopedKey; absent value defaults to false.
-- [ ] Do not include the key in sync/export payloads or clear it on sign-out.
+- [x] Android API 26+ reads ValueAnimator.areAnimatorsEnabled(); API 24–25 keeps existing motion. Do not use hidden settings APIs.
+- [x] iOS reads UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.
+- [x] Persist raw, installation-local boolean without ProfileScopedKey; absent value defaults to false.
+- [x] Do not include the key in sync/export payloads or clear it on sign-out.
 
 ### Task 3: Wire startup and Settings
 
@@ -64,11 +64,11 @@
 - Modify AppearanceSettingsPage.kt, SettingsSearch.kt and values/strings.xml.
 - Test SettingsSearchAnchorTest.kt.
 
-- [ ] Add the Appearance → Display toggle and catalogue search terms.
-- [ ] In AppGate, initialize intro completion immediately when the app or platform preference skips motion.
-- [ ] In AppIntroContent, render the same final wordmark without fade/scale/glow and signal completion; leave the existing animated branch unchanged.
-- [ ] Preserve all auth/profile/security flows and normal profile transitions.
-- [ ] Test exact Appearance row anchoring and unknown-key fallback.
+- [x] Add the Appearance → Display toggle and catalogue search terms.
+- [x] In AppGate, initialize intro completion immediately when the app or platform preference skips motion.
+- [x] In AppIntroContent, render the same final wordmark without fade/scale/glow and signal completion; leave the existing animated branch unchanged.
+- [x] Preserve all auth/profile/security flows and normal profile transitions.
+- [x] Test exact Appearance row anchoring and unknown-key fallback.
 
 ### Task 4: Documentation and source review
 
@@ -76,6 +76,15 @@
 - Create this spec and plan.
 - Append a concise note to docs/engineering/codebase-improvement-notes.md.
 
-- [ ] Re-fetch all changed files and review API names, expect/actual pairing, storage default, search anchor, Compose state and security-path diffs.
-- [ ] Record that tests were authored but not run; do not claim compilation or device verification.
-- [ ] Commit with [skip ci]; use a fast-forward ref update only.
+- [x] Re-fetch all changed files and review API names, expect/actual pairing, storage default, search anchor, Compose state and security-path diffs.
+- [x] Record that tests were authored but not run; do not claim compilation or device verification.
+- [x] Commit with [skip ci]; use a fast-forward ref update only.
+
+
+## Execution record
+
+- Source, storage, settings, search, platform adapters, regression test source, design spec and engineering notes are integrated on main-build-testing.
+- Common policy and Settings-search tests are authored but remain unexecuted.
+- No Gradle task, compilation, test, build, CI, benchmark, APK/AAB or device run was started.
+- Android API 24–25 falls back to the app's normal intro motion for the system preference; the app's own Skip startup logo animation toggle remains available on all supported Android versions.
+- iOS Reduce Motion is read through UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.
