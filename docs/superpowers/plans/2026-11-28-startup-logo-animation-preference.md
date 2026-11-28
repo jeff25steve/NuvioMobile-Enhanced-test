@@ -52,7 +52,7 @@
 - Create: composeApp/src/iosMain/kotlin/com/nuvio/app/AppStartupMotion.ios.kt
 - Modify: ThemeSettingsRepository.kt, ThemeSettingsStorage.kt, ThemeSettingsStorage.android.kt, ThemeSettingsStorage.ios.kt.
 
-- [x] Android API 26+ reads ValueAnimator.areAnimatorsEnabled(); API 24–25 keeps existing motion. Do not use hidden settings APIs.
+- [x] Android API 26+ reads ValueAnimator.areAnimatorsEnabled(); API 24–25 reads the public read-only Settings.Global.ANIMATOR_DURATION_SCALE with a safe fallback. Do not use hidden settings APIs.
 - [x] iOS reads UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.
 - [x] Persist raw, installation-local boolean without ProfileScopedKey; absent value defaults to false.
 - [x] Do not include the key in sync/export payloads or clear it on sign-out.
@@ -86,5 +86,5 @@
 - Source, storage, settings, search, platform adapters, regression test source, design spec and engineering notes are integrated on main-build-testing.
 - Common policy and Settings-search tests are authored but remain unexecuted.
 - No Gradle task, compilation, test, build, CI, benchmark, APK/AAB or device run was started.
-- Android API 24–25 falls back to the app's normal intro motion for the system preference; the app's own Skip startup logo animation toggle remains available on all supported Android versions.
+- Android API 24–25 reads the public animator scale setting, defaulting to the normal intro if the read fails; the app's own Skip startup logo animation toggle remains available on all supported Android versions.
 - iOS Reduce Motion is read through UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.

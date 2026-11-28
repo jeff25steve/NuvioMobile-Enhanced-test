@@ -6,6 +6,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 
 /** Uses UIKit's public Reduce Motion system preference without changing it. */
+@OptIn(ExperimentalForeignApi::class)
 @Composable
 internal actual fun rememberPlatformPrefersReducedMotion(): Boolean =
     remember { UIAccessibilityIsReduceMotionEnabled() }
