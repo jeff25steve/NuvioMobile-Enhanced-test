@@ -36,6 +36,7 @@ class TraktAuthParsingTest {
         assertTrue("code_challenge=challenge-value" in url)
         assertTrue("code_challenge_method=S256" in url)
         assertTrue("state=state-value" in url)
+        assertTrue("redirect_uri=nuvio%3A%2F%2Fauth%2Ftrakt" in url)
         assertFalse("client_secret" in url)
     }
 
@@ -76,7 +77,7 @@ class TraktAuthParsingTest {
         assertEquals(
             TraktAuthCallback.AuthorizationDenied("User denied", "expected"),
             parseTraktAuthCallback(
-                "nuvio://auth/trakt?error=access_denied&error_description=User+denied&state=expected",
+                "nuvio://auth/trakt?error=access_denied&error_description=User%20denied&state=expected",
                 "nuvio://auth/trakt",
             ),
         )
@@ -86,6 +87,12 @@ class TraktAuthParsingTest {
         assertIs<TraktAuthCallback.Invalid>(
             parseTraktAuthCallback(
                 "nuvio://auth/trakt?error=&code=auth-code&state=expected",
+                "nuvio://auth/trakt",
+            ),
+        )
+        assertIs<TraktAuthCallback.Invalid>(
+            parseTraktAuthCallback(
+                "nuvio://auth/trakt?error=access_denied&code=auth-code&state=expected",
                 "nuvio://auth/trakt",
             ),
         )

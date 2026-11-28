@@ -42,7 +42,7 @@ import kotlinx.coroutines.runBlocking
 object TraktAuthRepository : TrackingAuthProvider {
     private const val API_BASE_URL = "https://api.trakt.tv"
     private const val AUTH_BASE_URL = "https://auth.trakt.tv"
-    internal const val ACTIVATE_URL = "$AUTH_BASE_URL/activate"
+    internal const val ACTIVATE_URL = "https://auth.trakt.tv/activate"
     private const val API_VERSION = "2"
     private const val DEVICE_CODE_PREFIX = "device:"
     private const val DEVICE_CODE_SEPARATOR = "|"
@@ -659,6 +659,7 @@ object TraktAuthRepository : TrackingAuthProvider {
                     expiresIn = parsed.expiresIn,
                     pendingAuthorizationState = null,
                     pendingAuthorizationStartedAtMillis = null,
+                    pendingCodeVerifier = null,
                 )
                 persist(profileId)
                 publish(
