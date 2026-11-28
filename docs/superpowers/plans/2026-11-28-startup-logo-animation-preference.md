@@ -53,7 +53,7 @@
 - Modify: ThemeSettingsRepository.kt, ThemeSettingsStorage.kt, ThemeSettingsStorage.android.kt, ThemeSettingsStorage.ios.kt.
 
 - [ ] Android API 26+ reads ValueAnimator.areAnimatorsEnabled(); API 24–25 keeps existing motion. Do not use hidden settings APIs.
-- [ ] iOS reads UIKit UIAccessibility.isReduceMotionEnabled.
+- [ ] iOS reads UIKit's public UIAccessibilityIsReduceMotionEnabled() platform binding.
 - [ ] Persist raw, installation-local boolean without ProfileScopedKey; absent value defaults to false.
 - [ ] Do not include the key in sync/export payloads or clear it on sign-out.
 

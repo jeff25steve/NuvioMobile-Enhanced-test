@@ -1,7 +1,9 @@
 package com.nuvio.app
 
-import platform.UIKit.UIAccessibility
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 
-/** Use the public UIKit accessibility preference; never override the user's system setting. */
+/** Uses UIKit's public Reduce Motion system preference without changing it. */
+@OptIn(ExperimentalForeignApi::class)
 internal actual fun platformPrefersReducedMotion(): Boolean =
-    UIAccessibility.isReduceMotionEnabled
+    UIAccessibilityIsReduceMotionEnabled()
