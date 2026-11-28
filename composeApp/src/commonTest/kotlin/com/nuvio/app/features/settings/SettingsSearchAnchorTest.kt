@@ -11,6 +11,31 @@ import kotlin.test.assertTrue
 
 class SettingsSearchAnchorTest {
     @Test
+    fun startupAnimationSearchResultHasExactDisplayRowAnchor() {
+        val anchor = settingsSearchAnchor(
+            SettingsPage.Appearance,
+            "skip-startup-animation",
+            "Skip startup logo animation",
+            "Skip the animated Nuvio logo when the app opens.",
+        )
+        assertEquals("skip-startup-animation", anchor?.key)
+        assertEquals(SettingsPage.Appearance, anchor?.page)
+        assertEquals(1, anchor?.sectionItemIndex)
+    }
+
+    @Test
+    fun unknownStartupAnimationRowsRemainPageOnly() {
+        assertNull(
+            settingsSearchAnchor(
+                SettingsPage.Appearance,
+                "startup-animation-unknown",
+                "Unknown startup animation",
+                "",
+            ),
+        )
+    }
+
+    @Test
     fun notificationsSearchResultHasExactRowAnchor() {
         val anchor = settingsSearchAnchor(
             SettingsPage.Notifications,

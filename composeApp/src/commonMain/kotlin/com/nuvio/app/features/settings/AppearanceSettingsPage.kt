@@ -164,6 +164,10 @@ internal fun LazyListScope.appearanceSettingsContent(
         )
         var showAppIconPicker by remember { mutableStateOf(false) }
         val liquidGlassEffectsEnabled by ThemeSettingsRepository.liquidGlassEffectsEnabled.collectAsStateWithLifecycle()
+        val skipStartupAnimation by remember {
+            ThemeSettingsRepository.ensureLoaded()
+            ThemeSettingsRepository.skipStartupAnimation
+        }.collectAsStateWithLifecycle()
         SettingsSection(
             title = stringResource(Res.string.settings_appearance_section_display),
             isTablet = isTablet,
@@ -177,6 +181,16 @@ internal fun LazyListScope.appearanceSettingsContent(
                     searchAnchorKey = "amoled",
                     highlightedSearchAnchorKey = highlightedSearchAnchorKey,
                     onCheckedChange = onAmoledToggle,
+                )
+                SettingsGroupDivider(isTablet = isTablet)
+                SettingsSwitchRow(
+                    title = stringResource(Res.string.settings_appearance_skip_startup_animation),
+                    description = stringResource(Res.string.settings_appearance_skip_startup_animation_description),
+                    checked = skipStartupAnimation,
+                    isTablet = isTablet,
+                    searchAnchorKey = "skip-startup-animation",
+                    highlightedSearchAnchorKey = highlightedSearchAnchorKey,
+                    onCheckedChange = ThemeSettingsRepository::setSkipStartupAnimation,
                 )
                 if (shouldExposeLiquidGlassSettings(isLiquidGlassAvailable(), isNativeLiquidGlassControlsAvailable())) {
                     SettingsGroupDivider(isTablet = isTablet)

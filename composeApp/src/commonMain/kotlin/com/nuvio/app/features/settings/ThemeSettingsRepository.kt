@@ -52,6 +52,10 @@ object ThemeSettingsRepository {
     private val _amoledEnabled = MutableStateFlow(false)
     val amoledEnabled: StateFlow<Boolean> = _amoledEnabled.asStateFlow()
 
+    // Installation-local: used before a profile is selected and intentionally not synced.
+    private val _skipStartupAnimation = MutableStateFlow(false)
+    val skipStartupAnimation: StateFlow<Boolean> = _skipStartupAnimation.asStateFlow()
+
     private val _tabBarBehavior = MutableStateFlow(NuvioTabBarBehavior.Default)
     val tabBarBehavior: StateFlow<NuvioTabBarBehavior> = _tabBarBehavior.asStateFlow()
 
@@ -183,6 +187,7 @@ object ThemeSettingsRepository {
         _customThemePreference.value = CustomThemeColors.decode(ThemeSettingsStorage.loadCustomThemeColors())
         applyEffectiveTheme()
         _amoledEnabled.value = ThemeSettingsStorage.loadAmoledEnabled() ?: false
+        _skipStartupAnimation.value = ThemeSettingsStorage.loadSkipStartupAnimation() ?: false
         val behavior = NuvioTabBarBehavior.fromKey(ThemeSettingsStorage.loadTabBarBehavior())
             ?: NuvioTabBarBehavior.fromLegacyEnabled(
                 ThemeSettingsStorage.loadLiquidGlassNativeTabBarEnabled(),
@@ -253,6 +258,13 @@ object ThemeSettingsRepository {
         if (_amoledEnabled.value == enabled) return
         _amoledEnabled.value = enabled
         ThemeSettingsStorage.saveAmoledEnabled(enabled)
+    }
+
+    fun setSkipStartupAnimation(enabled: Boolean) {
+        ensureLoaded()
+        if (_skipStartupAnimation.value == enabled) return
+        _skipStartupAnimation.value = enabled
+        ThemeSettingsStorage.saveSkipStartupAnimation(enabled)
     }
 
     fun setTabBarBehavior(behavior: NuvioTabBarBehavior) {

@@ -34,11 +34,47 @@ import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
 
+/**
+ * Skip only the decorative Compose startup logo animation. Profile/authentication work is owned
+ * by AppGate and is deliberately not coupled to this visual preference.
+ */
+internal fun shouldSkipStartupLogoAnimation(
+    skipStartupAnimation: Boolean,
+    platformPrefersReducedMotion: Boolean,
+): Boolean = skipStartupAnimation || platformPrefersReducedMotion
+
+internal fun shouldWaitForStartupLogoAnimation(
+    skipStartupAnimation: Boolean,
+    platformPrefersReducedMotion: Boolean,
+    animationFinished: Boolean,
+): Boolean = !shouldSkipStartupLogoAnimation(
+    skipStartupAnimation = skipStartupAnimation,
+    platformPrefersReducedMotion = platformPrefersReducedMotion,
+) && !animationFinished
+
+internal expect fun platformPrefersReducedMotion(): Boolean
+
 @Composable
 internal fun AppIntroContent(
     modifier: Modifier = Modifier,
+    skipAnimation: Boolean = false,
     onAnimationFinished: () -> Unit = {},
 ) {
+    if (skipAnimation) {
+        LaunchedEffect(Unit) {
+            onAnimationFinished()
+        }
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.nuvio.colors.background),
+            contentAlignment = Alignment.Center,
+        ) {
+            AppBrandWordmark(modifier = Modifier.height(52.dp))
+        }
+        return
+    }
+
     val wordmarkAlpha = remember { Animatable(0f) }
     val wordmarkScale = remember { Animatable(0.55f) }
     val glowAlpha = remember { Animatable(0f) }

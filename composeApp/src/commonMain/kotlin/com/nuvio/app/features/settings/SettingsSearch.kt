@@ -112,7 +112,7 @@ internal fun settingsSearchAnchor(
     val sectionItemIndex = when (page) {
         SettingsPage.Appearance -> when (key) {
             "theme" -> 0
-            "amoled", "app-icon", "app-language", "liquid-glass-effects", "liquid-glass-customize" -> 1
+            "amoled", "app-icon", "app-language", "liquid-glass-effects", "liquid-glass-customize", "skip-startup-animation" -> 1
             else -> return null
         }
         SettingsPage.Layout ->
@@ -1345,6 +1345,18 @@ internal fun settingsSearchEntries(
         description = stringResource(Res.string.settings_appearance_amoled_description),
         pageLabel = appearancePage,
         section = stringResource(Res.string.settings_appearance_section_display),
+    )
+    addRow(
+        page = SettingsPage.Appearance,
+        key = "skip-startup-animation",
+        title = stringResource(Res.string.settings_appearance_skip_startup_animation),
+        description = stringResource(Res.string.settings_appearance_skip_startup_animation_description),
+        pageLabel = appearancePage,
+        section = stringResource(Res.string.settings_appearance_section_display),
+        searchTerms = listOf(
+            "skip intro animation", "skip logo animation", "splash screen",
+            "startup animation", "app launch animation", "opening animation",
+        ),
     )
     addRow(
         page = SettingsPage.Layout,

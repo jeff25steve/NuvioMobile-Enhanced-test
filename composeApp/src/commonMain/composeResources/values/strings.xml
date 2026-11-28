@@ -3356,4 +3356,6 @@
     <string name="settings_homescreen_hidden_count">%1$d hidden rows and collections</string>
     <string name="settings_homescreen_no_visible_rows_title">No visible home rows</string>
     <string name="settings_homescreen_no_visible_rows_message">All catalog rows and collections are hidden. Open the hidden section below to restore them.</string>
+    <string name="settings_appearance_skip_startup_animation">Skip startup logo animation</string>
+    <string name="settings_appearance_skip_startup_animation_description">Skip the animated Nuvio logo when the app opens. Profile selection and loading still work as usual.</string>
 </resources>

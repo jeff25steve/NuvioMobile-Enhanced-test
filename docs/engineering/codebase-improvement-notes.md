@@ -3188,3 +3188,14 @@ Reviewed Poweramp DVC against Android public audio APIs, Poweramp guidance and c
 - Revisit only if a public Android API can safely expose and control the active route, followed by measured A/V-sync and real-device compatibility testing.
 
 Documentation-only decision. No Kotlin, settings, dependencies, tests, builds, CI or device playback were changed or run.
+
+
+### Optional startup logo animation — 28 November 2026
+
+- Added a device-local, off-by-default **Skip startup logo animation** preference in Appearance → Display. It is persisted in app-private Android SharedPreferences / iOS NSUserDefaults, is intentionally not profile-scoped or synced, and is searchable under Appearance.
+- When enabled, Nuvio shows a static wordmark instead of the decorative Compose intro animation and releases only the intro's startup hold immediately. Authentication, profile cache loading, profile choice, PIN/biometric checks, and the profile-to-main transition remain unchanged.
+- The preference also respects the system Reduce Motion / animator-disabled setting (Android API 26+ via public ValueAnimator.areAnimatorsEnabled; iOS via public UIAccessibility.isReduceMotionEnabled). No system setting is changed, no permission or dependency is added, and the OS-managed splash screen remains under platform control.
+- Apple HIG recommends purposeful, optional and brief motion, and avoiding making users wait for recurring animation. Android's SplashScreen guidance recommends logo motion no longer than 1,000 ms and says it must be comfortably skippable. Search for recent community consensus did not establish a reliable majority preference; no such claim is made. Maintained Jellyfin Android uses the platform splash rather than requiring a separate branded Compose intro.
+- Regression sources added for default-off policy, user/system skip, gate release, settings search anchoring and unknown-key fallback. Not executed. No Gradle compile/test/build/CI/device run was started.
+
+Sources: Apple HIG Motion https://developer.apple.com/design/human-interface-guidelines/motion ; Apple Accessibility https://developer.apple.com/design/human-interface-guidelines/accessibility ; Android SplashScreen https://developer.android.com/develop/ui/views/launch/splash-screen ; Android ValueAnimator https://developer.android.com/reference/android/animation/ValueAnimator ; Apple UIAccessibility Reduce Motion https://developer.apple.com/documentation/uikit/uiaccessibility/isreducemotionenabled ; Jellyfin Android https://github.com/jellyfin/jellyfin-android .

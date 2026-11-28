@@ -31,6 +31,7 @@ actual object ThemeSettingsStorage {
     private const val selectedThemeKey = "selected_theme"
     private const val customThemeColorsKey = "custom_theme_colors"
     private const val amoledEnabledKey = "amoled_enabled"
+    private const val skipStartupAnimationKey = "skip_startup_animation"
     private const val liquidGlassNativeTabBarEnabledKey = "liquid_glass_native_tab_bar_enabled"
     private const val dynamicArtworkBackgroundEnabledKey = "dynamic_artwork_background_enabled"
     private const val showCatalogAccentEnabledKey = "show_catalog_accent_enabled"
@@ -90,6 +91,19 @@ actual object ThemeSettingsStorage {
 
     actual fun saveAmoledEnabled(enabled: Boolean) {
         NSUserDefaults.standardUserDefaults.setBool(enabled, forKey = ProfileScopedKey.of(amoledEnabledKey))
+    }
+
+    actual fun loadSkipStartupAnimation(): Boolean? {
+        val defaults = NSUserDefaults.standardUserDefaults
+        return if (defaults.objectForKey(skipStartupAnimationKey) != null) {
+            defaults.boolForKey(skipStartupAnimationKey)
+        } else {
+            null
+        }
+    }
+
+    actual fun saveSkipStartupAnimation(enabled: Boolean) {
+        NSUserDefaults.standardUserDefaults.setBool(enabled, forKey = skipStartupAnimationKey)
     }
 
     actual fun loadNavBarGlowEnabled(): Boolean? {

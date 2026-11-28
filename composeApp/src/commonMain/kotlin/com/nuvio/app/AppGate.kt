@@ -1,6 +1,7 @@
 package com.nuvio.app
 
 import com.nuvio.app.features.settings.PreloadAppBrandWordmark
+import com.nuvio.app.features.settings.ThemeSettingsRepository
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
@@ -173,9 +174,21 @@ internal fun AppGate(
         )
     }
 
+    val skipStartupAnimationPreference by remember {
+        ThemeSettingsRepository.ensureLoaded()
+        ThemeSettingsRepository.skipStartupAnimation
+    }.collectAsStateWithLifecycle()
+    val platformReducedMotion = remember { platformPrefersReducedMotion() }
+    val skipStartupLogoAnimation = shouldSkipStartupLogoAnimation(
+        skipStartupAnimation = skipStartupAnimationPreference,
+        platformPrefersReducedMotion = platformReducedMotion,
+    )
+
     val gateScope = rememberCoroutineScope()
     var gateScreen by rememberSaveable { mutableStateOf(AppGateScreen.Loading.name) }
-    var introHoldElapsed by rememberSaveable { mutableStateOf(false) }
+    var introHoldElapsed by rememberSaveable(skipStartupLogoAnimation) {
+        mutableStateOf(skipStartupLogoAnimation)
+    }
     var editingProfile by remember { mutableStateOf<NuvioProfile?>(null) }
     var profileEditReturnScreen by rememberSaveable { mutableStateOf(AppGateScreen.ProfileSelection.name) }
     var autoSkipProfileSelection by rememberSaveable { mutableStateOf(false) }
@@ -445,7 +458,13 @@ internal fun AppGate(
     }
 
     LaunchedEffect(authState, networkStatusUiState.condition, profileState.profiles, introHoldElapsed) {
-        if (!introHoldElapsed) return@LaunchedEffect
+        if (
+            shouldWaitForStartupLogoAnimation(
+                skipStartupAnimation = skipStartupAnimationPreference,
+                platformPrefersReducedMotion = platformReducedMotion,
+                animationFinished = introHoldElapsed,
+            )
+        ) return@LaunchedEffect
         val cachedProfiles = profileState.profiles
         val hasCachedProfileAccess =
             cachedProfiles.isNotEmpty() &&
@@ -588,6 +607,7 @@ internal fun AppGate(
                 AppGateScreen.Loading.name -> {
                     AppIntroContent(
                         modifier = Modifier.fillMaxSize(),
+                        skipAnimation = skipStartupLogoAnimation,
                         onAnimationFinished = { introHoldElapsed = true },
                     )
                 }
