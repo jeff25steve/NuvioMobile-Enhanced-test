@@ -5,8 +5,6 @@ import com.nuvio.app.features.addons.httpGetTextWithHeaders
 import com.nuvio.app.features.addons.httpPostJsonWithHeaders
 import com.nuvio.app.features.addons.httpRequestRaw
 import com.nuvio.app.features.profiles.ProfileRepository
-import com.nuvio.app.features.simkl.SimklPkceCrypto
-import com.nuvio.app.features.simkl.base64UrlWithoutPadding
 import com.nuvio.app.features.tracking.AuthOperationGeneration
 import com.nuvio.app.features.tracking.TrackingAuthProvider
 import com.nuvio.app.features.tracking.TrackingCapability
